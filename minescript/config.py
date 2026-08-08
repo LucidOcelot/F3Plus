@@ -25,6 +25,17 @@ class Keybinds:
     sprint: str = "ctrl"
     swap_hands: str = "f"
     inventory: str = "e"
+    attack: str = "mouse:left"
+    use: str = "mouse:right"
+    hotbar_1: str = "1"
+    hotbar_2: str = "2"
+    hotbar_3: str = "3"
+    hotbar_4: str = "4"
+    hotbar_5: str = "5"
+    hotbar_6: str = "6"
+    hotbar_7: str = "7"
+    hotbar_8: str = "8"
+    hotbar_9: str = "9"
 
 
 def _default_custom_palette() -> dict[str, str]:
@@ -33,7 +44,7 @@ def _default_custom_palette() -> dict[str, str]:
 
 @dataclass
 class Settings:
-    minecraft_version: str = "26.3-snapshot-5"
+    minecraft_version: str = "26.3-snapshot-7"
     edition: str = "Java"
     dimension: str = "Overworld"
     seed: str = ""
@@ -43,10 +54,23 @@ class Settings:
     toggle_hotkey: str = "ctrl+alt+space"
     coordinate_capture_delay_ms: int = 120
     movement_check_ms: int = 750
+    runtime_limit_seconds: int = 0
+    action_limit: int = 0
+    delayed_start_seconds: int = 0
+    focus_loss_stop: bool = False
+    stuck_window_seconds: float = 3.0
+    stuck_min_displacement: float = 0.12
+    recovery_attempts: int = 4
+    restore_hotbar_slot: int = 0
+    turn_units_per_90: int = 900
+    movement_blocks_per_second: float = 4.317
     input_mode: str = "auto"
     minecraft_window_title: str = "Minecraft"
     platform: str = field(default_factory=platform.system)
     waypoints: dict = field(default_factory=dict)
+    waypoint_groups: dict = field(default_factory=dict)
+    coordinate_history: list = field(default_factory=list)
+    custom_macros: dict = field(default_factory=dict)
     portals: list = field(default_factory=list)
 
     auto_link_minecraft: bool = True
@@ -73,7 +97,9 @@ class Settings:
             except OSError:
                 pass
         if not CONFIG_FILE.exists():
-            obj = cls(); obj.save(); return obj
+            obj = cls()
+            obj.save()
+            return obj
         try:
             raw = json.loads(CONFIG_FILE.read_text(encoding="utf-8"))
             if not isinstance(raw, dict):
@@ -88,8 +114,6 @@ class Settings:
             else:
                 raw["keybinds"] = Keybinds()
 
-            # One-time appearance migration for configurations written before the
-            # current palette schema. The former accidental default moves to Chorus.
             schema = int(raw.get("appearance_schema", 0) or 0)
             theme = str(raw.get("theme", "chorus"))
             if schema < 2:
@@ -121,9 +145,11 @@ class Settings:
             try:
                 stamp = datetime.now().strftime("%Y%m%d-%H%M%S")
                 shutil.copy2(CONFIG_FILE, CONFIG_FILE.with_name(f"config.invalid-{stamp}.json"))
-            except Exception:
+            except OSError:
                 pass
-            obj = cls(); obj.save(); return obj
+            obj = cls()
+            obj.save()
+            return obj
 
     def save(self) -> None:
         APP_DIR.mkdir(parents=True, exist_ok=True)
