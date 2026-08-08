@@ -25,7 +25,9 @@ def main():
         install_qa_features()
         from minescript.app import run
         from minescript.ui_extensions import install as install_ui_extensions
+        from minescript.engine_patches import install as install_engine_patches
         install_ui_extensions()
+        install_engine_patches()
     except ModuleNotFoundError as exc:
         handled = _bootstrap_if_needed(exc)
         if handled is not None:
