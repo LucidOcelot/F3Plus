@@ -5,6 +5,7 @@ LOG="$ROOT/F3Plus_startup.log"
 RUNTIME="$ROOT/.runtime"
 UV_DIR="$RUNTIME/uv"
 UV="$UV_DIR/uv"
+UV_VERSION='0.12.0'
 exec > >(tee -a "$LOG") 2>&1
 
 printf 'F3+ 1.16.2 - LucidOcelot\n==================================\n\n'
@@ -46,6 +47,7 @@ if [ -z "$PYTHON" ]; then
       read '?Press Return to close...'; exit 3
     fi
     ARCH="$(uname -m)"
+    # Update the pinned SHA-256 values below when UV_VERSION changes.
     case "$ARCH" in
       arm64|aarch64)
         UV_ASSET='uv-aarch64-apple-darwin.tar.gz'
@@ -58,8 +60,8 @@ if [ -z "$PYTHON" ]; then
       *) echo "ERROR: Automatic runtime setup does not support macOS architecture $ARCH."; read '?Press Return to close...'; exit 3 ;;
     esac
     UV_ARCHIVE="$RUNTIME/$UV_ASSET"
-    UV_URL="https://releases.astral.sh/github/uv/releases/download/0.12.0/$UV_ASSET"
-    echo 'Downloading the verified project-local runtime bootstrap (uv 0.12.0)...'
+    UV_URL="https://releases.astral.sh/github/uv/releases/download/$UV_VERSION/$UV_ASSET"
+    echo "Downloading the verified project-local runtime bootstrap (uv $UV_VERSION)..."
     if ! curl --proto '=https' --tlsv1.2 -fL "$UV_URL" -o "$UV_ARCHIVE"; then
       echo 'ERROR: Could not download the runtime bootstrap.'; read '?Press Return to close...'; exit 4
     fi
