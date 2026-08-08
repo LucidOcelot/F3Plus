@@ -1,0 +1,15 @@
+[package]
+name = "cracker_gui"
+version = "0.2.5"
+edition = "2021"
+
+# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+
+[dependencies]
+iced = { version = "0.12", features = ["tokio", "debug"] }
+tokio = { version = "1.38", features = ["sync"] }
+async-std = "1.12"
+num_cpus = "1.16"
+rfd = { version = "0.14", default-features = false, features = ["tokio","xdg-portal"]}
+bedrock_cracker = { path = "../bedrock_cracker", features = ["tokio"] }
+

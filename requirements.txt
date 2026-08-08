@@ -1,0 +1,4 @@
+PySide6-Essentials==6.9.3
+pynput==1.8.2
+pyperclip==1.11.0
+pyobjc-framework-Quartz==12.2.1; sys_platform == "darwin"

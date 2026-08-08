@@ -1,0 +1,15 @@
+[project]
+name = "f3plus-desktop"
+version = "1.16.2"
+description = "Cross-platform technical Minecraft Java companion for automation, navigation, seed/RNG analysis, world inspection, and planning."
+requires-python = ">=3.11"
+dependencies = [
+  "PySide6-Essentials==6.9.3",
+  "pynput==1.8.2",
+  "pyperclip==1.11.0",
+  "pyobjc-framework-Quartz==12.2.1; sys_platform == 'darwin'",
+]
+
+
+[project.scripts]
+f3plus = "minescript.app:run"
