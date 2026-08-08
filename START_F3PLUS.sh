@@ -6,6 +6,7 @@ LOG="$ROOT/F3Plus_startup.log"
 RUNTIME="$ROOT/.runtime"
 UV_DIR="$RUNTIME/uv"
 UV="$UV_DIR/uv"
+UV_VERSION='0.12.0'
 
 echo 'F3+ 1.16.2 - LucidOcelot'
 echo '=================================='
@@ -41,6 +42,7 @@ if [ -z "$PYTHON" ]; then
   if [ ! -x "$UV" ]; then
     command -v curl >/dev/null 2>&1 || { echo 'ERROR: curl is required for automatic first-run setup.'; exit 3; }
     ARCH=$(uname -m)
+    # Update the pinned SHA-256 values below when UV_VERSION changes.
     case "$ARCH" in
       x86_64|amd64)
         UV_ASSET='uv-x86_64-unknown-linux-gnu.tar.gz'
@@ -53,8 +55,8 @@ if [ -z "$PYTHON" ]; then
       *) echo "ERROR: Automatic runtime setup does not support Linux architecture $ARCH."; exit 3 ;;
     esac
     UV_ARCHIVE="$RUNTIME/$UV_ASSET"
-    UV_URL="https://releases.astral.sh/github/uv/releases/download/0.12.0/$UV_ASSET"
-    echo 'Downloading the verified project-local runtime bootstrap (uv 0.12.0)...'
+    UV_URL="https://releases.astral.sh/github/uv/releases/download/$UV_VERSION/$UV_ASSET"
+    echo "Downloading the verified project-local runtime bootstrap (uv $UV_VERSION)..."
     curl --proto '=https' --tlsv1.2 -fL "$UV_URL" -o "$UV_ARCHIVE" || { echo 'ERROR: Could not download the runtime bootstrap.'; exit 4; }
     if command -v sha256sum >/dev/null 2>&1; then
       ACTUAL=$(sha256sum "$UV_ARCHIVE" | awk '{print $1}')
