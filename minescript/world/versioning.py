@@ -75,6 +75,15 @@ def cubiomes_enum_for_version(version: str) -> int:
     )
 
 
+def resolve_cubiomes_mc(version: str) -> int:
+    """Return the exact bundled Cubiomes enum for a selected Minecraft version.
+
+    This is the single resolver used by feature dispatch. Unsupported versions raise
+    instead of silently substituting mc=0 or the newest bundled enum.
+    """
+    return cubiomes_enum_for_version(version)
+
+
 def cubiomes_support(version: str) -> dict:
     try:
         enum = cubiomes_enum_for_version(version)
