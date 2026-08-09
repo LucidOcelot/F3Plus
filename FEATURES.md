@@ -1,123 +1,120 @@
 # F3+ 2.3.4 Feature Guide
 
-F3+ is an offline-first technical companion for Minecraft Java Edition. Release 2.3.4 targets Minecraft Java **26.3 Snapshot 7** by default and combines automation, navigation, known-seed analysis, generated-world inspection, RNG utilities, villagers, construction/farming planners, calculators, guided setups, and safety controls without requiring a modified Minecraft client.
+F3+ is an offline-first technical companion for Minecraft Java Edition. It targets **26.3 Snapshot 7** by default and keeps the historical 457 feature IDs stable while presenting them through task-oriented workspaces.
 
-## Common interface
+## Shared tool interface
 
-The 457 historical feature IDs remain stable for favorites, recents, and compatibility, but shared code is not allowed to masquerade as different tools. Different entries must perform a different calculation, filter, visualization, or decision, or clearly identify themselves as a shortcut/preset into one canonical workflow. CI dry-runs the complete catalog and fails on unexplained duplicate reports.
+Every catalog entry uses the same basic workflow: choose a tool, read its Inspector explanation, configure only the inputs that matter to that operation, then inspect a structured result. Player-facing output translates implementation values into named biomes, block/chunk/region coordinates, percentages, time units, statuses, tables, warnings, and visual layers where appropriate.
 
-Normal results are translated for players before display. Internal implementation metadata stays out of the primary result view; booleans become labels such as **Ready**, **Unavailable**, **Required**, or **Enabled**; fractions that represent densities/shares become percentages; time values receive usable units; and coordinate arrays are labeled as block, chunk, or region coordinates instead of generic `Value 1` / `Value 2` columns.
+Tool cards use task-specific icon families for maps/routes, biome and terrain searches, generated spawners, portals, construction/shapes, farming, redstone, storage, villagers, RNG, utilities, automation, and safety instead of relying on one generic symbol. The selected tool also carries its family icon into the Run control.
 
-Spatial Seed Tools display a theme-aware X/Z map beside the result when location data is available. Structure candidates, slime chunks, biome samples, routes, ranked sites, and generated spawner hits use the same block-coordinate frame so the user can see relationships instead of interpreting raw tuples.
+Configuration fields include contextual tooltips. Search-oriented dialogs explain how radius mode, until-found expansion, maximum radius, exact world generation, EULA acceptance, and the explicit ignore-limit override interact before the search is started.
 
-Construction, shape, farm, and related planning tools use focused inputs rather than one generic dimension form. Tools that produce layouts or footprints also receive a visual plan when their result contains enough spatial information.
+The Inspector describes what the tool does, when to use it, how to run it, inputs, output semantics, version limits, and additional search/visual behavior when those systems apply.
+
+## Interactive visual results
+
+Spatial Seed Tools and spatial construction/planning tools use a shared interactive X/Z view when enough coordinate data exists. The visual layer supports:
+
+- mouse-wheel zoom;
+- drag panning;
+- Fit to restore the full plotted extent;
+- per-layer visibility controls;
+- grid visibility;
+- optional point-coordinate labels;
+- live cursor X/Z coordinates;
+- copyable visible coordinate layers.
+
+Seed/world visuals normalize plotted data into block X/Z coordinates so chunk candidates, spawner hits, routes, slime chunks, biome samples, and reference centers can be compared in one frame. Construction/shape/farm visuals use a local block-coordinate frame for footprints, paths, spans, and generated layouts.
+
+Visual output supplements the structured numeric result; it does not replace the underlying coordinates or exactness/version notices.
 
 ## Minecraft version state
 
-F3+ keeps these sources separate:
+F3+ keeps three version concepts separate:
 
-- **Selected Minecraft version** — the version the user is playing or targeting.
-- **World-generation calculation version** — the Cubiomes rules actually used by a calculation.
-- **Local data version** — the installed Minecraft JAR used for textures or data-driven resources.
+- **Selected Minecraft version** — what the user is targeting.
+- **World-generation calculation version** — the rules actually used by the active generation backend.
+- **Local data version** — the installed Minecraft JAR used for artwork or data-driven resources.
 
-The bundled Cubiomes mapping is explicitly version-bounded. When the selected version is unsupported, F3+ keeps the selected version visible and labels the supported calculation fallback rather than pretending the fallback is snapshot-exact.
+The bundled Cubiomes mapping is explicitly bounded through **1.21.3**. When a newer selected version is unsupported, F3+ keeps that version visible and labels the supported fallback rather than claiming snapshot-exact generation.
 
-Generated-world tools can instead inspect an existing Java save or, with explicit EULA acceptance, generate bounded vanilla reference chunks from the selected seed using Mojang's matching server JAR. F3+ reads Mojang's required Java major version and searches the configured Java runtime, `JAVA_HOME`, PATH, and Minecraft Launcher's installed runtimes for a compatible executable. An incompatible Java installation therefore produces an actionable runtime message instead of a raw `UnsupportedClassVersionError` wall of text.
+Generated-world tools can inspect an existing Java save. Where supported, they can instead run Mojang's matching server JAR locally after explicit EULA acceptance to materialize exact reference chunks. F3+ reads Mojang's required Java major version and checks configured Java, `JAVA_HOME`, PATH, and Minecraft Launcher runtimes for a compatible executable.
 
-## Minecraft linking
+## Finder search modes
 
-Live-client features use one authoritative Java-client link state. On Windows, a window title containing “Minecraft” is not enough: the owning executable must resolve to a Java process. Browser tabs, GitHub pages, documentation, and other title matches are rejected. If the target disappears, F3+ drops the link rather than continuing to send targeted input to a stale process.
+Location-oriented tools expose **Radius search** and **Search until found** only when a concrete match/non-match result exists.
+
+**Radius search** evaluates one bounded area around the reference point. **Search until found** begins at the configured radius and expands outward by the chosen step after each empty result. The normal mode stops at the configured maximum radius and reports the attempted radii plus the radius where the first match was found.
+
+Every tool that exposes Search until found also exposes **Ignore maximum search / generation limit**. When enabled, the configured maximum radius is ignored. If the operation needs exact Mojang reference-world generation, F3+ also raises the per-attempt exact-generation chunk budget as the radius grows. This override can use substantial CPU, memory, disk space, and time; backend errors and an internal runaway-loop guard can still end the process.
+
+The shared search policy applies where appropriate to generated spawners, structure candidate finders, selected biome/boundary/intersection searches, generated-terrain locators, Nether fortress/bastion finders, and slime-cluster searches. Analysis reports such as Structure Density or Rare Biome Search remain bounded analyses because “first match” is not their job.
+
+Generated-terrain locators use **chunk X/Z and chunk radius**. Cubiomes biome searches use **block X/Z and block radius**. These units stay separate in the UI.
 
 ## Villager Trade Explorer
 
-Villager browsing is one visual application with profession navigation, workstation/item artwork, level filters, trade-direction filters, search, favorites, comparison, planned uses, source information, and **You Give → You Receive** trade cards. Librarian Browser, Trade Search, Trade Comparison, Emerald Calculator, Trade Cycle Calculator, profession entries, and Trade Browser open this same explorer with the appropriate preset rather than maintaining separate spreadsheet-style windows.
+Villager browsing is one visual explorer used by Trade Browser, Trade Search, Trade Comparison, Emerald Calculator, Trade Cycle Calculator, Librarian Browser, and profession entries.
 
-F3+ first attempts to read data-driven villager trade definitions from the exact selected installed JAR. If that JAR has no usable trade JSON, it searches newer useful installed release data. Older Minecraft versions may hard-code offers rather than expose the modern JSON path; if no installed JAR yields data-driven offers, F3+ shows a non-empty **baseline planning reference** instead of a broken zero-row explorer. That fallback is visibly labeled **baseline reference** and is not claimed exact for the selected version. Item/workstation textures can still be recovered from an installed client independently of the trade-data source.
+Profession navigation uses **villager entity/type/profession skin layers** read from the player's installed Java client when available. It no longer represents professions with workstation blocks. Item/output cards still use relevant item textures.
 
-The explorer shows level names such as **Novice**, **Apprentice**, **Journeyman**, **Expert**, and **Master**, with the numeric level only as secondary context. Exact max uses, villager XP, enchantment/detail data, and source paths are shown when the source definition provides them.
+The explorer supports profession navigation, named **Novice / Apprentice / Journeyman / Expert / Master** levels, trade direction, search, favorites, comparison, planned uses, max-use context, villager XP, definition details, and source information.
+
+Trade data and artwork are independent. F3+ first tries exact installed data-driven trade JSON, then another usable installed release. If no installed JAR exposes usable trade JSON, the explorer shows a non-empty **baseline planning reference** and labels it as non-exact rather than showing an empty/broken table.
+
+## Generated spawners
+
+The historical `Dungeon/Pig Spawner Locator` ID is displayed as **Spawner Locator**. It reads generated Anvil/NBT data and can filter all mob spawners or specific Zombie, Skeleton, Spider, Cave Spider, Blaze, Silverfish, Pig, Magma Cube, unknown/custom, Trial Spawner, Vault, or all spawner-like block entities.
+
+Mob identity is read from `EntityId`, `SpawnData`, and `SpawnPotentials` where available. Hits include block position, chunk, distance from the reference, and visual coordinates. Double, triple, quad, and cluster-ranking tools apply their minimum/grouping rule after the selected mob filter; one matching spawner is not treated as a successful double/triple/quad result.
+
+Spawner radius scans skip Anvil region files that cannot intersect the requested search area. Existing-world searches inspect only generated data. Exact seed-regenerated searches use Mojang reference chunks and honor the normal generation budget unless the user explicitly enables the ignore-limit override.
 
 ## World & Seed
 
-Known-seed tools include slime analysis, Nether/portal analysis, local-area reports, structure candidates, biome analysis, world reports, and generated-world inspection. Local Area tools deliberately separate biome composition, structure candidates, slime distribution, build context, technical-site context, and exploration context rather than recombining the same values into arbitrary scores.
+Known-seed tools include slime analysis, Nether/portal analysis, structure placement candidates, biome searches, Local Area reports, world evaluation, and generated-world inspection.
 
-Structure candidate output distinguishes placement attempts from final generated structures. Candidate tables use **Chunk X / Chunk Z** and corresponding block centers, and spatial results are plotted on the result map.
+Local Area tools deliberately answer different questions: biome composition, structure candidate summary, slime distribution, nearby highlights, technical-site context, build-site context, and exploration context are not several renamed copies of one aggregate score.
 
-**Nether Bedrock Cracker remains the only F3+ world/structure-seed recovery path.** Gameplay/player RNG recovery is a separate system and is never presented as world-seed recovery.
+Structure candidate output distinguishes deterministic placement candidates from confirmed final generated structures. Candidate tables label Chunk X/Z and block centers, and spatial candidates can be shown in the interactive map.
 
-### Generated spawners
+**Nether Bedrock Cracker remains the only F3+ world/structure-seed recovery path.** Gameplay/player RNG recovery is separate.
 
-The historical `Dungeon/Pig Spawner Locator` ID is displayed as **Spawner Locator**. It scans generated Anvil/NBT data and can filter for:
+## Navigation and portals
 
-- all mob spawners;
-- Zombie;
-- Skeleton;
-- Spider;
-- Cave Spider;
-- Blaze;
-- Silverfish;
-- Pig;
-- Magma Cube;
-- other/unknown mob spawners;
-- Trial Spawners;
-- Vaults; or
-- all spawner-like block entities.
+Navigation covers live coordinates, coordinate/chunk/region conversion, bearings, waypoints, routes, surveys, breadcrumbs, and Overworld/Nether portal planning. Similar entries preserve separate semantics: Nearest Waypoint returns one location, Sort Waypoints measures every saved location from one origin, and Waypoint Route builds a nearest-next multi-stop route.
 
-When mob identity is encoded in `EntityId`, `SpawnData`, or `SpawnPotentials`, F3+ translates that NBT into the mob name instead of reporting every block only as `minecraft:mob_spawner`. Double, triple, quad, and cluster-ranking tools apply their own minimum/grouping rules to the selected spawner type. Spawner hits include block position, chunk, distance from the reference, and map-ready coordinates.
-
-### Finder search modes
-
-Location-oriented search tools expose **Radius search** and **Search until found** when a concrete match/non-match result exists. Radius search evaluates exactly one user-selected radius. Search until found begins at that radius and expands by a configurable step until the first matching result appears or the configured maximum radius is reached. Results include the mode, search units, number of attempts, last radius checked, and the radius that first produced a match.
-
-This policy applies to the Spawner Locator family, structure candidate finders, selected biome/boundary/intersection finders, generated-terrain locators, Nether fortress/bastion finders, and slime-cluster searches. Reports whose job is analysis rather than locating a first target—such as Structure Density, Rare Biome Search, and Search Radius Optimizer—do not receive an artificial until-found mode.
-
-Spawner searches against an existing generated save skip Anvil region files that cannot intersect the requested radius. Exact seed-regenerated spawner searches remain bounded by the user's **Maximum exact chunks to generate** setting; if that budget prevents the requested expansion, the result explains the effective radius limit instead of silently exceeding the generation budget.
-
-Generated-terrain locators use **chunk X/Z and chunk radius** because they inspect generated chunks. Cubiomes biome target searches use **block X/Z and block radius**. The UI keeps those units separate.
-
-## Navigation
-
-Navigation includes coordinate capture/conversion, bearings, block/chunk/region geometry, waypoints, routes, surveys, breadcrumbs, and Overworld/Nether planning. Similar-looking entries answer different questions: Nearest Waypoint returns one saved location; Sort Waypoints measures every saved waypoint from the same origin; Waypoint Route creates a nearest-next route with per-leg distances. Coordinate Route, Resource Route, Structure Tour, Biome Expedition, Survey Mode, and recording tools likewise keep separate output semantics.
+Portal tools separate coordinate conversion, exit competition, one-way/asymmetric routing, link matrices, reliability geometry, route comparison, and network planning rather than returning the same portal pair under multiple names.
 
 ## Calculators, building, and farming
 
-Coordinate/travel, storage/logistics, redstone, mob/loading, farm, speedrun, durability/resource, End, building, and shape tools use task-specific labels and units. Storage Capacity answers how much chosen storage holds, while Shulker/Chest Requirement answers how many containers a target needs. Render Distance and Simulation Distance are presented as different concepts.
+Technical calculators cover coordinate/travel math, redstone/timing, storage/logistics, mob/loading mechanics, technical planning, speedrun planning, resources/durability, and End travel.
 
-Construction inputs are purpose-specific: a Bridge Span asks for span/support spacing; a Roof Pitch asks for run/rise; a Stair Calculator asks for rise and run per step; grids ask for footprint and spacing; shape tools ask only for the dimensions relevant to that shape. Layout-producing tools expose coordinates or footprints and use visual plan previews rather than only returning a scalar count.
+Building/farming configuration is operation-specific. Bridge Span asks for span/support spacing; Roof Pitch asks for run/rise; Stair Calculator asks for rise/run; grids ask for footprint/spacing; shape tools request only relevant dimensions. Layout-producing operations expose coordinates or footprints to the visual planner.
 
-Construction Grid is a regular spacing grid; Lighting Grid includes far edges for boundary coverage. Planar Spiral stays in X/Z while 3D Helix rises along Y. Circle Layer Export produces copy-ready coordinate text rather than duplicating the Circle preview.
+Storage Capacity answers how much selected storage can hold; Shulker/Chest Requirement answers how many containers a target amount needs. Construction Grid and Lighting Grid use different boundary behavior. Planar Spiral remains an X/Z shape while 3D Helix rises along Y.
 
 ## RNG
 
-Gameplay RNG recovery is separate from world-seed recovery. The two Java LCG recovery entries expose their actual observations: **2 nextInt** records the two consecutive `nextInt()` observations, while **nextLong** records the one observed `nextLong()` and the derived pair of 32-bit outputs. They therefore cannot collapse into the same empty-candidate report.
+Gameplay RNG recovery is separate from world-seed recovery. Java LCG recovery tools state the actual observation form they expect, and general probability/simulation tools state when their results are estimates or model-based rather than exact mechanic reconstruction.
 
-RNG Sequence Viewer, RNG Timeline, enchantment planning, generation previews, loot simulations, tree attempts, geode frequency, and structure placement previews remain separate views/models. Generic probability tools state their attempt unit and model instead of presenting unrelated mechanics as one universal loot calculation.
+RNG Sequence Viewer, RNG Timeline, enchantment planning, loot simulations, tree/geode generation previews, decoration RNG, feature placement, ore placement, and structure placement remain separate views/models rather than duplicate reports.
 
-## Guided setups and automation
+## Automation, linking, and safety
 
-Automation uses the shared MacroEngine/BoundInput safety layer. Guided setups combine related planning values for mining, farming, portals, and construction. Automation-menu wizard entries that share a planning engine are explicitly shortcuts into the canonical setup rather than duplicate algorithms.
+Automation uses the shared MacroEngine/BoundInput safety layer. The live Minecraft target is verified as a Java client; window-title text alone is not considered sufficient identification on Windows. If the linked client disappears, the targeted link is dropped rather than silently retaining a stale window.
 
-## Safety
+Emergency Stop, Pause/Resume, held-input release, delayed start, runtime/action limits, stuck detection, recovery limits, focus-loss behavior, and hotbar restoration remain available across automation. Safe Mode is a conservative multiplayer filter and does not replace server rules.
 
-Emergency Stop, Pause/Resume, held-input release, delayed start, runtime/action limits, stuck detection, recovery limits, focus-loss behavior, and hotbar restoration remain available across automation. Safe Mode is a conservative multiplayer filter, not a substitute for a server's rules.
+## Appearance and local assets
 
-## Themes
+Themes remain available under **Options → Appearance**: Chorus, Light, Cyber, Vanilla, Aether, Foundry, and Custom. Minecraft artwork is read from the player's installed Java files at runtime where applicable; F3+ does not redistribute Mojang textures.
 
-Appearance choices are available under **Options → Appearance**:
+## Updates and offline behavior
 
-- **Chorus** — default End-inspired purple/gold/black presentation.
-- **Light** — bright blue/gold/white desktop presentation.
-- **Cyber** — high-contrast neon technical presentation.
-- **Vanilla** — Minecraft-oriented green/earth presentation.
-- **Aether** — bright cartographic teal/coral presentation with softer geometry.
-- **Foundry** — dark industrial furnace/brass presentation with sharper geometry.
-- **Custom** — editable palette with the option to use locally recovered Minecraft artwork.
+F3+ checks `LucidOcelot/F3Plus` `main` at launch. Clean Git checkouts fast-forward, while extracted ZIP installs apply validated immutable commit archives. User configuration under `~/.f3plus` is preserved, tracked local Git changes are not overwritten, and update failure does not prevent an installed copy from launching offline.
 
-Minecraft artwork is read from the player's installed Java files at runtime where available; F3+ does not redistribute Mojang textures.
-
-## Automatic updates and offline behavior
-
-F3+ 2.3.4 checks `LucidOcelot/F3Plus` `main` on GitHub at launch. Clean Git checkouts fast-forward; extracted ZIP installs compare their stored commit with GitHub and apply a validated newer commit archive. User configuration under `~/.f3plus` is preserved. Tracked local Git changes are not overwritten. Update/network failure does not stop an already installed copy from launching, and `F3PLUS_SKIP_UPDATE=1` disables the check for development/recovery.
-
-Normal calculations, local data browsing, settings, prepared components, and generated-save analysis run locally. Network access is used for the launch update check, dependency/component acquisition, or exact Mojang reference-world generation when those workflows are requested.
+Normal prepared calculations, settings, local-data browsing, and generated-save analysis run locally. Network access is used for update checks, dependency/component acquisition, optional upstream helpers, or exact Mojang reference-world acquisition when requested.
 
 F3+ does not use generative AI during normal operation and does not transmit Minecraft, world, seed, coordinate, account, or other user data to an AI provider. Community lineage and third-party software are documented in `COMMUNITY_CREDITS.md` and `THIRD_PARTY.md`.
