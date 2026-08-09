@@ -92,3 +92,10 @@ from .display_quality_v2 import install as _install_display_quality_v2
 
 _install_display_quality_v2()
 del _install_display_quality_v2
+
+# Spawner tools inspect generated NBT for the actual spawned mob and expose filters
+# instead of treating every mob-spawner block as the same result.
+from .spawner_v3 import install as _install_spawner_v3
+
+_install_spawner_v3()
+del _install_spawner_v3
