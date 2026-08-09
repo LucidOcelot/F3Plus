@@ -90,7 +90,10 @@ def contract_for(spec) -> ImplementationContract:
 
 def annotate(spec, data: dict[str, Any]) -> dict[str, Any]:
     out = dict(data or {})
-    out.setdefault("implementation", asdict(contract_for(spec)))
+    existing = out.get("implementation")
+    if existing is not None and not isinstance(existing, dict):
+        out["implementation_detail"] = existing
+    out["implementation"] = asdict(contract_for(spec))
     return out
 
 
@@ -116,7 +119,7 @@ def generic_placeholder_reason(spec, data: dict[str, Any]) -> str | None:
     contract = contract_for(spec)
     if contract.kind in {"control", "external-tool", "automation"}:
         return None
-    keys = set(data) - {"implementation", "note", "limitations", "source", "backend"}
+    keys = set(data) - {"implementation", "implementation_detail", "note", "limitations", "source", "backend"}
     for signature in _GENERIC_SIGNATURES:
         if keys <= signature and "operation" in keys:
             return f"generic placeholder signature: {sorted(keys)}"
