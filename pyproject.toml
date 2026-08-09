@@ -11,7 +11,7 @@ dependencies = [
 ]
 
 [project.scripts]
-f3plus = "minescript.app:run"
+f3plus = "minescript.entrypoint:main"
 
 [tool.uv]
 package = false
