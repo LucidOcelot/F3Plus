@@ -1,7 +1,6 @@
 from __future__ import annotations
 
 import hashlib
-import importlib.util
 import os
 import shutil
 import subprocess
@@ -75,6 +74,23 @@ def _enable_startup_log():
         return None
 
 
+def _check_for_updates() -> None:
+    """Update before loading project modules, then restart into the updated launcher."""
+    if os.environ.get("F3PLUS_UPDATE_RESTARTED") == "1":
+        return
+    try:
+        from updater import auto_update
+        updated, message = auto_update(ROOT)
+    except Exception as exc:
+        updated, message = False, f"Update check unavailable ({exc}). Continuing with the installed build."
+    print("[update] " + message, flush=True)
+    if not updated:
+        return
+    env = os.environ.copy()
+    env["F3PLUS_UPDATE_RESTARTED"] = "1"
+    os.execve(sys.executable, [sys.executable, str(Path(__file__).resolve())], env)
+
+
 def _venv_python() -> Path:
     return VENV / ("Scripts/python.exe" if os.name == "nt" else "bin/python")
 
@@ -92,12 +108,9 @@ def _python_runs(py: Path) -> bool:
     )
     try:
         return subprocess.run(
-            [str(py), "-c", probe],
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=20,
-            check=False,
+            [str(py), "-c", probe], cwd=ROOT,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=20, check=False,
         ).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -111,21 +124,18 @@ def _required_modules() -> list[str]:
 
 
 def _required_packages_present(py: Path) -> bool:
-    code = (
+    # Code is fixed and module names are passed as argv. This avoids constructing
+    # executable Python source from data and keeps subprocess diagnostics sane.
+    probe = (
         "import importlib.util,sys\n"
-        f"mods={_required_modules()!r}\n"
-        "missing=[m for m in mods if importlib.util.find_spec(m) is None]\n"
-        "print('\\n'.join(missing))\n"
+        "missing=[m for m in sys.argv[1:] if importlib.util.find_spec(m) is None]\n"
         "raise SystemExit(1 if missing else 0)\n"
     )
     try:
         return subprocess.run(
-            [str(py), "-c", code],
-            cwd=ROOT,
-            stdout=subprocess.DEVNULL,
-            stderr=subprocess.DEVNULL,
-            timeout=30,
-            check=False,
+            [str(py), "-c", probe, *_required_modules()], cwd=ROOT,
+            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            timeout=30, check=False,
         ).returncode == 0
     except (OSError, subprocess.TimeoutExpired):
         return False
@@ -133,9 +143,7 @@ def _required_packages_present(py: Path) -> bool:
 
 def _requirements_hash() -> str:
     if not REQ.exists():
-        raise RuntimeError(
-            "requirements.txt is missing. Re-extract the complete F3+ ZIP and try again."
-        )
+        raise RuntimeError("requirements.txt is missing. Re-extract the complete F3+ ZIP and try again.")
     return hashlib.sha256(REQ.read_bytes()).hexdigest()
 
 
@@ -188,40 +196,22 @@ def _preflight_disk_space() -> None:
 
 def _failure_kind(output: str) -> str:
     low = output.lower()
-    if any(
-        text in low
-        for text in (
-            "no space left on device",
-            "not enough space on the disk",
-            "there is not enough space on the disk",
-            "os error 112",
-            "errno 28",
-        )
-    ):
+    if any(text in low for text in (
+        "no space left on device", "not enough space on the disk",
+        "there is not enough space on the disk", "os error 112", "errno 28",
+    )):
         return "disk"
-    if any(
-        text in low
-        for text in (
-            "certificate verify failed",
-            "certificate_verify_failed",
-            "connection reset",
-            "connection timed out",
-            "temporary failure in name resolution",
-            "could not resolve host",
-        )
-    ):
+    if any(text in low for text in (
+        "certificate verify failed", "certificate_verify_failed", "connection reset",
+        "connection timed out", "temporary failure in name resolution", "could not resolve host",
+    )):
         return "network"
     if any(text in low for text in ("access is denied", "permission denied", "winerror 5")):
         return "permission"
-    if any(
-        text in low
-        for text in (
-            "no matching distribution found",
-            "not a supported wheel",
-            "unsupported platform",
-            "python.h: no such file or directory",
-        )
-    ):
+    if any(text in low for text in (
+        "no matching distribution found", "not a supported wheel", "unsupported platform",
+        "python.h: no such file or directory",
+    )):
         return "compatibility"
     return "other"
 
@@ -236,14 +226,8 @@ def _run_visible(cmd: list[str], *, label: str, attempts: int = 1) -> tuple[int,
         lines: list[str] = []
         try:
             proc = subprocess.Popen(
-                cmd,
-                cwd=ROOT,
-                stdout=subprocess.PIPE,
-                stderr=subprocess.STDOUT,
-                text=True,
-                encoding="utf-8",
-                errors="replace",
-                bufsize=1,
+                cmd, cwd=ROOT, stdout=subprocess.PIPE, stderr=subprocess.STDOUT,
+                text=True, encoding="utf-8", errors="replace", bufsize=1,
             )
             assert proc.stdout is not None
             for line in proc.stdout:
@@ -297,45 +281,21 @@ def _install_requirements(py: Path, *, force_repair: bool = False) -> None:
     _preflight_disk_space()
     uv = _find_project_uv()
     if uv is not None:
-        install = [
-            str(uv),
-            "pip",
-            "install",
-            "--python",
-            str(py),
-            "--index-url",
-            "https://pypi.org/simple",
-            "--no-cache",
-        ]
+        install = [str(uv), "pip", "install", "--python", str(py), "--index-url", "https://pypi.org/simple", "--no-cache"]
         if force_repair:
             install.extend(["--upgrade", "--reinstall"])
         install.extend(["-r", str(REQ)])
-        rc, output = _run_visible(
-            install,
-            label="Installing F3+ packages with uv...",
-            attempts=2,
-        )
+        rc, output = _run_visible(install, label="Installing F3+ packages with uv...", attempts=2)
     else:
         print("      Project-local uv is unavailable; using pip for this setup.")
         install = [
-            str(py),
-            "-m",
-            "pip",
-            "install",
-            "--disable-pip-version-check",
-            "--no-cache-dir",
-            "--index-url",
-            "https://pypi.org/simple",
-            "--prefer-binary",
+            str(py), "-m", "pip", "install", "--disable-pip-version-check", "--no-cache-dir",
+            "--index-url", "https://pypi.org/simple", "--prefer-binary",
         ]
         if force_repair:
             install.extend(["--upgrade", "--force-reinstall"])
         install.extend(["-r", str(REQ)])
-        rc, output = _run_visible(
-            install,
-            label="Installing F3+ packages with pip...",
-            attempts=2,
-        )
+        rc, output = _run_visible(install, label="Installing F3+ packages with pip...", attempts=2)
 
     if rc == 0:
         return
@@ -347,15 +307,10 @@ def _install_requirements(py: Path, *, force_repair: bool = False) -> None:
     elif kind == "permission":
         reason = "The operating system denied access to a setup file. Move F3+ to a normal writable folder and try again."
     elif kind == "compatibility":
-        reason = (
-            "A required binary package is unavailable for this Python/OS combination. "
-            "Use START_F3PLUS so the supported managed Python runtime is selected."
-        )
+        reason = "A required binary package is unavailable for this Python/OS combination. Use START_F3PLUS so the supported managed Python runtime is selected."
     else:
         reason = "Read the first ERROR line above for the failing package or system error."
-    raise RuntimeError(
-        "Python package installation failed. " + reason + " Full output is saved in F3Plus_startup.log."
-    )
+    raise RuntimeError("Python package installation failed. " + reason + " Full output is saved in F3Plus_startup.log.")
 
 
 def ensure_environment() -> Path:
@@ -379,7 +334,7 @@ def ensure_environment() -> Path:
             print("[2/3] A required package is missing or damaged. Repairing the private environment...")
         else:
             print("[2/3] Installing required interface and input packages...")
-        print("      First run requires internet access; subsequent normal launches are local.")
+        print("      Package setup requires internet access; normal launches continue offline when the update check cannot connect.")
         _install_requirements(py, force_repair=(have == wanted and not packages_ready))
         if not _required_packages_present(py):
             raise RuntimeError(
@@ -397,7 +352,6 @@ def prepare_native_dependencies() -> list[str]:
     print("[3/3] Preparing Minecraft calculation components...")
     try:
         from minescript.seed.bundled import bedrock_status, build_cubiomes
-
         try:
             build_cubiomes()
             print("      Cubiomes is ready.")
@@ -418,6 +372,7 @@ def prepare_native_dependencies() -> list[str]:
 def main() -> int:
     _ensure_visible_windows_console()
     _enable_startup_log()
+    _check_for_updates()
     try:
         in_project_venv = Path(sys.prefix).resolve() == VENV.resolve()
     except (OSError, RuntimeError):
@@ -425,7 +380,7 @@ def main() -> int:
     if in_project_venv or os.environ.get("F3PLUS_BOOTSTRAPPED") == "1":
         return subprocess.call([sys.executable, str(ROOT / "main.py")], cwd=ROOT)
 
-    print("F3+ first-run setup", flush=True)
+    print("F3+ setup", flush=True)
     print(f"Using Python {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}\n")
     try:
         py = ensure_environment()
