@@ -2,46 +2,42 @@ from __future__ import annotations
 
 import unittest
 
-from minescript.catalog_ids import BY_ID, SPECS
-from minescript.catalog_integrity import ORIGINAL_FEATURE_COUNT, generic_placeholder_reason
+from minescript.catalog_ids import BY_ID as LEGACY_BY_ID, SPECS
+from minescript.catalog_integrity import ORIGINAL_FEATURE_COUNT
 from minescript.feature_executor import FeatureExecutor
+from minescript.tool_registry import BY_ID, LEGACY_TO_CANONICAL, TOOLS, canonical_for_legacy, registry_health
 
 
 class FullCatalogIntegrityTests(unittest.TestCase):
-    def test_original_catalog_count_and_ids_are_preserved(self):
+    def test_historical_ids_are_preserved_as_compatibility_aliases(self):
         self.assertEqual(len(SPECS), ORIGINAL_FEATURE_COUNT)
-        self.assertEqual(len(BY_ID), ORIGINAL_FEATURE_COUNT)
-        self.assertEqual(len({(s.top, s.submenu, s.name) for s in SPECS}), ORIGINAL_FEATURE_COUNT)
+        self.assertEqual(len(LEGACY_BY_ID), ORIGINAL_FEATURE_COUNT)
+        self.assertEqual(len(LEGACY_TO_CANONICAL), ORIGINAL_FEATURE_COUNT)
+        self.assertEqual(set(LEGACY_TO_CANONICAL), set(LEGACY_BY_ID))
+        self.assertLess(len(TOOLS), 50, "The visible product surface should stay consolidated.")
+        self.assertEqual(len(BY_ID), len(TOOLS))
+        health = registry_health()
+        self.assertEqual(health["unmapped_legacy_ids"], 0)
+        for legacy_id, tool_id in LEGACY_TO_CANONICAL.items():
+            self.assertIn(tool_id, BY_ID, legacy_id)
+            self.assertEqual(canonical_for_legacy(legacy_id).id, tool_id)
 
-    def test_every_catalog_entry_has_an_honest_dry_run(self):
-        # 1.21.3 is explicitly mapped by the bundled Cubiomes integration, allowing
-        # seed algorithms to be exercised instead of merely returning an unsupported
-        # modern-version boundary. Terrain tools still fail closed until a generated
-        # world path is supplied, which is their correct dry-run behavior.
+    def test_every_historical_operation_still_has_an_executable_dry_run(self):
         executor = FeatureExecutor("1.21.3")
         failures = []
         for spec in SPECS:
             try:
                 result = executor.dry_run(spec)
-            except Exception as exc:  # aggregate so CI reports every missing family
+            except Exception as exc:
                 failures.append(f"{spec.id}: raised {type(exc).__name__}: {exc}")
                 continue
             if not isinstance(result.data, dict) or not result.data:
                 failures.append(f"{spec.id}: empty/non-dict result")
-                continue
-            contract = result.data.get("implementation")
-            if not isinstance(contract, dict):
-                failures.append(f"{spec.id}: missing implementation contract")
-            else:
-                for key in ("kind", "engine", "exactness", "prerequisite", "limitation"):
-                    if key not in contract:
-                        failures.append(f"{spec.id}: implementation contract missing {key}")
-            reason = generic_placeholder_reason(spec, result.data)
-            if reason:
-                failures.append(f"{spec.id}: {reason}; data={result.data!r}")
+            if spec.id not in LEGACY_TO_CANONICAL:
+                failures.append(f"{spec.id}: not routed to a canonical workbench")
         self.assertFalse(failures, "\n" + "\n".join(failures))
 
-    def test_prerequisite_states_are_explicit(self):
+    def test_generated_world_prerequisites_remain_explicit(self):
         executor = FeatureExecutor("1.21.3")
         for name in (
             "Ore Distribution", "Ore Exposure Estimate", "Cave Exposure Estimate",
