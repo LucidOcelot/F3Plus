@@ -168,10 +168,10 @@ def install() -> None:
     from PySide6.QtCore import QPointF, QRectF, QTimer, Qt
     from PySide6.QtGui import QColor, QBrush, QPainter, QPainterPath, QPen
     from PySide6.QtWidgets import (
-        QApplication, QCheckBox, QFrame, QGraphicsEllipseItem, QGraphicsItemGroup,
-        QGraphicsLineItem, QGraphicsPathItem, QGraphicsScene, QGraphicsSimpleTextItem,
-        QGraphicsView, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSplitter,
-        QVBoxLayout, QWidget,
+        QApplication, QCheckBox, QFrame, QGraphicsEllipseItem, QGraphicsItem,
+        QGraphicsItemGroup, QGraphicsLineItem, QGraphicsPathItem, QGraphicsScene,
+        QGraphicsSimpleTextItem, QGraphicsView, QHBoxLayout, QLabel, QPushButton,
+        QScrollArea, QSplitter, QVBoxLayout, QWidget,
     )
 
     from . import visual_results
@@ -391,7 +391,7 @@ def install() -> None:
                         text = QGraphicsSimpleTextItem(f"{x:.0f}, {z:.0f}")
                         text.setBrush(QBrush(QColor(self.colors["text"])))
                         text.setPos(x + point_size, z + point_size)
-                        text.setFlag(QGraphicsSimpleTextItem.ItemIgnoresTransformations, True)
+                        text.setFlag(QGraphicsItem.ItemIgnoresTransformations, True)
                         group.addToGroup(text)
                 self.scene.addItem(group)
                 self._series_groups.append((label, points, group))
@@ -401,7 +401,6 @@ def install() -> None:
                 check.setToolTip("Toggle this plotted layer without changing the underlying result.")
                 check.toggled.connect(group.setVisible)
                 group.setVisible(check.isChecked())
-                # Insert before the stretch/bounds/copy controls.
                 self.legend_layout.insertWidget(len(self.layer_checks) + 1, check)
                 self.layer_checks.append(check)
 
