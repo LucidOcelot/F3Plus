@@ -66,3 +66,10 @@ from .semantic_cleanup_v2 import install as _install_semantic_cleanup_v2
 
 _install_semantic_cleanup_v2()
 del _install_semantic_cleanup_v2
+
+# Audit/finalize remaining shared-engine families (spawner/slime variants, guided
+# setup shortcuts, probability presets, and construction-grid semantics).
+from .semantic_audit_v2 import install as _install_semantic_audit_v2
+
+_install_semantic_audit_v2()
+del _install_semantic_audit_v2
