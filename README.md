@@ -37,6 +37,8 @@ Spatial seed/world results can open an interactive X/Z view with wheel zoom, dra
 
 The Villager Trade Explorer uses item textures and **villager profession skin layers** recovered from an installed Java client when available. Trade definitions are tracked separately from artwork: exact installed trade JSON is preferred, and an explicitly labeled planning baseline is used only when no usable installed trade data exists.
 
+The **Simulation Lab** provides a data-driven Loot Table Explorer plus Enchanting Table/Anvil, Brewing Stand, Cauldron/Leather Dye, and Animal/Horse Breeding simulators. Loot tables, enchantment definitions, item tags, and Minecraft icons are read from the installed Java client where available; clearly labeled first-party baseline data and original F3+ icons keep the tools usable when local data or artwork is unavailable.
+
 Spawner tools inspect generated Anvil/NBT data, identify encoded mob types where possible, and support mob-specific filtering plus double/triple/quad/cluster searches. Seed math is not presented as proof that an arbitrary dungeon spawner generated.
 
 ## Finder search modes
