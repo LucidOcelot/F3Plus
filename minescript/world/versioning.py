@@ -4,10 +4,12 @@ from dataclasses import dataclass
 import re
 
 TARGET_VERSION = "26.3-snapshot-7"
+LATEST_CUBIOMES_RELEASE = "1.21.3"
+LATEST_CUBIOMES_ENUM = 27
 
 
 class UnsupportedMinecraftVersion(ValueError):
-    pass
+    """Retained for callers that explicitly require exact generation support."""
 
 
 @dataclass(frozen=True)
@@ -38,6 +40,8 @@ _CUBIOMES_EXACT = {
     "1.21.3": 27,
 }
 
+_ENUM_VERSION = {value: key for key, value in _CUBIOMES_EXACT.items()}
+
 
 def _numeric_prefix(version: str) -> str:
     match = re.search(r"(?<!\d)(\d+(?:\.\d+){1,2})", str(version))
@@ -46,60 +50,103 @@ def _numeric_prefix(version: str) -> str:
     return match.group(1)
 
 
-def cubiomes_enum_for_version(version: str) -> int:
-    raw = _numeric_prefix(version)
+def _mapped_version(raw: str) -> tuple[int, str] | None:
     if raw in _CUBIOMES_EXACT:
-        return _CUBIOMES_EXACT[raw]
+        return _CUBIOMES_EXACT[raw], raw
     parts = tuple(int(part) for part in raw.split("."))
-    if parts[0] >= 26:
-        raise UnsupportedMinecraftVersion(
-            f"Bundled Cubiomes does not yet implement Minecraft {version}. "
-            "F3+ will not substitute an older world-generation version."
-        )
     if parts[:2] == (1, 16) and len(parts) >= 3:
-        return 19 if parts[2] == 1 else 20
+        return (19, "1.16.1") if parts[2] == 1 else (20, "1.16.5")
     if parts[:2] == (1, 19) and len(parts) >= 3:
         if parts[2] <= 2:
-            return 23
+            return 23, "1.19.2"
         if parts[2] <= 4:
-            return 24
+            return 24, "1.19.4"
     if parts[:2] == (1, 20) and len(parts) >= 3 and parts[2] <= 6:
-        return 25
+        return 25, "1.20.6"
     if parts[:2] == (1, 21) and len(parts) >= 3:
         if parts[2] <= 1:
-            return 26
+            return 26, "1.21.1"
         if parts[2] <= 3:
-            return 27
-    raise UnsupportedMinecraftVersion(
-        f"Minecraft {version} does not have an explicit bundled Cubiomes mapping in this build."
-    )
+            return 27, "1.21.3"
+    return None
+
+
+def cubiomes_resolution(version: str) -> dict:
+    """Resolve the selected version to the safest bundled Cubiomes rules.
+
+    Unsupported versions no longer make worldgen-aware tools simply fail. F3+ keeps
+    the selected version visible, warns the user, and calculates against the newest
+    stable release explicitly supported by the bundled Cubiomes revision.
+    """
+    selected = str(version or "").strip() or "unknown"
+    try:
+        raw = _numeric_prefix(selected)
+        mapped = _mapped_version(raw)
+    except (UnsupportedMinecraftVersion, ValueError):
+        raw = ""
+        mapped = None
+
+    if mapped is not None:
+        enum, implementation = mapped
+        exact = raw == implementation
+        reason = "" if exact else (
+            f"Bundled Cubiomes does not have an exact {selected} ruleset; "
+            f"calculations use its supported {implementation} rules."
+        )
+        return {
+            "selected_version": selected,
+            "calculation_version": implementation,
+            "cubiomes_enum": enum,
+            "exact": exact,
+            "fallback": not exact,
+            "reason": reason,
+        }
+
+    return {
+        "selected_version": selected,
+        "calculation_version": LATEST_CUBIOMES_RELEASE,
+        "cubiomes_enum": LATEST_CUBIOMES_ENUM,
+        "exact": False,
+        "fallback": True,
+        "reason": (
+            f"Bundled Cubiomes does not implement Minecraft {selected}. "
+            f"World-generation calculations use the newest stable release supported "
+            f"by this build ({LATEST_CUBIOMES_RELEASE}) instead. Results are not exact "
+            f"for {selected}."
+        ),
+    }
+
+
+def cubiomes_enum_for_version(version: str) -> int:
+    """Return the enum used for calculations, including the explicit stable fallback."""
+    return int(cubiomes_resolution(version)["cubiomes_enum"])
+
+
+def require_exact_cubiomes_mc(version: str) -> int:
+    """Return a Cubiomes enum only when the selected version itself is exact."""
+    resolved = cubiomes_resolution(version)
+    if not resolved["exact"]:
+        raise UnsupportedMinecraftVersion(str(resolved["reason"]))
+    return int(resolved["cubiomes_enum"])
 
 
 def resolve_cubiomes_mc(version: str) -> int:
-    """Return the exact bundled Cubiomes enum for a selected Minecraft version.
-
-    This is the single resolver used by feature dispatch. Unsupported versions raise
-    instead of silently substituting mc=0 or the newest bundled enum.
-    """
+    """Return the effective bundled Cubiomes enum for a selected Minecraft version."""
     return cubiomes_enum_for_version(version)
 
 
 def cubiomes_support(version: str) -> dict:
-    try:
-        enum = cubiomes_enum_for_version(version)
-        return {
-            "supported": True,
-            "selected_version": version,
-            "cubiomes_enum": enum,
-            "exact_version_mapping": True,
-        }
-    except UnsupportedMinecraftVersion as exc:
-        return {
-            "supported": False,
-            "selected_version": version,
-            "cubiomes_enum": None,
-            "reason": str(exc),
-        }
+    resolved = cubiomes_resolution(version)
+    return {
+        "supported": bool(resolved["exact"]),
+        "selected_supported": bool(resolved["exact"]),
+        "selected_version": resolved["selected_version"],
+        "calculation_version": resolved["calculation_version"],
+        "cubiomes_enum": resolved["cubiomes_enum"],
+        "exact_version_mapping": bool(resolved["exact"]),
+        "fallback_used": bool(resolved["fallback"]),
+        "reason": resolved["reason"],
+    }
 
 
 def resolve_native(feature: str, selected_version: str = TARGET_VERSION):
