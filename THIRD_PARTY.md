@@ -5,11 +5,11 @@ Third-party components retain their upstream licenses. The F3+ MIT license does 
 **AI Disclosure:**
 
 F3+ was unfortunately developed with generative AI assistance.
-In the spirit of transparency, AI use is described below. 
+In the spirit of transparency, AI use is described below.
 
-Approximately 35% of F3+'s original first-party work is estimated to be substantially AI-created or AI-assisted translation, porting, integration, and refactoring of existing human/community work. The remaining work originates from human-written code and designs, ports of earlier Minescript/M.A.R.T. work, or implementations based on established community tools, algorithms, and research. 
+Approximately 35% of F3+'s original first-party work is estimated to be substantially AI-created or AI-assisted translation, porting, integration, and refactoring of existing human/community work. The remaining work originates from human-written code and designs, ports of earlier Minescript/M.A.R.T. work, or implementations based on established community tools, algorithms, and research.
 
-Generative AI was also used extensively for integration, debugging, iterative testing in sandboxed environments, UI development, refactoring, documentation, and project organization. Project, features, testing feedback, revisions, and release decisions remained human work. 
+Generative AI was also used extensively for integration, debugging, iterative testing in sandboxed environments, UI development, refactoring, documentation, and project organization. Project, features, testing feedback, revisions, and release decisions remained human work.
 
 All final inclusions were reviewed and edited by a human before being included in the project.
 
@@ -44,7 +44,7 @@ F3+ can acquire the supported upstream release on first use and verifies the pin
 
 ## Python and runtime bootstrap
 
-F3+ first uses a runnable local Python 3.11+ installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
+F3+ 2.3.4 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
 
 - **uv:** Astral Software Inc.; Apache-2.0 OR MIT
 - **CPython:** Python Software Foundation; upstream Python licensing
