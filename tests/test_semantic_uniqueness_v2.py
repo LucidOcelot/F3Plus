@@ -5,6 +5,7 @@ import unittest
 from minescript.catalog_ids import SPECS
 from minescript.feature_executor import FeatureExecutor
 from minescript.semantic_audit_v2 import scan_duplicate_reports
+from minescript.semantic_quality_v2 import _transform_terrain
 
 
 class SemanticUniquenessV2Tests(unittest.TestCase):
@@ -64,6 +65,14 @@ class SemanticUniquenessV2Tests(unittest.TestCase):
         self.assertIn("nodes", graph)
         self.assertIn("edges", graph)
 
+    def test_portal_heatmap_does_not_present_a_fake_probability(self):
+        heatmap = self.result("Portal Reliability Heatmap", "Seed Tools", "Nether")
+        self.assertIn("metric_warning", heatmap)
+        self.assertIn("samples", heatmap)
+        if heatmap["samples"]:
+            self.assertIn("normalized_proximity_to_ideal", heatmap["samples"][0])
+            self.assertNotIn("reliability", heatmap["samples"][0])
+
     def test_build_and_storage_conversions_are_focused(self):
         stacks = self.result("Stacks", "Calculators", "Build")
         shulkers = self.result("Shulkers", "Calculators", "Build")
@@ -79,6 +88,15 @@ class SemanticUniquenessV2Tests(unittest.TestCase):
         self.assertIn("double_chests", bulk)
         self.assertIn("shulkers_required", requirement)
 
+    def test_construction_grid_and_circle_export_have_distinct_jobs(self):
+        grid = self.result("Grid", "Calculators", "Build")
+        lighting = self.result("Lighting Grid", "Calculators", "Build")
+        export = self.result("Circle Layer Export", "Calculators", "Build")
+        self.assertIn("point_count", grid)
+        self.assertNotEqual(grid.get("points"), lighting.get("positions"))
+        self.assertIn("export_text", export)
+        self.assertIn("format", export)
+
     def test_spiral_and_helix_are_not_the_same_shape(self):
         spiral = self.result("Spiral", "Calculators", "Shapes")
         helix = self.result("Helix", "Calculators", "Shapes")
@@ -93,10 +111,13 @@ class SemanticUniquenessV2Tests(unittest.TestCase):
         radius = self.result("Chunk Loader Radius", "Calculators", "Technical")
         render = self.result("Render Distance", "Calculators", "Technical")
         simulation = self.result("Simulation Distance", "Calculators", "Technical")
+        footprint = self.result("Chunk Loading Simulator", "Seed Tools", "World Analysis")
         self.assertIn("planned_centers_relative_chunks", planner)
         self.assertIn("square_chunks", radius)
         self.assertIn("render_distance_chunks", render)
         self.assertIn("simulation_distance_chunks", simulation)
+        self.assertIn("outer_ring_chunks", footprint)
+        self.assertIn("chunk_bounds", footprint)
 
     def test_rng_views_and_generation_models_are_distinct(self):
         viewer = self.result("RNG Sequence Viewer", "RNG Tools", "Probability")
@@ -115,6 +136,30 @@ class SemanticUniquenessV2Tests(unittest.TestCase):
         quad = self.result("Quad Cluster", "Seed Tools", "Slime")
         self.assertEqual(square.get("required_shape"), "2×2 square")
         self.assertEqual(quad.get("required_shape"), "any connected 4+ chunk component")
+
+    def test_site_rankings_use_named_factors_not_opaque_scores(self):
+        slime = self.result("Farm Location Ranking", "Seed Tools", "Slime")
+        spawn = self.result("Spawn Chunk Optimizer", "Seed Tools", "World Analysis")
+        self.assertIn("ranking_order", slime)
+        self.assertIn("ranking_order", spawn)
+        self.assertTrue(all("score" not in row for row in slime.get("ranked_sites", [])))
+        self.assertTrue(all("score" not in row for row in spawn.get("ranked_sites", [])))
+
+    def test_search_radius_planner_does_not_fake_candidate_prediction(self):
+        report = self.result("Search Radius Optimizer", "Seed Tools", "World Analysis")
+        self.assertIn("relative_chunk_work_vs_radius_8", report["options"][0])
+        self.assertIn("target-specific density model", report["interpretation"])
+        self.assertNotIn("target_candidates", report)
+
+    def test_terrain_base_transform_hides_opaque_score(self):
+        transformed = _transform_terrain("Terrain Base Finder", {
+            "ranked": [{"chunk": (2, 3), "base_score": 50.0, "mean_y": 80.0, "relief": 15.0}],
+            "formula": "mean_surface_y - 2*within_chunk_relief",
+        })
+        self.assertNotIn("formula", transformed)
+        self.assertNotIn("base_score", transformed["ranked"][0])
+        self.assertIn("within_chunk_relief_blocks", transformed["ranked"][0])
+        self.assertIn("ranking_basis", transformed)
 
 
 if __name__ == "__main__":
