@@ -106,3 +106,17 @@ from .spawner_contract_v3 import install as _install_spawner_contract_v3
 
 _install_spawner_contract_v3()
 del _install_spawner_contract_v3
+
+# Expose the actual observation forms of the Java LCG recovery tools so a pair of
+# nextInt observations and one nextLong observation cannot collapse to the same report.
+from .rng_recovery_semantics_v3 import install as _install_rng_recovery_semantics_v3
+
+_install_rng_recovery_semantics_v3()
+del _install_rng_recovery_semantics_v3
+
+# Late semantic/UI wrappers are allowed to change presentation, but no catalog result
+# may lose its implementation contract as a side effect.
+from .final_contracts_v3 import install as _install_final_contracts_v3
+
+_install_final_contracts_v3()
+del _install_final_contracts_v3
