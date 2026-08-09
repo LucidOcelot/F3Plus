@@ -2,7 +2,7 @@ from __future__ import annotations
 from dataclasses import dataclass
 from .slime import nearest as nearest_slime, nearby as nearby_slime, clusters as slime_clusters
 
-TARGET="26.3-snapshot-5"
+TARGET="26.3-snapshot-7"
 
 @dataclass
 class SeedResult:
