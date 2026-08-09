@@ -118,3 +118,10 @@ from .final_contracts_v3 import install as _install_final_contracts_v3
 
 _install_final_contracts_v3()
 del _install_final_contracts_v3
+
+# Finder/locator families share one visible search policy: scan one configured radius,
+# or expand outward until a target is found or the user-selected safety radius is hit.
+from .search_modes_v234 import install as _install_search_modes_v234
+
+_install_search_modes_v234()
+del _install_search_modes_v234
