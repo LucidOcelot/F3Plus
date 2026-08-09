@@ -19,26 +19,29 @@ PAIR_FIRST_KEYS = {"nearest_samples", "boundary_segments"}
 SEQUENCE_KEYS = ("sequence", "rolls", "values", "samples")
 
 
-def attach_visual_preview(result_view, spec, data, theme: str, custom_palette: dict | None = None) -> None:
-    """Insert one useful visual preview before the ResultView's bottom stretch."""
-    try:
-        from .ui_theme import palette
-        colors = palette(theme, custom_palette)
-        series = _spatial_series(data)
-        widget = None
-        if series and sum(len(points) for _, points in series) >= 2:
-            widget = _SpatialPreview(_preview_title(spec, "Spatial preview — X/Z"), series, colors)
-        else:
-            sequence = _numeric_sequence(data)
-            if sequence and len(sequence) >= 2:
-                widget = _SequencePreview(_preview_title(spec, "Sequence preview"), sequence, colors)
-        if widget is None:
-            return
-        index = max(0, result_view.layout.count() - 1)
-        result_view.layout.insertWidget(index, widget)
-    except Exception:
-        # Visuals are supplemental. A preview failure must never hide the exact result.
-        return
+def attach_visual_preview(result_view, spec, data, theme: str, custom_palette: dict | None = None) -> bool:
+    """Insert one useful visual preview before the ResultView's bottom stretch.
+
+    Returns True when a preview was added and False for a legitimately non-visual
+    result. Renderer failures are intentionally allowed to propagate to the desktop
+    result bridge, which keeps the exact result visible and shows a compact warning.
+    """
+    from .ui_theme import palette
+
+    colors = palette(theme, custom_palette)
+    series = _spatial_series(data)
+    widget = None
+    if series and sum(len(points) for _, points in series) >= 2:
+        widget = _SpatialPreview(_preview_title(spec, "Spatial preview — X/Z"), series, colors)
+    else:
+        sequence = _numeric_sequence(data)
+        if sequence and len(sequence) >= 2:
+            widget = _SequencePreview(_preview_title(spec, "Sequence preview"), sequence, colors)
+    if widget is None:
+        return False
+    index = max(0, result_view.layout.count() - 1)
+    result_view.layout.insertWidget(index, widget)
+    return True
 
 
 def _preview_title(spec, fallback: str) -> str:
