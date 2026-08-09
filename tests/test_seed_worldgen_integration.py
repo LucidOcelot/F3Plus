@@ -57,7 +57,7 @@ def _chunk_zero_blocks(world: Path):
 class MojangWorldgenIntegrationTests(unittest.TestCase):
     def test_seed_materialization_matches_independent_vanilla_generation(self):
         seed = 8675309
-        version = os.environ.get("F3PLUS_WORLDGEN_TEST_VERSION", "26.3-snapshot-6")
+        version = os.environ.get("F3PLUS_WORLDGEN_TEST_VERSION", "26.3-snapshot-7")
         with tempfile.TemporaryDirectory() as a, tempfile.TemporaryDirectory() as b:
             predicted = generate_reference_world(
                 seed,
@@ -80,9 +80,6 @@ class MojangWorldgenIntegrationTests(unittest.TestCase):
 
             predicted_stable, predicted_ores = _chunk_zero_blocks(predicted)
             actual_stable, actual_ores = _chunk_zero_blocks(actual)
-            # Exact block-coordinate comparison against an independently generated
-            # vanilla control world. This directly validates ore distribution and a
-            # broad immutable-geology subset rather than tick-sensitive server state.
             self.assertEqual(predicted_ores, actual_ores)
             self.assertEqual(predicted_stable, actual_stable)
             self.assertGreater(len(predicted_stable), 1000)
@@ -92,9 +89,6 @@ class MojangWorldgenIntegrationTests(unittest.TestCase):
             self.assertEqual(predicted_analysis["ore_counts"], actual_analysis["ore_counts"])
             self.assertEqual(predicted_analysis["ore_by_y"], actual_analysis["ore_by_y"])
             self.assertEqual(predicted_analysis["exposed_ore_counts"], actual_analysis["exposed_ore_counts"])
-            # Cave-air totals are deliberately not asserted: gravity and scheduled
-            # fluid/block updates can change air occupancy after generation even when
-            # seed-derived geology and ore placement are identical.
 
 
 if __name__ == "__main__":
