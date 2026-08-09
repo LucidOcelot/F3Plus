@@ -13,7 +13,6 @@ import json
 import os
 import shutil
 import subprocess
-import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -159,25 +158,14 @@ def _validate_source(source: Path) -> None:
     missing = [relative for relative in REQUIRED_UPDATE_FILES if not (source / relative).is_file()]
     if missing:
         raise RuntimeError("Downloaded update is incomplete: missing " + ", ".join(missing))
-    check = subprocess.run(
-        [
-            sys.executable, "-m", "compileall", "-q",
-            str(source / "launcher.py"), str(source / "main.py"), str(source / "updater.py"),
-            str(source / "minescript"),
-        ],
-        cwd=source,
-        stdout=subprocess.PIPE,
-        stderr=subprocess.STDOUT,
-        text=True,
-        encoding="utf-8",
-        errors="replace",
-        timeout=45,
-        check=False,
-    )
-    if check.returncode != 0:
-        details = check.stdout.strip().splitlines()
-        tail = "\n".join(details[-12:])
-        raise RuntimeError("Downloaded update failed Python syntax validation" + (":\n" + tail if tail else ""))
+    targets = [source / "launcher.py", source / "main.py", source / "updater.py"]
+    targets.extend(sorted((source / "minescript").rglob("*.py")))
+    for path in targets:
+        try:
+            text = path.read_text(encoding="utf-8")
+            compile(text, str(path), "exec")
+        except (OSError, UnicodeError, SyntaxError) as exc:
+            raise RuntimeError(f"Downloaded update failed Python syntax validation in {path.relative_to(source)}: {exc}") from exc
 
 
 def _remove_deleted_files(root: Path, old_files: list[str], new_files: set[str]) -> None:
