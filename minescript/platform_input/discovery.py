@@ -50,7 +50,8 @@ def discover_minecraft_targets(title_hint: str = "Minecraft") -> list[MinecraftT
     try:
         if system == "Windows":
             from .windows import list_minecraft_windows
-            return list_minecraft_windows(title_hint)
+            from .windows_identity import filter_minecraft_java_targets
+            return filter_minecraft_java_targets(list_minecraft_windows(title_hint))
         if system == "Darwin":
             from .macos import list_minecraft_targets
             found = list_minecraft_targets(title_hint)
