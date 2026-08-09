@@ -13,6 +13,7 @@ import json
 import os
 import shutil
 import subprocess
+import sys
 import tempfile
 import urllib.error
 import urllib.request
@@ -29,6 +30,10 @@ EXCLUDED_TOP_LEVEL = {
     ".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log",
     "__pycache__", "build", "dist",
 }
+REQUIRED_UPDATE_FILES = (
+    "launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml",
+    "minescript/__init__.py", "minescript/app.py",
+)
 
 
 def _request(url: str, timeout: int = 6):
@@ -150,6 +155,31 @@ def _safe_unpack_archive(data: bytes, destination: Path) -> tuple[Path, list[str
     return destination, files
 
 
+def _validate_source(source: Path) -> None:
+    missing = [relative for relative in REQUIRED_UPDATE_FILES if not (source / relative).is_file()]
+    if missing:
+        raise RuntimeError("Downloaded update is incomplete: missing " + ", ".join(missing))
+    check = subprocess.run(
+        [
+            sys.executable, "-m", "compileall", "-q",
+            str(source / "launcher.py"), str(source / "main.py"), str(source / "updater.py"),
+            str(source / "minescript"),
+        ],
+        cwd=source,
+        stdout=subprocess.PIPE,
+        stderr=subprocess.STDOUT,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+        timeout=45,
+        check=False,
+    )
+    if check.returncode != 0:
+        details = check.stdout.strip().splitlines()
+        tail = "\n".join(details[-12:])
+        raise RuntimeError("Downloaded update failed Python syntax validation" + (":\n" + tail if tail else ""))
+
+
 def _remove_deleted_files(root: Path, old_files: list[str], new_files: set[str]) -> None:
     candidates = sorted(set(str(value) for value in old_files) - new_files, key=lambda value: value.count("/"), reverse=True)
     base = root.resolve()
@@ -208,8 +238,7 @@ def _archive_update(root: Path) -> tuple[bool, str]:
     with tempfile.TemporaryDirectory(prefix="f3plus-update-") as temp_text:
         unpacked = Path(temp_text) / "unpacked"
         source, files = _safe_unpack_archive(data, unpacked)
-        if not (source / "main.py").is_file() or not (source / "minescript" / "__init__.py").is_file():
-            raise RuntimeError("Downloaded update did not contain a valid F3+ source tree")
+        _validate_source(source)
         _remove_deleted_files(root, list(state.get("files", [])), set(files))
         _overlay_tree(source, root)
     _write_state(root, remote, files)
@@ -225,5 +254,5 @@ def auto_update(root: Path) -> tuple[bool, str]:
         if git_result is not None:
             return git_result
         return _archive_update(root)
-    except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, urllib.error.URLError) as exc:
+    except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, urllib.error.URLError, subprocess.SubprocessError) as exc:
         return False, f"Update check unavailable ({exc}). Continuing with the installed build."
