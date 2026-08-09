@@ -3,7 +3,9 @@ from __future__ import annotations
 from dataclasses import dataclass
 import re
 
-TARGET_VERSION = "26.3-snapshot-7"
+from ..version import TARGET_MINECRAFT_ID
+
+TARGET_VERSION = TARGET_MINECRAFT_ID
 LATEST_CUBIOMES_RELEASE = "1.21.3"
 LATEST_CUBIOMES_ENUM = 27
 
@@ -74,9 +76,9 @@ def _mapped_version(raw: str) -> tuple[int, str] | None:
 def cubiomes_resolution(version: str) -> dict:
     """Resolve the selected version to the safest bundled Cubiomes rules.
 
-    Unsupported versions no longer make worldgen-aware tools simply fail. F3+ keeps
-    the selected version visible, warns the user, and calculates against the newest
-    stable release explicitly supported by the bundled Cubiomes revision.
+    Unsupported versions keep the selected version visible, warn the user, and
+    calculate against the newest stable release explicitly supported by the bundled
+    Cubiomes revision.
     """
     selected = str(version or "").strip() or "unknown"
     try:
