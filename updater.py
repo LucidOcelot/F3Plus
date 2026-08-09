@@ -1,11 +1,10 @@
 from __future__ import annotations
 
-"""Dependency-free launch updater for F3+.
+"""Dependency-free update checker/installer for F3+.
 
-Git checkouts fast-forward from origin/main. Extracted ZIP installs compare a saved
-commit SHA with GitHub's main branch and overlay an immutable commit archive. A
-manifest lets later ZIP updates remove files that were deleted upstream without ever
-touching user configuration, local runtimes, Git metadata, or startup logs.
+Launch-time behavior is check-only by default.  Updates are installed only when the user
+explicitly enables automatic installation (`F3PLUS_AUTO_UPDATE=1`) or calls
+:func:`apply_update`.  Update/network failures never block offline launch.
 """
 
 import io
@@ -25,21 +24,12 @@ API_HEAD = f"https://api.github.com/repos/{REPOSITORY}/commits/{BRANCH}"
 STATE_FILE = ".f3plus-update.json"
 USER_AGENT = "F3Plus-Updater/2.3.4"
 MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
-EXCLUDED_TOP_LEVEL = {
-    ".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log",
-    "__pycache__", "build", "dist",
-}
-REQUIRED_UPDATE_FILES = (
-    "launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml",
-    "minescript/__init__.py", "minescript/app.py",
-)
+EXCLUDED_TOP_LEVEL = {".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log", "__pycache__", "build", "dist"}
+REQUIRED_UPDATE_FILES = ("launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml", "minescript/__init__.py", "minescript/app.py")
 
 
 def _request(url: str, timeout: int = 6):
-    return urllib.request.urlopen(
-        urllib.request.Request(url, headers={"User-Agent": USER_AGENT}),
-        timeout=timeout,
-    )
+    return urllib.request.urlopen(urllib.request.Request(url, headers={"User-Agent": USER_AGENT}), timeout=timeout)
 
 
 def _remote_sha() -> str:
@@ -52,20 +42,17 @@ def _remote_sha() -> str:
 
 
 def _git(root: Path, *args: str, timeout: int = 20) -> subprocess.CompletedProcess:
-    return subprocess.run(
-        ["git", *args], cwd=root, text=True, encoding="utf-8", errors="replace",
-        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout, check=False,
-    )
+    return subprocess.run(["git", *args], cwd=root, text=True, encoding="utf-8", errors="replace", stdout=subprocess.PIPE, stderr=subprocess.STDOUT, timeout=timeout, check=False)
 
 
-def _git_update(root: Path) -> tuple[bool, str] | None:
+def _git_update(root: Path, apply: bool) -> tuple[bool, str] | None:
     if not (root / ".git").is_dir() or shutil.which("git") is None:
         return None
     dirty = _git(root, "status", "--porcelain", "--untracked-files=no")
     if dirty.returncode != 0:
         return False, "Git checkout detected, but repository status could not be read; update skipped."
     if dirty.stdout.strip():
-        return False, "Tracked local changes detected; automatic update skipped to avoid overwriting them."
+        return False, "Tracked local changes detected; update installation is disabled to avoid overwriting them."
     fetch = _git(root, "fetch", "--quiet", "origin", BRANCH, timeout=30)
     if fetch.returncode != 0:
         return False, "Update check could not reach GitHub; continuing with the installed build."
@@ -73,6 +60,8 @@ def _git_update(root: Path) -> tuple[bool, str] | None:
     remote = _git(root, "rev-parse", f"origin/{BRANCH}").stdout.strip()
     if local and local == remote:
         return False, "F3+ is current."
+    if not apply:
+        return False, f"F3+ update available: {remote[:12]}. Automatic installation is off."
     merge = _git(root, "merge", "--ff-only", f"origin/{BRANCH}", timeout=45)
     if merge.returncode != 0:
         return False, "A newer build exists but the checkout could not fast-forward; continuing without modifying files."
@@ -89,15 +78,7 @@ def _read_state(root: Path) -> dict:
 
 def _write_state(root: Path, sha: str, files: list[str]) -> None:
     try:
-        (root / STATE_FILE).write_text(
-            json.dumps({
-                "repository": REPOSITORY,
-                "branch": BRANCH,
-                "sha": sha,
-                "files": sorted(set(files)),
-            }, indent=2) + "\n",
-            encoding="utf-8",
-        )
+        (root / STATE_FILE).write_text(json.dumps({"repository": REPOSITORY, "branch": BRANCH, "sha": sha, "files": sorted(set(files))}, indent=2) + "\n", encoding="utf-8")
     except OSError:
         pass
 
@@ -126,8 +107,7 @@ def _safe_unpack_archive(data: bytes, destination: Path) -> tuple[Path, list[str
         roots = {PurePosixPath(info.filename).parts[0] for info in members if PurePosixPath(info.filename).parts}
         if len(roots) != 1:
             raise RuntimeError("Downloaded update did not contain one repository root")
-        archive_root = next(iter(roots))
-        files: list[str] = []
+        archive_root = next(iter(roots)); files: list[str] = []
         for info in archive.infolist():
             raw = PurePosixPath(info.filename)
             if not raw.parts or raw.parts[0] != archive_root:
@@ -139,14 +119,11 @@ def _safe_unpack_archive(data: bytes, destination: Path) -> tuple[Path, list[str
                 if relative.parts[0] in EXCLUDED_TOP_LEVEL:
                     continue
                 raise RuntimeError("Unsafe path found in GitHub update archive")
-            out = destination.joinpath(*relative.parts)
-            resolved = out.resolve()
-            base = destination.resolve()
+            out = destination.joinpath(*relative.parts); resolved = out.resolve(); base = destination.resolve()
             if resolved != base and base not in resolved.parents:
                 raise RuntimeError("Unsafe path found in GitHub update archive")
             if info.is_dir():
-                out.mkdir(parents=True, exist_ok=True)
-                continue
+                out.mkdir(parents=True, exist_ok=True); continue
             out.parent.mkdir(parents=True, exist_ok=True)
             with archive.open(info) as source, out.open("wb") as target:
                 shutil.copyfileobj(source, target)
@@ -162,15 +139,13 @@ def _validate_source(source: Path) -> None:
     targets.extend(sorted((source / "minescript").rglob("*.py")))
     for path in targets:
         try:
-            text = path.read_text(encoding="utf-8")
-            compile(text, str(path), "exec")
+            text = path.read_text(encoding="utf-8"); compile(text, str(path), "exec")
         except (OSError, UnicodeError, SyntaxError) as exc:
             raise RuntimeError(f"Downloaded update failed Python syntax validation in {path.relative_to(source)}: {exc}") from exc
 
 
 def _remove_deleted_files(root: Path, old_files: list[str], new_files: set[str]) -> None:
-    candidates = sorted(set(str(value) for value in old_files) - new_files, key=lambda value: value.count("/"), reverse=True)
-    base = root.resolve()
+    candidates = sorted(set(str(value) for value in old_files) - new_files, key=lambda value: value.count("/"), reverse=True); base = root.resolve()
     for text in candidates:
         relative = PurePosixPath(text)
         if not _allowed_relative(relative):
@@ -189,10 +164,8 @@ def _remove_deleted_files(root: Path, old_files: list[str], new_files: set[str])
             continue
         parent = target.parent
         while parent != root:
-            try:
-                parent.rmdir()
-            except OSError:
-                break
+            try: parent.rmdir()
+            except OSError: break
             parent = parent.parent
 
 
@@ -202,45 +175,49 @@ def _overlay_tree(source: Path, root: Path) -> None:
             continue
         destination = root / item.name
         if item.is_dir():
-            destination.mkdir(parents=True, exist_ok=True)
-            shutil.copytree(item, destination, dirs_exist_ok=True)
+            destination.mkdir(parents=True, exist_ok=True); shutil.copytree(item, destination, dirs_exist_ok=True)
         else:
             shutil.copy2(item, destination)
     if os.name != "nt":
         for name in ("START_F3PLUS.sh", "START_F3PLUS.command"):
             path = root / name
             if path.exists():
-                try:
-                    path.chmod(path.stat().st_mode | 0o111)
-                except OSError:
-                    pass
+                try: path.chmod(path.stat().st_mode | 0o111)
+                except OSError: pass
 
 
-def _archive_update(root: Path) -> tuple[bool, str]:
-    remote = _remote_sha()
-    state = _read_state(root)
+def _archive_update(root: Path, apply: bool) -> tuple[bool, str]:
+    remote = _remote_sha(); state = _read_state(root)
     if state.get("sha") == remote:
         return False, "F3+ is current."
-    url = f"https://github.com/{REPOSITORY}/archive/{remote}.zip"
-    data = _download_archive(url)
+    if not apply:
+        return False, f"F3+ update available: {remote[:12]}. Automatic installation is off."
+    url = f"https://github.com/{REPOSITORY}/archive/{remote}.zip"; data = _download_archive(url)
     with tempfile.TemporaryDirectory(prefix="f3plus-update-") as temp_text:
-        unpacked = Path(temp_text) / "unpacked"
-        source, files = _safe_unpack_archive(data, unpacked)
-        _validate_source(source)
-        _remove_deleted_files(root, list(state.get("files", [])), set(files))
-        _overlay_tree(source, root)
+        unpacked = Path(temp_text) / "unpacked"; source, files = _safe_unpack_archive(data, unpacked); _validate_source(source); _remove_deleted_files(root, list(state.get("files", [])), set(files)); _overlay_tree(source, root)
     _write_state(root, remote, files)
     return True, f"Updated F3+ to {remote[:12]}."
 
 
-def auto_update(root: Path) -> tuple[bool, str]:
-    """Check GitHub and update the working tree. Failures never block offline launch."""
-    if os.environ.get("F3PLUS_SKIP_UPDATE") == "1":
-        return False, "Automatic update skipped by F3PLUS_SKIP_UPDATE."
+def _run(root: Path, apply: bool) -> tuple[bool, str]:
     try:
-        git_result = _git_update(root)
+        git_result = _git_update(root, apply)
         if git_result is not None:
             return git_result
-        return _archive_update(root)
+        return _archive_update(root, apply)
     except (OSError, RuntimeError, ValueError, zipfile.BadZipFile, urllib.error.URLError, subprocess.SubprocessError) as exc:
         return False, f"Update check unavailable ({exc}). Continuing with the installed build."
+
+
+def auto_update(root: Path) -> tuple[bool, str]:
+    """Check for updates; install only when F3PLUS_AUTO_UPDATE=1 is explicitly set."""
+    if os.environ.get("F3PLUS_SKIP_UPDATE") == "1":
+        return False, "Update check skipped by F3PLUS_SKIP_UPDATE."
+    return _run(root, apply=os.environ.get("F3PLUS_AUTO_UPDATE") == "1")
+
+
+def apply_update(root: Path) -> tuple[bool, str]:
+    """Explicitly check for and install a safe fast-forward/archive update."""
+    if os.environ.get("F3PLUS_SKIP_UPDATE") == "1":
+        return False, "Update installation skipped by F3PLUS_SKIP_UPDATE."
+    return _run(root, apply=True)
