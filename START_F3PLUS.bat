@@ -9,6 +9,12 @@ if not exist "%~dp0WINDOWS_BOOTSTRAP.ps1" (
   pause
   exit /b 1
 )
+if not exist "%~dp0updater.py" (
+  echo ERROR: updater.py is missing.
+  echo Extract the complete F3+ ZIP, then try again.
+  pause
+  exit /b 1
+)
 
 powershell.exe -NoLogo -NoProfile -ExecutionPolicy Bypass -File "%~dp0WINDOWS_BOOTSTRAP.ps1"
 set "RC=%ERRORLEVEL%"
