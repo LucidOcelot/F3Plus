@@ -5,7 +5,7 @@ from types import SimpleNamespace
 
 from minescript.catalog_ids import SPECS
 from minescript.feature_executor import FeatureExecutor
-from minescript.semantic_audit_v2 import scan_duplicate_reports
+from minescript.semantic_audit_v2 import _fingerprint, scan_duplicate_reports
 from minescript.semantic_quality_v2 import _transform_terrain
 
 
@@ -34,6 +34,13 @@ class SemanticUniquenessV2Tests(unittest.TestCase):
             "Different catalog entries still produce indistinguishable user-facing reports:\n"
             + "\n".join(str(group) for group in audit["unexplained_duplicate_groups"]),
         )
+
+    def test_duplicate_scan_cannot_be_defeated_by_different_prose(self):
+        a = {"purpose": "First description", "note": "A", "value": 42, "rows": [{"x": 1, "z": 2}]}
+        b = {"purpose": "Completely different description", "note": "B", "value": 42, "rows": [{"x": 1, "z": 2}]}
+        c = {"purpose": "Same prose does not matter", "value": 43, "rows": [{"x": 1, "z": 2}]}
+        self.assertEqual(_fingerprint(a), _fingerprint(b))
+        self.assertNotEqual(_fingerprint(a), _fingerprint(c))
 
     def test_routes_have_different_jobs(self):
         resource = self.result("Resource Route", "Navigation", "Routes")
