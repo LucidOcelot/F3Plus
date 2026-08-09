@@ -73,3 +73,10 @@ from .semantic_audit_v2 import install as _install_semantic_audit_v2
 
 _install_semantic_audit_v2()
 del _install_semantic_audit_v2
+
+# Remove the last opaque heuristic scores/raw tuples and replace them with readable
+# ranking factors, explicit units, translated coordinates, and honest model limits.
+from .semantic_quality_v2 import install as _install_semantic_quality_v2
+
+_install_semantic_quality_v2()
+del _install_semantic_quality_v2
