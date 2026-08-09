@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from pathlib import Path
 import re
 import zipfile
 
@@ -8,8 +7,8 @@ from PySide6.QtCore import Qt, QSize
 from PySide6.QtGui import QIcon, QPixmap
 from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QFrame, QHBoxLayout,
-    QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QScrollArea,
-    QSizePolicy, QSpinBox, QSplitter, QVBoxLayout, QWidget,
+    QLabel, QLineEdit, QListWidget, QListWidgetItem, QPushButton, QSpinBox,
+    QSplitter, QVBoxLayout, QWidget,
 )
 
 from .minecraft_art import texture_bytes
@@ -126,7 +125,7 @@ class TradeCard(QWidget):
         direction.setObjectName("Muted")
         direction.setAlignment(Qt.AlignRight)
         meta.addWidget(direction)
-        uses = "—" if trade.max_uses is None else str(trade.max_uses).rstrip(".0")
+        uses = "—" if trade.max_uses is None else _number_text(trade.max_uses)
         max_uses = QLabel(f"Max uses: {uses}")
         max_uses.setObjectName("Muted")
         max_uses.setAlignment(Qt.AlignRight)
@@ -450,9 +449,9 @@ class VillagerExplorer(QDialog):
         uses = self.uses.value()
         summary = []
         if trade.max_uses is not None:
-            summary.append(f"Max uses before restock: {str(trade.max_uses).rstrip('.0')}")
+            summary.append(f"Max uses before restock: {_number_text(trade.max_uses)}")
         if trade.xp is not None:
-            summary.append(f"Villager XP per trade: {str(trade.xp).rstrip('.0')}")
+            summary.append(f"Villager XP per trade: {_number_text(trade.xp)}")
         emeralds = _emerald_cost(trade)
         if emeralds is not None:
             summary.append(f"Planned emerald total for {uses} uses: {emeralds * uses:g}")
@@ -539,6 +538,12 @@ class VillagerExplorer(QDialog):
 
 def _normal(value: str) -> str:
     return str(value or "").strip().lower().replace(" ", "-")
+
+
+def _number_text(value) -> str:
+    if isinstance(value, float) and value.is_integer():
+        return str(int(value))
+    return str(value)
 
 
 def _human_item(value: str) -> str:
