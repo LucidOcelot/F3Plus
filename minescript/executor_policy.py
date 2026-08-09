@@ -9,7 +9,7 @@ from typing import Any
 
 from . import operation_semantics as semantics
 from . import result_quality as quality
-from . import search_policy, seed_generation, spawners
+from . import search_policy, seed_generation, spawners, supplemental_operations
 from . import waypoint_semantics as waypoints
 
 
@@ -25,7 +25,9 @@ def input_fields(executor, spec):
         if spec.name == "Waypoint Route":
             fields.append(("return_to_start", "Return to origin", False, "bool"))
     else:
-        fields = semantics._fields_for(spec)
+        fields = supplemental_operations.input_fields(spec)
+        if fields is None:
+            fields = semantics._fields_for(spec)
         if fields is None:
             fields = quality._fields(spec)
         if fields is None and spec.top == "Seed Tools" and spec.submenu == "Spawners":
@@ -58,6 +60,8 @@ def semantic_result(executor, spec, values):
         "Nearest Waypoint", "Sort Waypoints by Distance", "Waypoint Route",
     }:
         data = waypoints._waypoint_report(executor, spec.name, values)
+    if data is None:
+        data = supplemental_operations.report(spec, values)
     if data is None and spec.top == "Navigation" and spec.submenu == "Coordinates":
         data = semantics._navigation_coordinate(spec.name, values)
     if data is None and spec.top == "Navigation" and spec.submenu == "Routes":
