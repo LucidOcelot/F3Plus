@@ -19,6 +19,8 @@ import urllib.request
 import zipfile
 from pathlib import Path
 
+from .version import USER_AGENT
+
 ROOT = Path(__file__).resolve().parents[1]
 THIRD_PARTY = ROOT / "third_party"
 CACHE = THIRD_PARTY / "_bootstrap"
@@ -60,7 +62,7 @@ def _machine() -> str:
 
 def _fetch(url: str, *, timeout: int = 180, max_bytes: int = 512 * 1024 * 1024) -> bytes:
     """Fetch one pinned upstream payload with a hard size limit."""
-    req = urllib.request.Request(url, headers={"User-Agent": "F3Plus/2.0.0 dependency bootstrap"})
+    req = urllib.request.Request(url, headers={"User-Agent": f"{USER_AGENT} dependency bootstrap"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         length = r.headers.get("Content-Length")
         if length and int(length) > max_bytes:
