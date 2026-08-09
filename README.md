@@ -12,11 +12,28 @@ F3+ does not use generative AI during normal operation and does not transmit Min
 
 Third-party and community contributions are credited separately in `COMMUNITY_CREDITS.md` and `THIRD_PARTY.md`.
 
-# F3+ 2.0
+# F3+ 2.3.4
 
-F3+ is an all-in-one offline companion app for Minecraft Java Edition. Built around community tools and based on Minescript/M.A.R.T by Lucid, F3+ brings common and niche technical Minecraft tools into one multi-platform desktop application.
+F3+ is an all-in-one offline-first companion app for Minecraft Java Edition. Built around community tools and based on Minescript/M.A.R.T by Lucid, it brings common and niche technical Minecraft workflows into one cross-platform desktop application without requiring a modified client.
 
-It combines automation, navigation, known-seed analysis, RNG utilities, world inspection, technical calculators, villager planning, building/farming tools, and guided workflows without requiring a modified Minecraft client.
+**Current release:** F3+ **2.3.4**  
+**Default Minecraft target:** **26.3 Snapshot 7**  
+**Supported Python:** **3.11 through 3.13**  
+**Update channel:** `LucidOcelot/F3Plus` `main`
+
+F3+ combines automation, navigation, known-seed analysis, RNG utilities, generated-world inspection, technical calculators, villager planning, construction/farming tools, guided setups, and emergency controls. The historical 457 feature IDs remain stable for favorites, recents, and compatibility.
+
+## What 2.3.4 focuses on
+
+2.3.4 consolidates the 2.x interface and audit work into a release with consistent version metadata, clearer reports, and stronger regression coverage. The most visible changes include:
+
+- structured player-facing results instead of raw implementation dictionaries;
+- readable biome, coordinate, percentage, time, and status values instead of unexplained numeric/raw values;
+- X/Z maps for spatial seed/world results and visual plans for spatial construction/layout results;
+- a visual Villager Trade Explorer with named Novice–Master levels, local Minecraft artwork when available, and an explicitly labeled planning baseline when exact local trade JSON is unavailable;
+- a mob-aware Spawner Locator with filters for common dungeon mobs, trial spawners, vaults, and unknown/custom spawners;
+- compatible-Java discovery for exact Mojang reference-world generation instead of exposing raw class-version failures;
+- catalog-wide semantic regression checks so differently named tools cannot silently collapse into identical reports unless they are explicitly documented presets/shortcuts.
 
 ## Start
 
@@ -44,23 +61,23 @@ Linux background automation uses the native Wayland/uinput path when the require
 
 F3+ checks the `main` branch of `LucidOcelot/F3Plus` on GitHub every launch.
 
-A clean Git checkout fast-forwards from `origin/main`. Extracted ZIP installs compare their saved commit with GitHub and overlay a newer immutable commit archive when one is available. User settings are stored under `~/.f3plus` and are not replaced by an application update.
+A clean Git checkout fast-forwards from `origin/main`. Extracted ZIP installs compare their saved commit with GitHub and overlay a newer immutable commit archive after validating its paths and Python source. User settings under `~/.f3plus`, the private runtime, Git metadata, and startup logs are not replaced by archive updates.
 
 Tracked local changes in a Git checkout are never overwritten automatically. If GitHub cannot be reached, the installed copy continues launching offline. For development or recovery, set `F3PLUS_SKIP_UPDATE=1` to skip the launch update check.
 
 ## Main interface
 
-F3+ 2.0 uses the same interaction model across the catalog:
+F3+ uses one interaction model across the catalog:
 
 - **Command deck** — verified Minecraft link state, active input capabilities, Relink, Safe Mode, Options, Pause/Resume, and Emergency Stop.
 - **Context deck** — global search, dimension, selected Minecraft version, world seed, live coordinate capture, and visible world-generation fallback state when applicable.
 - **Workspace rail** — Automation, Navigation, World & Seed, Structures & Biomes, Calculators, Building & Farming, RNG, Villagers, Guided Setups, Utilities, and Safety.
 - **Tool Library** — task-oriented groups with searchable tool cards.
-- **Inspector** — what the selected tool does, when to use it, how to use it, required inputs, output, and version/implementation limitations.
+- **Inspector** — what the selected tool does, when to use it, how to use it, required inputs, expected output, and version/implementation limitations.
 - **Configure Tool** — task-specific parameter controls and path pickers instead of unrelated one-off dialogs.
 - **Results** — compact metrics, translated tables, warnings, maps, and visual plan previews instead of raw diagnostic-style dumps.
 
-Spatial seed/world results use readable chunk/block coordinates and an X/Z map when location data is present. Construction/shape/farm tools use focused inputs and show a plan/footprint preview when their result is spatial.
+Spatial seed/world results use readable chunk/block coordinates and an X/Z map when location data is present. Construction/shape/farm tools use focused inputs and show a plan or footprint preview when their result contains spatial information.
 
 Browsing the catalog does not execute seed searches or other heavy calculations.
 
@@ -68,9 +85,9 @@ Browsing the catalog does not execute seed searches or other heavy calculations.
 
 F3+ keeps **selected Minecraft version**, **world-generation calculation version**, and **local data version** separate.
 
-The bundled Cubiomes revision has an explicit stable mapping through Minecraft **1.21.3**. If the selected Minecraft version is newer or otherwise unsupported, F3+ keeps that selected version visible, warns the user, and uses 1.21.3 for Cubiomes-dependent calculations. Those results are labeled as fallback results and are not presented as exact results for the newer version.
+The bundled Cubiomes revision has an explicit stable mapping through Minecraft **1.21.3**. If the selected Minecraft version is newer or otherwise unsupported, F3+ keeps that selected version visible, warns the user, and uses 1.21.3 only for Cubiomes-dependent calculations. Those results are labeled as fallback results and are not presented as exact results for the newer version.
 
-Exact generated-world tools can use an existing save or run Mojang's matching server JAR after explicit EULA acceptance. F3+ reads the server metadata's required Java major version and checks configured, PATH, `JAVA_HOME`, and Minecraft Launcher runtimes for a compatible Java executable before starting reference generation.
+Exact generated-world tools can instead inspect an existing save or run Mojang's matching server JAR after explicit EULA acceptance. F3+ reads the server metadata's required Java major version and checks configured Java, `JAVA_HOME`, PATH, and Minecraft Launcher runtimes for a compatible executable before starting reference generation.
 
 ## Villager Trade Explorer
 
@@ -80,29 +97,41 @@ The explorer includes profession navigation, named Novice–Master level filters
 
 F3+ prefers data-driven villager trade JSON from the exact selected installed JAR, then tries usable installed release data. If no installed JAR exposes modern trade JSON, the explorer shows a visibly labeled **baseline reference** instead of an empty zero-trade window. That reference is for planning only and is not claimed exact for the selected version.
 
-`Librarian Browser`, profession entries, Trade Search, Trade Comparison, Emerald Calculator, and Trade Cycle Calculator all use this same explorer instead of separate generic popups.
+`Librarian Browser`, profession entries, Trade Search, Trade Comparison, Emerald Calculator, and Trade Cycle Calculator all use the same explorer with an appropriate starting preset rather than separate generic popups.
 
 ## Generated spawners
 
 The user-facing **Spawner Locator** can filter generated spawner NBT for all mob spawners or specific Zombie, Skeleton, Spider, Cave Spider, Blaze, Silverfish, Pig, Magma Cube, unknown/custom, Trial Spawner, or Vault entries. Where the NBT provides mob identity, F3+ translates it to a readable mob name and reports block/chunk coordinates plus a map-ready hit list. Double/triple/quad and cluster-ranking entries apply their own grouping rules to the selected type.
+
+## World, seed, and spatial reports
+
+Local-area and world-analysis tools are intentionally separated by user question. Biome composition, structure candidate summaries, slime distribution, technical-site context, build-site context, exploration context, generated terrain, caves, and resources are not combined into several renamed copies of the same generic report.
+
+Coordinates in normal results identify whether they are blocks, chunks, or regions. Structure placement candidates are distinguished from final generated structures. Spatial candidate sets, slime chunks, biome samples, routes, spawner hits, and similar data can be plotted on the result map.
+
+## Construction and planning
+
+Construction tools use inputs appropriate to the operation: bridge tools ask for span/support spacing, roof pitch asks for run/rise, stairs ask for rise/run, grids ask for footprint and spacing, and shape tools request only their relevant dimensions. Layout-producing operations return coordinates or footprints and can display a visual plan rather than only a scalar total.
+
+Planar Spiral remains an X/Z layout while 3D Helix rises along Y. Construction Grid and Lighting Grid use different edge-coverage rules. Storage-capacity tools and container-requirement tools answer opposite questions rather than sharing one output under different names.
 
 ## Appearance
 
 Themes are selected only under **Options → Appearance**:
 
 - **Chorus** — default End-inspired purple/gold theme.
-- **Light** — bright desktop theme.
-- **Cyber** — existing high-contrast neon theme.
+- **Light** — bright blue/gold/white desktop theme.
+- **Cyber** — high-contrast neon technical theme.
 - **Vanilla** — Minecraft-oriented green/earth presentation.
-- **Aether** — new bright cartographic teal/coral presentation with spacious rounded geometry.
-- **Foundry** — new dark industrial furnace/brass presentation with sharper geometry.
+- **Aether** — bright cartographic teal/coral presentation with spacious rounded geometry.
+- **Foundry** — dark industrial furnace/brass presentation with sharper geometry.
 - **Custom** — editable F3+ palette with optional locally recovered Minecraft artwork.
 
 Minecraft artwork is read from the player's installed Java files at runtime where applicable. F3+ does not bundle or redistribute Mojang texture assets.
 
 ## Minecraft linking and input
 
-F3+ links a live client only when a feature needs one. On Windows, title text alone is no longer enough to identify Minecraft: candidate windows are validated against their owning Java process so browser tabs or documentation pages containing the word “Minecraft” are not linked as the game.
+F3+ links a live client only when a feature needs one. On Windows, title text alone is not sufficient to identify Minecraft: candidate windows are validated against their owning Java process so browser tabs or documentation pages containing the word “Minecraft” are rejected.
 
 - **Windows:** targeted linked-window keyboard/mouse-button input, with focus switching when relative camera input requires it.
 - **macOS:** process-targeted Quartz input where permitted, with focus switching and operating-system permission handling when required.
@@ -112,7 +141,7 @@ When a macro cannot run reliably in the current window state, F3+ explains the l
 
 ## Safe Mode
 
-Safe Mode is a conservative strict-SMP filter. It stops active automation when enabled and blocks tools that are commonly restricted on strict multiplayer servers while leaving them visible so their purpose can still be read.
+Safe Mode is a conservative strict-SMP filter. It stops active automation when enabled and blocks tools commonly restricted on strict multiplayer servers while leaving them visible so their purpose can still be read.
 
 Safe Mode does not replace a server's rules. The server's actual policy takes precedence.
 
@@ -126,7 +155,7 @@ F3+ does not present gameplay RNG recovery as world-seed recovery.
 
 ## Setup and offline behavior
 
-F3+ supports Python 3.11 through 3.13. The launcher creates a project-local `.venv` and installs required packages when needed. Dependency setup, launch update checks, optional upstream helpers, and exact Mojang reference-world acquisition may require network access; normal prepared calculations and local-data workflows run locally.
+F3+ supports Python **3.11 through 3.13**. The launcher creates a project-local `.venv` and installs required packages when needed. Dependency setup, launch update checks, optional upstream helpers, and exact Mojang reference-world acquisition may require network access; normal prepared calculations and local-data workflows run locally.
 
 Before package installation, F3+ checks available disk space. Disk, network, permission, and compatibility failures are reported separately.
 
@@ -152,11 +181,15 @@ All three global hotkeys are configurable under **Options → Automation**. Emer
 
 **Exact generated-world analysis reports an incompatible Java runtime:** start the selected Minecraft version once through the official launcher so its matching runtime is installed, or configure `F3PLUS_JAVA` / `JAVA_HOME` to a compatible Java executable.
 
+**Villager Explorer says baseline reference:** no usable installed JAR exposed the data-driven trade definitions expected by the explorer. The displayed baseline is a planning reference, not a claim about exact offers for the selected version.
+
 **macOS input does not work:** confirm Accessibility and Input Monitoring permission for the terminal/Python process used to launch F3+.
 
 **Linux background input does not work:** confirm the supported Wayland/uinput helper path and local permissions.
 
-## Documentation
+## Validation and documentation
+
+The GitHub Actions suite compiles the project, runs the complete regression suite on Windows, macOS, and Ubuntu with Python 3.11 and 3.13, dry-runs the 457-entry feature catalog, checks semantic report uniqueness, and performs an independent Mojang reference-world integration test.
 
 - `FEATURES.md` — feature families, version behavior, explorer details, and implementation boundaries.
 - `LICENSE.md` — F3+ license.
