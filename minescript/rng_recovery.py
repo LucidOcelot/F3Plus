@@ -2,13 +2,12 @@ from __future__ import annotations
 
 """Gameplay RNG recovery helpers.
 
-This module is intentionally separate from world-seed recovery.  The native
-cracker targets the 48-bit java.util.Random LCG state only.  The optional
+This module is intentionally separate from world-seed recovery. The native
+cracker targets the 48-bit java.util.Random LCG state only. The optional
 EnchantmentCracker integration recovers Minecraft enchantment/player RNG state
 through Earthcomputer's external MIT-licensed tool.
 """
 
-from dataclasses import dataclass
 from pathlib import Path
 import hashlib
 import os
@@ -18,6 +17,8 @@ import stat
 import subprocess
 import urllib.request
 import zipfile
+
+from .version import USER_AGENT
 
 MASK = (1 << 48) - 1
 MULT = 0x5DEECE66D
@@ -86,12 +87,7 @@ def next_bits_from_state(state_before: int, bits: int) -> tuple[int, int]:
 
 
 def recover_from_next_int_pair(first: int | str, second: int | str) -> list[dict]:
-    """Recover java.util.Random state from two consecutive unbounded nextInt outputs.
-
-    nextInt() is next(32).  The first output fixes the high 32 bits of the state
-    after that call, leaving only 16 bits to enumerate.  The next observation
-    filters those candidates.
-    """
+    """Recover java.util.Random state from two consecutive unbounded nextInt outputs."""
     a, b = _u32(first), _u32(second)
     found = []
     high = a << 16
@@ -128,7 +124,7 @@ def split_java_next_long(value: int | str) -> tuple[int, int]:
     low = raw & 0xFFFFFFFF
     high_result = (raw >> 32) & 0xFFFFFFFF
     # Java computes ((long)next(32) << 32) + next(32), where the second int is
-    # sign-extended during addition.  Undo that borrow when the low int is negative.
+    # sign-extended during addition. Undo that borrow when the low int is negative.
     first = (high_result + (1 if low & 0x80000000 else 0)) & 0xFFFFFFFF
     return _signed32(first), _signed32(low)
 
@@ -184,7 +180,7 @@ def acquire_enchantment_cracker() -> Path:
     if launcher:
         return launcher
     COMMUNITY_DIR.mkdir(parents=True, exist_ok=True)
-    req = urllib.request.Request(ENCHCRACKER_URL, headers={"User-Agent": "F3Plus/1.16.2 RNG recovery"})
+    req = urllib.request.Request(ENCHCRACKER_URL, headers={"User-Agent": f"{USER_AGENT} RNG recovery"})
     with urllib.request.urlopen(req, timeout=180) as response:
         data = response.read(32 * 1024 * 1024)
     digest = hashlib.sha256(data).hexdigest()
