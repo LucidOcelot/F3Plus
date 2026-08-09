@@ -12,6 +12,7 @@ from minescript import TARGET_MINECRAFT
 from minescript.feature_executor import FeatureExecutor
 from minescript.platform_input.base import MinecraftTarget
 from minescript.platform_input.windows_identity import is_minecraft_java_target
+from minescript.tool_guides import display_name
 from minescript.ui_theme import PALETTES, palette
 from minescript.version_context import resolve
 from minescript.villagers import Trade, trade_direction, trade_key
@@ -43,6 +44,10 @@ class V2RegressionTests(unittest.TestCase):
 
     def test_direct_executor_uses_current_target(self):
         self.assertEqual(FeatureExecutor().minecraft_version, TARGET_MINECRAFT)
+
+    def test_legacy_32_chunk_id_has_precise_display_name(self):
+        spec = FeatureExecutor().spec(("Seed Tools", "Local Area", "32-Chunk Analysis"))
+        self.assertEqual(display_name(spec), "Local 33×33 Chunk Analysis")
 
     def test_trade_direction_and_identity_use_structured_fields(self):
         buying = Trade("farmer", 1, "wheat emerald", "20 wheat", "1 emerald", wants_id="wheat", gives_id="emerald")
