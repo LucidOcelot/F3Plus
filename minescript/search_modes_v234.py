@@ -21,12 +21,14 @@ _STRUCTURE_TARGETS = {
     "Structure Cluster Finder", "Multi-Target Locator", "Portal-Optimized Structure Search",
 }
 
-_BIOME_AND_TERRAIN_FINDERS = {
+_BIOME_FINDERS = {
     "Nearest Biome", "Biome Boundary", "Two-Way Biome Intersection",
     "Three-Way Biome Intersection", "Four-Way Biome Intersection",
-    "Flat Terrain Finder", "Valley Finder", "Mountain Peak Finder",
-    "Terrain Base Finder", "Island Finder", "Peninsula Detector",
-    "River Crossing Finder", "Cliff Locator",
+}
+
+_TERRAIN_FINDERS = {
+    "Flat Terrain Finder", "Valley Finder", "Mountain Peak Finder", "Terrain Base Finder",
+    "Island Finder", "Peninsula Detector", "River Crossing Finder", "Cliff Locator",
 }
 
 _NETHER_FINDERS = {"Fortress Finder", "Bastion Finder", "Fortress+Bastion Finder"}
@@ -53,7 +55,7 @@ def supports_search_mode(spec) -> bool:
     if submenu == "Structures":
         return name in _STRUCTURE_TARGETS
     if submenu == "Biomes":
-        return name in _BIOME_AND_TERRAIN_FINDERS
+        return name in _BIOME_FINDERS or name in _TERRAIN_FINDERS
     if submenu == "Nether":
         return name in _NETHER_FINDERS
     if submenu == "Slime":
@@ -62,12 +64,16 @@ def supports_search_mode(spec) -> bool:
 
 
 def _unit(spec) -> str:
-    return "blocks" if getattr(spec, "submenu", "") == "Biomes" else "chunks"
+    name = getattr(spec, "name", "")
+    if getattr(spec, "submenu", "") == "Biomes" and name not in _TERRAIN_FINDERS:
+        return "blocks"
+    return "chunks"
 
 
 def _defaults_for(spec) -> tuple[int, int]:
     submenu = getattr(spec, "submenu", "")
-    if submenu == "Biomes":
+    name = getattr(spec, "name", "")
+    if submenu == "Biomes" and name not in _TERRAIN_FINDERS:
         return 256, 4096
     if submenu == "Spawners":
         return 8, 128
@@ -93,7 +99,11 @@ def _terminal_unavailable(result) -> bool:
     data = getattr(result, "data", {}) or {}
     if not isinstance(data, dict):
         return False
-    return data.get("available") is False
+    if data.get("available") is False:
+        return True
+    if data.get("requires_generated_world") or data.get("requires_seed_worldgen"):
+        return True
+    return False
 
 
 def _nonempty(value: Any) -> bool:
@@ -193,6 +203,7 @@ def _run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[
             found_radius = radius
             break
 
+    last_radius = radii[min(max(0, attempts - 1), len(radii) - 1)]
     summary = {
         "mode": "Search until found",
         "unit": _unit(spec),
@@ -201,15 +212,26 @@ def _run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[
         "maximum_radius": requested_max,
         "effective_maximum_radius": effective_max,
         "attempts": attempts,
-        "last_radius_searched": radii[min(max(0, attempts - 1), len(radii) - 1)],
+        "last_radius_searched": last_radius,
         "found": found_radius is not None,
         "found_radius": found_radius,
     }
     if limit_reason:
         summary["limit_reason"] = limit_reason
-    if found_radius is None and not _terminal_unavailable(last):
+    if found_radius is None and last is not None and not _terminal_unavailable(last):
         summary["result"] = "No matching target was found before the configured maximum radius."
     return last, summary
+
+
+def _terrain_fields(spec):
+    """Terrain locators scan generated chunks, so their radius is in chunks, not biome-sample blocks."""
+    return [
+        ("world_path", "Generated world path", "", "text"),
+        ("dimension", "Dimension", ["Overworld", "Nether", "End"], "choice"),
+        ("cx", "Center chunk X", 0, "int"),
+        ("cz", "Center chunk Z", 0, "int"),
+        ("radius", "Search radius (chunks)", 32, "int"),
+    ]
 
 
 def install() -> None:
@@ -224,7 +246,10 @@ def install() -> None:
 
     def input_fields(self, feature):
         spec = self.spec(feature)
-        fields = list(previous_fields(self, spec))
+        if getattr(spec, "submenu", "") == "Biomes" and getattr(spec, "name", "") in _TERRAIN_FINDERS:
+            fields = _terrain_fields(spec)
+        else:
+            fields = list(previous_fields(self, spec))
         if not supports_search_mode(spec):
             return fields
         existing = {field[0] for field in fields}
@@ -232,6 +257,7 @@ def install() -> None:
             unit = _unit(spec)
             default_radius = 256 if unit == "blocks" else 8
             fields.append(("radius", f"Search radius ({unit})", default_radius, "int"))
+            existing.add("radius")
         unit = _unit(spec)
         default_step, default_max = _defaults_for(spec)
         additions = [
