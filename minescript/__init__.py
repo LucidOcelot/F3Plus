@@ -14,3 +14,9 @@ from .full_catalog import install as _install_full_catalog
 
 _install_full_catalog()
 del _install_full_catalog
+
+# Parameterize direct executor paths that historically returned canned examples.
+from .catalog_direct import install as _install_catalog_direct
+
+_install_catalog_direct()
+del _install_catalog_direct
