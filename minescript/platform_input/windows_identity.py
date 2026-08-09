@@ -45,11 +45,9 @@ def is_minecraft_java_target(target: MinecraftTarget) -> bool:
         return False
     image = process_image(int(target.pid))
     executable = Path(image).name.lower() if image else ""
-    if executable in {"java.exe", "javaw.exe"} or executable.startswith("java"):
-        return True
-    # If Windows prevents the process-image query, only accept a strong game title;
-    # never accept arbitrary titles that merely contain the word Minecraft.
-    return not executable and str(target.title or "").strip().lower().startswith("minecraft")
+    # Title text is never sufficient. If process identity cannot be read, fail
+    # closed and leave the client unlinked rather than risk targeting another app.
+    return executable in {"java.exe", "javaw.exe"} or executable.startswith("java")
 
 
 def filter_minecraft_java_targets(targets: list[MinecraftTarget]) -> list[MinecraftTarget]:
