@@ -21,7 +21,7 @@ function Write-Status([string]$Text = '') {
 
 function Reset-Log {
     @(
-        'F3+ 2.0.0 startup log',
+        'F3+ 2.3.4 startup log',
         ('Started: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
         ('Folder: ' + $Root),
         ''
@@ -272,7 +272,7 @@ function Install-ManagedPython {
 
 try {
     Reset-Log
-    Write-Host 'F3+ 2.0.0 - LucidOcelot'
+    Write-Host 'F3+ 2.3.4 - LucidOcelot'
     Write-Host '===================================' 
     Write-Host ''
     Write-Status 'Checking installation...'
