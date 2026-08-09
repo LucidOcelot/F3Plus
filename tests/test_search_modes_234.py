@@ -5,8 +5,10 @@ from types import SimpleNamespace
 
 from minescript.feature_executor import FeatureExecutor
 from minescript.search_modes_v234 import (
+    IGNORE_LIMIT_KEY,
     _exact_regeneration_cap,
     _has_match,
+    _prepare_unbounded_exact_generation,
     _run_until_found,
     _search_radii,
     supports_search_mode,
@@ -37,6 +39,31 @@ class SearchModes234Tests(unittest.TestCase):
         self.assertTrue(summary["found"])
         self.assertEqual(summary["found_radius"], 96)
         self.assertEqual(summary["attempts"], 3)
+        self.assertFalse(summary["ignore_maximum_limit"])
+
+    def test_ignore_limit_continues_past_configured_maximum(self):
+        spec = SimpleNamespace(top="Seed Tools", submenu="Structures", name="Village")
+        attempted = []
+
+        def execute(radius):
+            attempted.append(radius)
+            return SimpleNamespace(status="ok", data={"candidate_chunks": [(1, 1)] if radius >= 96 else []})
+
+        _, summary = _run_until_found(
+            spec,
+            {
+                "radius": 32,
+                "radius_step": 16,
+                "max_search_radius": 48,
+                IGNORE_LIMIT_KEY: True,
+            },
+            execute,
+        )
+        self.assertEqual(attempted, [32, 48, 64, 80, 96])
+        self.assertTrue(summary["found"])
+        self.assertEqual(summary["found_radius"], 96)
+        self.assertTrue(summary["ignore_maximum_limit"])
+        self.assertIsNone(summary["effective_maximum_radius"])
 
     def test_spawner_cluster_mode_requires_a_cluster_not_just_single_hits(self):
         spec = SimpleNamespace(top="Seed Tools", submenu="Spawners", name="Double Spawner Locator")
@@ -58,6 +85,21 @@ class SearchModes234Tests(unittest.TestCase):
         self.assertEqual(effective, 31)
         self.assertIn("4,096-chunk", reason)
 
+    def test_exact_spawner_ignore_toggle_raises_attempt_budget(self):
+        spec = SimpleNamespace(top="Seed Tools", submenu="Spawners", name="Dungeon/Pig Spawner Locator")
+        values = {
+            "radius": 8,
+            "world_path": "",
+            "regenerate_from_seed": True,
+            "worldgen_max_chunks": 4096,
+            IGNORE_LIMIT_KEY: True,
+        }
+        effective, reason = _exact_regeneration_cap(spec, values, 128)
+        self.assertEqual(effective, 128)
+        self.assertIn("ignored", reason.lower())
+        attempt = _prepare_unbounded_exact_generation(spec, values, 40)
+        self.assertEqual(attempt["worldgen_max_chunks"], 81 * 81)
+
     def test_search_until_found_stops_on_missing_generated_world(self):
         spec = SimpleNamespace(top="Seed Tools", submenu="Biomes", name="Island Finder")
         attempted = []
@@ -77,7 +119,7 @@ class SearchModes234Tests(unittest.TestCase):
         self.assertEqual(attempted, [32])
         self.assertFalse(summary["found"])
 
-    def test_location_families_expose_both_search_modes(self):
+    def test_location_families_expose_both_search_modes_and_ignore_toggle(self):
         executor = FeatureExecutor("1.21.3")
         paths = [
             ("Seed Tools", "Spawners", "Dungeon/Pig Spawner Locator"),
@@ -95,6 +137,8 @@ class SearchModes234Tests(unittest.TestCase):
             self.assertEqual(fields["search_mode"][2], ["Radius search", "Search until found"])
             self.assertIn("radius_step", fields, path)
             self.assertIn("max_search_radius", fields, path)
+            self.assertIn(IGNORE_LIMIT_KEY, fields, path)
+            self.assertEqual(fields[IGNORE_LIMIT_KEY][3], "bool", path)
 
     def test_generated_terrain_finders_use_chunk_coordinates_and_chunk_radius(self):
         executor = FeatureExecutor("1.21.3")
@@ -118,6 +162,7 @@ class SearchModes234Tests(unittest.TestCase):
             self.assertFalse(supports_search_mode(spec), path)
             keys = {field[0] for field in executor.input_fields(spec)}
             self.assertNotIn("search_mode", keys, path)
+            self.assertNotIn(IGNORE_LIMIT_KEY, keys, path)
 
 
 if __name__ == "__main__":
