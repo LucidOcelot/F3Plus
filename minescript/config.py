@@ -44,7 +44,7 @@ def _default_custom_palette() -> dict[str, str]:
 
 @dataclass
 class Settings:
-    minecraft_version: str = "26.3-snapshot-6"
+    minecraft_version: str = "26.3-snapshot-7"
     edition: str = "Java"
     dimension: str = "Overworld"
     seed: str = ""
@@ -80,11 +80,12 @@ class Settings:
     focus_switch_delay_ms: int = 350
     manual_focus_delay_seconds: int = 3
     theme: str = "chorus"
-    appearance_schema: int = 2
+    appearance_schema: int = 3
     custom_palette: dict[str, str] = field(default_factory=_default_custom_palette)
     custom_theme_use_minecraft_assets: bool = False
     safe_mode: bool = False
     favorites: list[str] = field(default_factory=list)
+    favorite_trades: list[str] = field(default_factory=list)
     recent_tools: list[str] = field(default_factory=list)
     recent_limit: int = 12
 
@@ -121,10 +122,11 @@ class Settings:
                     theme = "chorus"
                 elif theme == "light":
                     theme = "light"
-            if theme not in {"chorus", "light", "cyberpunk", "minecraft", "custom"}:
+            valid_themes = {"chorus", "light", "cyberpunk", "minecraft", "aether", "foundry", "custom"}
+            if theme not in valid_themes:
                 theme = "chorus"
             raw["theme"] = theme
-            raw["appearance_schema"] = 2
+            raw["appearance_schema"] = 3
 
             custom = raw.get("custom_palette", {})
             merged = _default_custom_palette()
@@ -137,6 +139,7 @@ class Settings:
 
             obj = cls(**raw)
             obj.favorites = list(dict.fromkeys(str(x) for x in obj.favorites))
+            obj.favorite_trades = list(dict.fromkeys(str(x) for x in obj.favorite_trades))
             obj.recent_tools = list(dict.fromkeys(str(x) for x in obj.recent_tools))[: max(1, int(obj.recent_limit))]
             if obj.input_mode not in {"auto", "targeted", "background", "standard", "foreground"}:
                 obj.input_mode = "auto"
