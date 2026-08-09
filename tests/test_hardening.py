@@ -4,7 +4,7 @@ import unittest
 from minescript.config import Keybinds, Settings
 from minescript.control_bindings import BoundInput
 from minescript.macro_engine import MacroEngine
-from minescript.world.versioning import UnsupportedMinecraftVersion, cubiomes_enum_for_version
+from minescript.world.versioning import cubiomes_enum_for_version, cubiomes_resolution, require_exact_cubiomes_mc, UnsupportedMinecraftVersion
 
 
 class FakeInput:
@@ -45,9 +45,17 @@ class HardeningTests(unittest.TestCase):
         self.assertIn(("release",), backend.events)
         self.assertIn("Runtime limit", engine.status.message)
 
-    def test_snapshot_is_not_silently_mapped_to_old_cubiomes(self):
+    def test_snapshot_uses_visible_stable_cubiomes_fallback(self):
+        resolved = cubiomes_resolution("26.3 Snapshot 7")
+        self.assertFalse(resolved["exact"])
+        self.assertTrue(resolved["fallback"])
+        self.assertEqual(resolved["calculation_version"], "1.21.3")
+        self.assertEqual(resolved["cubiomes_enum"], 27)
+        self.assertEqual(cubiomes_enum_for_version("26.3 Snapshot 7"), 27)
+
+    def test_exact_only_callers_can_still_reject_fallback(self):
         with self.assertRaises(UnsupportedMinecraftVersion):
-            cubiomes_enum_for_version("26.3 Snapshot 7")
+            require_exact_cubiomes_mc("26.3 Snapshot 7")
 
     def test_known_cubiomes_mapping(self):
         self.assertEqual(cubiomes_enum_for_version("1.21.3"), 27)
