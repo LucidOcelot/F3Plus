@@ -211,7 +211,7 @@ def _seed_values_for_base(executor, spec, values):
 def execute_once(executor, spec, values, dry_run=False):
     semantic = semantic_result(executor, spec, values)
     if semantic is not None:
-        return semantic
+        return apply_result_semantics(spec, semantic)
     if spec.top == "Seed Tools" and spec.submenu == "Spawners":
         data = spawners.report(spec.name, values, executor, dry_run)
         status = "unavailable" if data.get("available") is False else "ok"
