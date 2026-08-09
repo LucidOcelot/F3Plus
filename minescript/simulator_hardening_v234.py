@@ -19,19 +19,37 @@ def install() -> None:
     if getattr(LootTableEngine, "_hardening_v234_installed", False):
         return
 
+    def normalized_item_tags(data: MinecraftJarData) -> dict[str, list[Any]]:
+        raw_tags = data.json_namespace(("data/minecraft/tags/item/", "data/minecraft/tags/items/"))
+        out: dict[str, list[Any]] = {}
+        for tag_id, payload in raw_tags.items():
+            if not isinstance(payload, dict) or not isinstance(payload.get("values"), list):
+                continue
+            values = []
+            for raw in payload["values"]:
+                if isinstance(raw, dict):
+                    value = raw.get("id", "")
+                else:
+                    value = raw
+                value = str(value)
+                if value:
+                    values.append(value)
+            out[tag_id] = values
+        return out
+
     # ---- source identity -------------------------------------------------
     def loot_init(self, data: MinecraftJarData):
         self.data = data
         raw = data.json_namespace(("data/minecraft/loot_table/", "data/minecraft/loot_tables/"))
         self.using_baseline = not bool(raw)
         self.tables = {key: value for key, value in raw.items() if isinstance(value, dict)} if raw else dict(FALLBACK_LOOT_TABLES)
-        self.tags = data.item_tags()
+        self.tags = normalized_item_tags(data)
 
     LootTableEngine.__init__ = loot_init
     LootTableEngine.source = property(lambda self: "Bundled baseline examples" if self.using_baseline else self.data.source)
 
-    # Item-tag entries may use object form {"id": ..., "required": ...}. Resolve
-    # those exactly like string values instead of exposing Python dict text as an ID.
+    # Resolve nested tags and object-form tag members without ever exposing serialized
+    # object text as a Minecraft identifier.
     def resolve_tag(self, tag_id: str, seen: set[str] | None = None) -> list[str]:
         tag_id = str(tag_id)
         if tag_id.startswith("#"):
@@ -68,7 +86,6 @@ def install() -> None:
         return original_entry_stacks(self, entry, rng, context, depth)
 
     LootTableEngine._entry_stacks = entry_stacks_without_recheck
-    original_roll = LootTableEngine.roll
 
     def roll(self, table_id: str, *, rng=None, context=None, depth: int = 0):
         # Reimplement only the top-level pool selection so the chosen entry can be
@@ -140,7 +157,7 @@ def install() -> None:
         raw = data.json_namespace(("data/minecraft/enchantment/", "data/minecraft/enchantments/"))
         self.using_baseline = not bool(raw)
         self.enchantments = {key: value for key, value in raw.items() if isinstance(value, dict)} if raw else {f"minecraft:{key}": dict(value) for key, value in FALLBACK_ENCHANTMENTS.items()}
-        self.tags = data.item_tags()
+        self.tags = normalized_item_tags(data)
         self.treasure_enchantments = enchantment_tag_values(data, "treasure")
         if self.using_baseline:
             self.treasure_enchantments.update(
