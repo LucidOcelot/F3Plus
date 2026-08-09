@@ -52,6 +52,7 @@ def main():
         from minescript.visual_context_v234 import install as install_visual_context_v234
         from minescript.villager_portraits_v234 import install as install_villager_portraits_v234
         from minescript.ui_depth_v234 import install as install_ui_depth_v234
+        from minescript.simulation_lab_ui_v234 import install as install_simulation_lab_v234
         install_ui_extensions()
         install_engine_patches()
         install_ux_v2()
@@ -63,6 +64,7 @@ def main():
         install_visual_context_v234()
         install_villager_portraits_v234()
         install_ui_depth_v234()
+        install_simulation_lab_v234()
     except ModuleNotFoundError as exc:
         handled = _bootstrap_if_needed(exc)
         if handled is not None:
