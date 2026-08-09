@@ -33,3 +33,9 @@ from .version_defaults import install as _install_version_defaults
 
 _install_version_defaults()
 del _install_version_defaults
+
+# Correct user-facing result semantics while keeping stable catalog IDs intact.
+from .result_semantics_v2 import install as _install_result_semantics_v2
+
+_install_result_semantics_v2()
+del _install_result_semantics_v2
