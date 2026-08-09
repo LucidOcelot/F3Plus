@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """One authoritative view of selected, data, and world-generation versions.
 
-The selected Minecraft version is never silently rewritten.  Backends that cannot
+The selected Minecraft version is never silently rewritten. Backends that cannot
 support it receive an explicit fallback version and the UI can surface that choice.
 """
 
@@ -29,21 +29,24 @@ class VersionContext:
         return not self.calculation_exact
 
 
-def _numeric_prefix(value: str) -> tuple[int, ...] | None:
+def _numeric_prefix(value: str) -> tuple[int, int, int] | None:
     match = re.search(r"(?<!\d)(\d+(?:\.\d+){1,2})", str(value or ""))
     if not match:
         return None
     try:
-        return tuple(int(part) for part in match.group(1).split("."))
+        parts = [int(part) for part in match.group(1).split(".")]
     except ValueError:
         return None
+    while len(parts) < 3:
+        parts.append(0)
+    return tuple(parts[:3])
 
 
 def _stable_sort_key(value: str):
     text = str(value or "").lower()
-    nums = _numeric_prefix(text) or ()
-    snapshot = 1 if any(token in text for token in ("snapshot", "pre", "rc", "experimental")) else 0
-    return (*nums, -snapshot, text)
+    major, minor, patch = _numeric_prefix(text) or (0, 0, 0)
+    unstable = 1 if any(token in text for token in ("snapshot", "pre", "rc", "experimental")) else 0
+    return major, minor, patch, -unstable, text
 
 
 def _installed_data_version(selected: str) -> tuple[str | None, bool]:
