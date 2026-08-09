@@ -6,8 +6,8 @@ from pathlib import Path
 from unittest.mock import patch
 
 from minescript.feature_executor import FeatureExecutor
+from minescript.seed_generation import SEED_REGENERATABLE
 from minescript.seed_worldgen import WorldgenError, canonical_version_id, generate_reference_world
-from minescript.seed_worldgen_patch import SEED_REGENERATABLE
 
 
 class SeedWorldgenTests(unittest.TestCase):
@@ -31,7 +31,7 @@ class SeedWorldgenTests(unittest.TestCase):
 
     def test_dry_run_never_launches_or_downloads_minecraft(self):
         executor = FeatureExecutor("26.3 Snapshot 7")
-        with patch("minescript.seed_worldgen_patch.resolve_world_source", side_effect=AssertionError("network/worldgen called")):
+        with patch("minescript.seed_worldgen.resolve_world_source", side_effect=AssertionError("network/worldgen called")):
             for name in SEED_REGENERATABLE:
                 result = executor.dry_run(name)
                 self.assertIsNotNone(result)

@@ -9,7 +9,7 @@ ROOT = Path(__file__).resolve().parent
 
 
 def _update_direct_launch() -> None:
-    """Official launchers already update first; direct main.py runs get the same check."""
+    """Official launchers update first; direct main.py runs get the same check."""
     if os.environ.get("F3PLUS_BOOTSTRAPPED") == "1" or os.environ.get("F3PLUS_UPDATE_RESTARTED") == "1":
         return
     try:
@@ -17,8 +17,7 @@ def _update_direct_launch() -> None:
         updated, message = auto_update(ROOT)
         print("[update] " + message)
         if updated:
-            env = os.environ.copy()
-            env["F3PLUS_UPDATE_RESTARTED"] = "1"
+            env = os.environ.copy(); env["F3PLUS_UPDATE_RESTARTED"] = "1"
             os.execve(sys.executable, [sys.executable, str(Path(__file__).resolve())], env)
     except Exception as exc:
         print(f"[update] Update check unavailable ({exc}). Continuing with the installed build.")
@@ -35,45 +34,16 @@ def _bootstrap_if_needed(exc: ModuleNotFoundError) -> int | None:
     return subprocess.call([sys.executable, str(ROOT / "launcher.py")], cwd=ROOT)
 
 
-def main():
+def main() -> int:
     _update_direct_launch()
     try:
-        from minescript.qa_features import install as install_qa_features
-        install_qa_features()
         from minescript.app import run
-        from minescript.ui_extensions import install as install_ui_extensions
-        from minescript.engine_patches import install as install_engine_patches
-        from minescript.ux_v2 import install as install_ux_v2
-        from minescript.connection_v2 import install as install_connection_v2
-        from minescript.structured_results import install as install_structured_results
-        from minescript.ui_polish_v3 import install as install_ui_polish_v3
-        from minescript.focused_defaults_v3 import install as install_focused_defaults_v3
-        from minescript.visual_results_v3 import install as install_visual_results_v3
-        from minescript.visual_context_v234 import install as install_visual_context_v234
-        from minescript.villager_portraits_v234 import install as install_villager_portraits_v234
-        from minescript.ui_depth_v234 import install as install_ui_depth_v234
-        from minescript.simulator_icon_backups_v234 import install as install_simulator_icon_backups_v234
-        from minescript.simulation_lab_ui_v234 import install as install_simulation_lab_v234
-        install_ui_extensions()
-        install_engine_patches()
-        install_ux_v2()
-        install_connection_v2()
-        install_structured_results()
-        install_ui_polish_v3()
-        install_focused_defaults_v3()
-        install_visual_results_v3()
-        install_visual_context_v234()
-        install_villager_portraits_v234()
-        install_ui_depth_v234()
-        install_simulator_icon_backups_v234()
-        install_simulation_lab_v234()
     except ModuleNotFoundError as exc:
         handled = _bootstrap_if_needed(exc)
         if handled is not None:
             return handled
         raise
-    run()
-    return 0
+    return int(run() or 0)
 
 
 if __name__ == "__main__":

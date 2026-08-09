@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Make the three waypoint analysis entries answer different questions."""
+"""Waypoint lookup, distance sorting, and route construction semantics."""
 
 import math
 from typing import Any
@@ -66,7 +66,7 @@ def _waypoint_report(executor, name: str, p: dict[str, Any]) -> dict[str, Any]:
             "purpose": "Sort every saved waypoint independently by straight-line distance from the origin.",
             "origin": [x, y, z], "waypoints_by_distance": measured,
             "saved_waypoint_count": len(points),
-            "note": "This is not a travel route; every distance is measured from the same origin."
+            "note": "This is not a travel route; every distance is measured from the same origin.",
         }
 
     remaining = list(points)
@@ -108,38 +108,3 @@ def _waypoint_report(executor, name: str, p: dict[str, Any]) -> dict[str, Any]:
         "return_to_start": return_to_start,
         "routing_method": "greedy nearest-next; not claimed globally optimal",
     }
-
-
-def install() -> None:
-    from .feature_executor import FeatureExecutor
-
-    if getattr(FeatureExecutor, "_semantic_waypoints_v2_installed", False):
-        return
-    previous_execute = FeatureExecutor.execute
-    previous_fields = FeatureExecutor.input_fields
-    names = {"Nearest Waypoint", "Sort Waypoints by Distance", "Waypoint Route"}
-
-    def input_fields(self, feature):
-        spec = self.spec(feature)
-        if spec.top == "Navigation" and spec.submenu == "Waypoints" and spec.name in names:
-            fields = [
-                ("x1", "Current / origin X", 0.0, "float"),
-                ("y1", "Current / origin Y", 64.0, "float"),
-                ("z1", "Current / origin Z", 0.0, "float"),
-            ]
-            if spec.name == "Waypoint Route":
-                fields.append(("return_to_start", "Return to origin", False, "bool"))
-            return fields
-        return previous_fields(self, feature)
-
-    def execute(self, feature, params=None, dry_run=False):
-        spec = self.spec(feature)
-        if spec.top == "Navigation" and spec.submenu == "Waypoints" and spec.name in names:
-            values = self.defaults(spec); values.update(params or {})
-            data = _waypoint_report(self, spec.name, values)
-            return self._result(spec, "unavailable" if data.get("available") is False else "ok", data)
-        return previous_execute(self, spec, params, dry_run)
-
-    FeatureExecutor.input_fields = input_fields
-    FeatureExecutor.execute = execute
-    FeatureExecutor._semantic_waypoints_v2_installed = True
