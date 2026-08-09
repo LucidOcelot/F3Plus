@@ -15,6 +15,7 @@ _HIDDEN_PRESENTATION_KEYS = {
     "display_name",     # already used as the visible guide/result title
     "mc_enum",          # Cubiomes implementation detail; version text is shown instead
     "bundled_newest_enum",
+    "_visual_context",  # private renderer input copied from the user's configured geometry
 }
 
 
@@ -83,8 +84,20 @@ def install() -> None:
                     self.settings.theme,
                     self.settings.custom_palette,
                 )
-            except Exception:
-                pass
+            except Exception as exc:
+                # A visual is supplemental, but silently swallowing renderer defects made
+                # missing maps/plans indistinguishable from genuinely non-spatial results.
+                # Keep the exact result and expose one compact, actionable UI note.
+                message = str(exc).strip().splitlines()[0] if str(exc).strip() else exc.__class__.__name__
+                if len(message) > 220:
+                    message = message[:217] + "..."
+                try:
+                    self.output._add_warning(
+                        "The numeric/text result is still valid, but its visual preview could not be rendered: " + message,
+                        label="VISUAL PREVIEW",
+                    )
+                except Exception:
+                    pass
             self.executor._last_visual_result = None
             return
         return original_write(self, text)
