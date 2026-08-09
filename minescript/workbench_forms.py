@@ -79,6 +79,13 @@ class OperationDialog(QDialog):
             self.form.removeRow(0)
         self.inputs.clear()
 
+    def _live_default(self, key: str, default):
+        owner = self.parent()
+        position = getattr(owner, "current_position", None) if owner is not None else None
+        if position is None:
+            return default
+        return {"x1": position.x, "y1": position.y, "z1": position.z}.get(str(key), default)
+
     def _rebuild(self):
         self._clear_form()
         if not self._modes:
@@ -87,6 +94,7 @@ class OperationDialog(QDialog):
         fields = self.executor.input_fields(self.mode.legacy)
         for key, label, default, kind in fields:
             if key == "seed" and getattr(self.settings, "seed", None): default = self.settings.seed
+            default = self._live_default(str(key), default)
             widget = make_widget(kind, default)
             tip = field_help(str(key), str(label))
             if tip:
