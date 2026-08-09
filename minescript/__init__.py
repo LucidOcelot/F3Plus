@@ -80,3 +80,9 @@ from .semantic_quality_v2 import install as _install_semantic_quality_v2
 
 _install_semantic_quality_v2()
 del _install_semantic_quality_v2
+
+# Keep Inspector/display names aligned with the final quality corrections.
+from .display_quality_v2 import install as _install_display_quality_v2
+
+_install_display_quality_v2()
+del _install_display_quality_v2
