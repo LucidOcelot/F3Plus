@@ -27,3 +27,9 @@ from .seed_worldgen_patch import install as _install_seed_worldgen_patch
 
 _install_seed_worldgen_patch()
 del _install_seed_worldgen_patch
+
+# Keep direct/library executor construction aligned with the current F3+ target.
+from .version_defaults import install as _install_version_defaults
+
+_install_version_defaults()
+del _install_version_defaults
