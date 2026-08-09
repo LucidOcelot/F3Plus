@@ -44,9 +44,11 @@ def main():
         from minescript.ui_extensions import install as install_ui_extensions
         from minescript.engine_patches import install as install_engine_patches
         from minescript.ux_v2 import install as install_ux_v2
+        from minescript.structured_results import install as install_structured_results
         install_ui_extensions()
         install_engine_patches()
         install_ux_v2()
+        install_structured_results()
     except ModuleNotFoundError as exc:
         handled = _bootstrap_if_needed(exc)
         if handled is not None:
