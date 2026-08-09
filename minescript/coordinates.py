@@ -32,7 +32,6 @@ class Position:
     def distance(self, other: "Position") -> float:
         return math.sqrt((other.x-self.x)**2 + (other.y-self.y)**2 + (other.z-self.z)**2)
 
-
     def sister(self, dimension: str = "Overworld") -> "Position":
         d=dimension.strip().lower()
         if d.startswith("over"):
@@ -40,6 +39,7 @@ class Position:
         if d.startswith("nether"):
             return Position(self.x*8, self.y, self.z*8, self.yaw, self.pitch)
         raise ValueError("Sister portal conversion is only defined between Overworld and Nether.")
+
     def bearing_to(self, other: "Position") -> float:
         # Minecraft yaw: 0 south, 90 west, 180 north, -90 east.
         dx, dz = other.x-self.x, other.z-self.z
@@ -66,8 +66,12 @@ class CoordinateCapture:
     def capture(self) -> Position:
         import pyperclip
         before = pyperclip.paste()
-        # Send the configured copy-location chord as a short press.
+        # Send the configured copy-location chord as a short press, then allow the
+        # client/clipboard the user-configured settle time before polling.
         self.input.chord("f3", "c", hold=.03)
+        delay = max(0, int(getattr(self.settings, "coordinate_capture_delay_ms", 120) or 0)) / 1000.0
+        if delay:
+            time.sleep(delay)
         deadline = time.monotonic() + 1.0
         while time.monotonic() < deadline:
             now = pyperclip.paste()

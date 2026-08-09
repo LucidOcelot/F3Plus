@@ -2,9 +2,9 @@ from __future__ import annotations
 
 """Dependency-free update checker/installer for F3+.
 
-Launch-time behavior is check-only by default.  Updates are installed only when the user
+Launch-time behavior is check-only by default. Updates are installed only when the user
 explicitly enables automatic installation (`F3PLUS_AUTO_UPDATE=1`) or calls
-:func:`apply_update`.  Update/network failures never block offline launch.
+:func:`apply_update`. Update/network failures never block offline launch.
 """
 
 import io
@@ -18,11 +18,13 @@ import urllib.request
 import zipfile
 from pathlib import Path, PurePosixPath
 
+from minescript.version import VERSION
+
 REPOSITORY = "LucidOcelot/F3Plus"
 BRANCH = "main"
 API_HEAD = f"https://api.github.com/repos/{REPOSITORY}/commits/{BRANCH}"
 STATE_FILE = ".f3plus-update.json"
-USER_AGENT = "F3Plus-Updater/2.3.4"
+USER_AGENT = f"F3Plus-Updater/{VERSION}"
 MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
 EXCLUDED_TOP_LEVEL = {".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log", "__pycache__", "build", "dist"}
 REQUIRED_UPDATE_FILES = ("launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml", "minescript/__init__.py", "minescript/app.py")

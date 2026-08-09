@@ -16,6 +16,8 @@ class CanonicalUiDepthTests(unittest.TestCase):
         for required in (
             "simulation.rng", "simulation.loot", "simulation.mechanics",
             "villagers.explorer", "navigation.portals", "world.spawners",
+            "automation.macro_studio", "world.profiles", "build.recipes",
+            "utilities.results", "utilities.diagnostics",
         ):
             self.assertIn(required, BY_ID)
 
@@ -42,12 +44,13 @@ class CanonicalUiDepthTests(unittest.TestCase):
 
     def test_readme_is_product_overview_not_changelog_or_internal_feature_dump(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.3.4", readme)
+        self.assertIn("# F3+ 2.4.0", readme)
         self.assertIn("## Workbenches", readme)
         self.assertIn("Ignore maximum search / generation limit", readme)
         self.assertIn("villager entity/type/profession skin layers", readme.lower())
+        self.assertIn("macro studio", readme.lower())
         self.assertNotIn("F3+ was unfortunately developed", readme)
-        self.assertNotIn("## What 2.3.4 focuses on", readme)
+        self.assertNotIn("## What 2.4.0 focuses on", readme)
         self.assertLess(len(readme.splitlines()), 180)
 
 

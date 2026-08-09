@@ -8,7 +8,7 @@ UV="$UV_DIR/uv"
 UV_VERSION='0.12.0'
 exec > >(tee -a "$LOG") 2>&1
 
-printf 'F3+ 2.3.4 - LucidOcelot\n==================================\n\n'
+printf 'F3+ 2.4.0 - LucidOcelot\n==================================\n\n'
 echo 'Checking installation...'
 for required in launcher.py main.py requirements.txt minescript/app.py updater.py; do
   if [ ! -e "$ROOT/$required" ]; then

@@ -1,77 +1,90 @@
 # F3+ Workbench Guide
 
-F3+ is an offline-first technical companion for Minecraft Java Edition. The default target is **26.3 Snapshot 7**. The desktop UI is organized by user task; historical feature IDs are compatibility aliases, not separate applications.
+F3+ 2.4.0 is an offline-first technical companion for Minecraft Java Edition. The default target is **26.3 Snapshot 7**. The desktop UI is organized by user task; the 457 historical feature IDs are compatibility aliases, not separate applications.
 
 ## Shared interaction model
 
-1. Choose a workbench.
+1. Choose a workbench or use `Ctrl+K` Command Palette.
 2. Choose the operation inside it.
-3. Enter only the fields used by that operation.
-4. Run the operation and inspect its structured result, source, and limitations.
+3. Enter only the values used by that operation.
+4. Run it and inspect structured output, source/exactness context, limitations, and an interactive X/Z map where spatial data exists.
 
 Favorites and recents store canonical workbench IDs. Historical IDs from older F3+ builds still resolve to the matching operation so existing settings/scripts are not orphaned.
 
-Coordinate-bearing results can open an interactive X/Z view with wheel zoom, drag panning, fit-to-data, layer visibility, optional point labels, and copyable visible coordinates.
+Configuration fields include contextual help and accessibility descriptions. Search controls enable only when they affect the selected mode. **Search until found** exposes expansion step and maximum radius; the explicit ignore-limit override disables the normal maximum and warns that exact generation can consume substantial CPU, memory, disk and runtime.
 
 ## Automation
 
-**Automation Studio** groups continuous/periodic actions and equipment routines. **Travel & Mobility** contains automated/planned walking, sprinting, swimming, vehicle, elytra, riptide, coordinate, waypoint, and Nether-assisted travel. **Mining & Excavation**, **Farm Automation**, and **Construction Automation** group related repetitive routines instead of presenting each macro preset as an independent program. **Sequences & Macro Workflows** covers recording and multi-step automation.
+**Automation Studio** groups continuous/periodic actions and equipment routines. **Travel & Mobility** contains walking, sprinting, swimming, vehicle, elytra, riptide, coordinate, waypoint, and Nether-assisted travel. **Mining & Excavation**, **Farm Automation**, and **Construction Automation** group related repetitive routines instead of presenting each preset as an independent application.
 
-All automation uses the shared `MacroEngine`/platform-input safety path. Emergency Stop releases held input. Pause/Resume, delayed start, runtime/action limits, focus behavior, stuck detection, and configurable global hotkeys remain common controls.
+Previously fixed example values are configurable again: Custom Hold/Periodic Action, livestock breeding, fishing, coordinate/waypoint/Nether-assisted travel, branch/stair/area excavation, coordinate row farming, bone meal farming, Mending Grinder, and construction rectangle/filled rectangle/grid/rows/alternating/perimeter paths all use their configured parameters.
+
+### Macro Studio
+
+Macro Studio is a canonical workbench for reusable local automation. It supports:
+
+- tap, click, wait, hold, turn, and hotbar-slot steps;
+- built-in templates;
+- manual step editing and ordering;
+- optional keyboard/mouse recording through the existing pynput input layer;
+- a dry timeline showing the sequence and known minimum duration;
+- looped or one-pass playback;
+- local save/delete plus JSON import/export;
+- execution through `MacroEngine`, so global stop/pause and configured safety limits still apply.
+
+## Automation safety and connection state
+
+All automation uses the shared `MacroEngine`/platform-input path. The following settings are active controls, not descriptors: runtime limit, action/cycle limit, delayed start, coordinate-recovery attempts, hotbar restoration, stuck-detection window/minimum progress, and focus-loss stop.
+
+If the linked Minecraft process/window disappears, F3+ stops managed automation, releases held input, clears the target, and returns to a non-targeted foreground backend. Automatic linking only happens without a prompt when exactly one client is available; multiple detected clients require a choice.
+
+When a macro requires focus, F3+ can capture the previously focused application, focus the linked Minecraft client, and restore the previous application after the run when that option is enabled. Minimized-client and unlinked-client paths are surfaced before input starts.
 
 ## Navigation
 
-**Live Position** handles coordinate capture/tracking. **Coordinate & Travel Calculator** combines distance, bearing, midpoint, XYZ delta, travel time, chunk/region geometry, snapping, offsets, and Overworld/Nether conversion.
+**Live Position** handles F3+C capture, continuous position monitoring, distance announcements, and bearing-to-target monitoring. The configured coordinate-capture delay is applied before clipboard polling.
 
-**Waypoints, Routes & Surveys** keeps genuinely different tasks as modes of one route workbench: nearest waypoint, sort from origin, greedy multi-stop route, breadcrumb/expedition summaries, and survey-path generation.
+**Coordinate & Travel Calculator** combines distance, bearing, midpoint, XYZ delta, travel time, chunk/region geometry, snapping, offsets, and Overworld/Nether conversion. Sister-coordinate conversion explicitly rejects the End.
 
-**Portal Network Planner** combines sister-coordinate math, competing exits, one-way/asymmetric routing, reliability geometry, bidirectional matrices, graphs, route comparison, and network planning. A heatmap's normalized proximity is explicitly a geometric planning metric, not a probability that Minecraft will choose an exit.
+**Waypoints, Routes & Surveys** owns persistent waypoint state again. Users can create, edit/rename, delete, group, import, and export waypoints; Save Sister Waypoint persists a unique Overworld/Nether sister coordinate. Captured coordinates are kept in a bounded local history. Nearest/sorted/route calculations read the saved waypoint set and default their origin to the currently captured player position when available.
+
+**Portal Network Planner** combines sister-coordinate math, competing exits, one-way/asymmetric routing, reliability geometry, bidirectional matrices, graphs, route comparison, and network planning. Portal Reliability Heatmap's normalized proximity remains explicitly a geometric planning metric, **not a probability** that Minecraft will choose an exit.
 
 ## World Explorer
 
 **World Seed Recovery** is the Nether Bedrock Cracker path and remains the only world/structure-seed recovery workflow. Player/gameplay RNG recovery is separate.
 
-**Slime Chunk Explorer** handles finding, adjacency, geometric clusters, ranking, and related known-seed slime analysis.
+**Slime Chunk Explorer** handles finding, adjacency, geometric clusters, ranking, and related known-seed slime analysis. **Structure Explorer** combines individual/compound placement searches, density/relationship analysis, cluster/corridor/route views, and structure-placement previews; deterministic placement candidates are not mislabeled as confirmed generated structures.
 
-**Structure Explorer** combines individual/compound structure candidate searches, density/relationship analysis, cluster/corridor/route views, and structure placement previews. Deterministic placement candidates are not mislabeled as confirmed generated structures.
+**Spawner Explorer** reads generated Anvil/NBT data, identifies mob-spawner entity IDs where encoded, distinguishes trial spawners/vaults, supports mob filters, and applies double/triple/quad/cluster grouping after filtering. Seed math alone is never presented as proof that an arbitrary dungeon spawner generated.
 
-**Spawner Explorer** reads generated Anvil/NBT data. It identifies mob-spawner entity IDs when encoded, distinguishes trial spawners/vaults, supports mob filters, and applies double/triple/quad/cluster grouping after filtering. Seed math alone is never presented as proof that an arbitrary dungeon spawner generated.
+**Biome & Terrain Explorer**, **Local Area Analyzer**, **World Analysis**, and **Nether Explorer** retain known-seed and generated-world operations. Exact/reference-world generation remains opt-in after Minecraft EULA acceptance and keeps selected/calculation/local-data version state separate.
 
-**Biome & Terrain Explorer** contains biome lookup/nearest/intersection/boundary operations plus generated-terrain reports such as flat terrain, valleys, peaks, islands, rivers, cliffs, caves, and larger terrain regions.
+### World Profiles & Local Saves
 
-**Local Area Analyzer** provides bounded composition/highlight/site reports. **World Analysis** contains spawn/resource/ore/cave/loading/comparison/search-cost reports. **Nether Explorer** contains known-seed Nether biome and fortress/bastion analysis that depends on generation rather than ordinary portal-coordinate math.
+World Profiles discovers standard local Java `saves` folders or accepts an explicitly selected world folder. `level.dat` is read locally for available world name, DataVersion/version name, seed, spawn, mode/hardcore state and last-played metadata. Selecting a profile can apply its known seed/version context to F3+ without modifying the world.
 
-### Search modes
-
-Finders with a concrete found/not-found result support:
-
-- **Radius search** — inspect one bounded radius.
-- **Search until found** — expand by a configured step until a match or maximum radius.
-- **Ignore maximum search / generation limit** — advanced override that can greatly increase CPU, memory, disk, and runtime use. An internal runaway-loop guard and backend errors can still stop the process.
-
-Generated-world spawner/terrain scans use chunk units. Cubiomes biome search operations use block units where appropriate; the UI keeps these units explicit.
+World-profile data is stored locally under the F3+ user-data folder. Local save inspection remains read-only by default.
 
 ## Build & Technical
 
-**Build & Shape Planner** combines dimensions, block counts, foundations, stairs, bridges, roofs, roads, grids, lighting, gradients, circles/spheres/spirals/helices, and export-ready layouts.
+**Build & Shape Planner** combines dimensions, block counts, foundations, stairs, bridges, roofs, roads, grids, lighting, gradients, circles/spheres/spirals/helices, and export-ready layouts. **Redstone & Timing Lab**, **Storage & Logistics**, **Farm & Breeding Planner**, **Technical Minecraft Calculator**, and **Resource, Speedrun & End Toolkit** retain their distinct calculations while sharing a smaller visible surface.
 
-**Redstone & Timing Lab** includes game/redstone tick conversion, repeaters/comparators/hoppers, transport timing, crafter throughput, clocks, counters, and signal planning.
+### Recipe & Material Explorer
 
-**Storage & Logistics** distinguishes capacity questions from requirement questions while sharing one workbench. **Farm & Breeding Planner** combines yield, layout, furnace/fuel, crop/apiary/pen/villager-hall/beacon/farm planning. **Technical Minecraft Calculator** groups loading/mob/spacing/chunk/perimeter/sorter/technical geometry. **Resource, Speedrun & End Toolkit** groups resource-use, durability, XP/Mending, speedrun coordinate, and End-travel planning.
+The Recipe & Material Explorer reads installed Minecraft recipe JSON directly from the selected/available client JAR. It can search by recipe ID, result item, or recipe type, inspect ingredient slots, and recursively expand a target output into a material bill.
+
+When a recipe slot permits alternatives, the planning expansion chooses the first listed concrete alternative rather than pretending all alternatives are interchangeable. Item tags that require a user material choice remain unresolved and visible in the BOM. This is a planning tool, not a claim that one material choice is uniquely correct.
 
 ## Simulation & RNG
 
 ### RNG & Enchanting Workbench
 
-Enchanting Table, Anvil, sequence/timeline, general probability, Java LCG observation/recovery, enchantment planning, and player-RNG recovery share one workbench instead of independent small dialogs.
-
-Installed enchantment definitions and tags are used when available. Normal enchanting-table offers exclude treasure-tagged enchantments. Anvil results expose prior-work penalties, merge costs, rename cost, resulting enchantments, and the normal survival Too Expensive threshold where modeled.
+Enchanting Table, Anvil, sequence/timeline, general probability, Java LCG observation/recovery, enchantment planning, and player-RNG recovery share one workbench. Installed enchantment definitions/tags are used when available; normal table offers exclude treasure-tagged enchantments. Player RNG is never presented as world-seed recovery.
 
 ### Loot & Drop Workbench
 
-The loot workbench reads installed vanilla loot-table JSON, item tags, nested table references, conditions, and supported functions. Item-tag object members are normalized, and an entry condition is evaluated exactly once during one selection attempt rather than being resampled during expansion.
-
-Possible-loot views show reachable entries without fabricating an exact probability when required entity/location/tool/score context is unavailable. Statistical simulation uses repeatable seeds and reports observed hit rates/counts. When no usable installed data exists, F3+ uses clearly labeled first-party baseline examples.
+The loot workbench reads installed vanilla loot-table JSON, item tags, nested references, conditions, and supported functions. Item-tag object members are normalized and an entry condition is evaluated once per selection attempt rather than resampled during expansion. Context-dependent branches remain labeled instead of receiving fabricated exact probabilities.
 
 ### Generation RNG Workbench
 
@@ -79,19 +92,41 @@ Decoration, feature-position, ore-position, tree/geode frequency, trial-chamber,
 
 ### Minecraft Mechanics Lab
 
-Brewing, leather dye/cauldron behavior, and animal/horse breeding share a mechanics workbench. Brewing transitions that are code-defined in Java are labeled as an internal vanilla rule model rather than falsely attributed to datapack recipe JSON. Java leather dye mixing uses brightness-preserving RGB behavior; cauldron washing remains separate. Breeding exposes species-specific fields instead of copying unrelated runtime NBT into offspring.
+Brewing, leather dye/cauldron behavior, and animal/horse breeding share a mechanics workbench. Brewing transitions that are code-defined in Java are labeled as an internal vanilla rule model. Java leather-dye mixing uses brightness-preserving RGB behavior; cauldron washing remains separate. Breeding exposes species-specific fields instead of copying unrelated runtime NBT into offspring.
 
 ## Villagers
 
-**Villager Explorer** is the single villager surface. It includes professions, Novice/Apprentice/Journeyman/Expert/Master levels, trade directions, search, comparison, librarian workflows, emerald/use-cycle planning, curing, breeding, workstation, and hall planning.
+**Villager Explorer** is again a full visual explorer rather than a flat trade table. It includes:
 
-Artwork and trade data are independent. Villager entity/type/profession skin layers and item textures are read from an installed Java client when available. Exact installed trade definitions are preferred; otherwise a non-empty planning baseline is visibly labeled as non-exact.
+- profession/level/item search and direction filtering;
+- installed villager profession/type skin layers and item icons when available;
+- trade favorites and Favorites-only filtering;
+- planned-use count, max-use/restock context, villager XP, source definition, and approximate emerald flow;
+- a trade comparison list;
+- librarian-focused workflows and explicit installed/baseline source labeling;
+- Zombie Cure, Villager Hall, Workstation Count, and Breeding Food helpers through the canonical executor.
 
-## Utilities & Safety
+Trade data and artwork are independent. Exact installed definitions are preferred; otherwise the non-empty planning baseline is labeled as non-exact.
 
-**Version & Data** reports selected Minecraft version, installed/local data, compatibility, and component state. **Profiles, Controls & Calibration** handles settings, bindings, import/export/backups, and movement/turn/capture calibration. **Automation Safety** contains emergency stop, pause/resume, held-input release, focus-loss behavior, runtime/action limits, delayed start, stuck detection, and recovery policy.
+## Profiles, controls and calibration
 
-Safe Mode is a conservative multiplayer filter. It disables automation, hidden-world/seed analysis, and predictive RNG/loot/generation workbenches while keeping ordinary calculators, villager reference tools, mechanics references, and local configuration available. Server rules remain authoritative.
+The Profiles, Controls & Calibration workbench edits the canonical Minecraft action bindings used by `BoundInput`, coordinate-capture delay, turn units per 90 degrees, and movement planning speed. Full settings can be backed up/exported/imported as JSON. Import creates a local pre-import backup before applying recognized settings and keybindings.
+
+Global Emergency Stop, Pause/Resume, and Copy Sister Coordinates hotkeys remain configurable under Options.
+
+## Results and visualization
+
+Normal result presentation removes private/internal dispatch keys and shows readable labels plus status, source/exactness context, warnings/notes, and a map affordance for coordinate-bearing data. The X/Z viewer supports wheel zoom, drag panning, fit-to-data, layer visibility, point labels, cursor coordinates, and copying visible coordinate layers.
+
+**Result History** stores a bounded local record of recent calculations including timestamp, workbench, operation, selected Minecraft version, note, and data. Individual entries can be inspected or exported as JSON; history can be cleared without affecting settings/world data.
+
+## Diagnostics
+
+Diagnostics reports the linked client, active input backend/session and background/minimized capability labels, installed Minecraft versions, Cubiomes/Nether Bedrock component readiness, configuration path, and local saved-state counts. It is intended to make platform/component failures diagnosable without exposing world data externally.
+
+## Appearance
+
+The user-selectable themes are **Chorus, Light, Cyber, Vanilla, and Custom**. Custom exposes the F3+ palette and can optionally use recovered Minecraft artwork. Minecraft client/server JARs and Mojang assets are not redistributed.
 
 ## Version and source accuracy
 
@@ -107,4 +142,4 @@ Generated-terrain operations can inspect a Java save or, where supported, create
 
 ## Architecture boundary
 
-The visible workbench registry is canonical. The 457 historical IDs are retained only as compatibility aliases. Importing `minescript` does not install patches or rewrite classes. Domain behavior is composed through explicit executor/services, and simulator correctness policy is part of the canonical simulator engine rather than a release-specific hardening module.
+The visible workbench registry is canonical. The 457 historical IDs remain compatibility aliases. Importing `minescript` does not install patches or rewrite classes. Domain behavior is composed through explicit executor/services, state-changing features have actual UI owners, and the added project workbenches do not create new historical pseudo-feature IDs.

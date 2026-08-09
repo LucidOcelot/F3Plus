@@ -1,10 +1,10 @@
-# F3+ 2.3.4
+# F3+ 2.4.0
 
 **A local technical Minecraft workstation for vanilla Java Edition.**
 
-F3+ combines technical Minecraft analysis, planning, simulation, navigation, generated-world inspection, and optional automation in one cross-platform desktop application. It is designed to work with an ordinary unmodified Minecraft Java client and to keep world, seed, coordinate, and planning data local whenever the selected workflow does not require an external component download.
+F3+ combines technical Minecraft analysis, planning, simulation, navigation, generated-world inspection, and optional automation in one cross-platform desktop application. It is designed to work with an ordinary unmodified Minecraft Java client and to keep world, seed, coordinate, project, and planning data local whenever the selected workflow does not require an external component download.
 
-**Release:** 2.3.4  
+**Release:** 2.4.0  
 **Default Minecraft target:** 26.3 Snapshot 7  
 **Python:** 3.11 through 3.13
 
@@ -14,29 +14,43 @@ F3+ combines technical Minecraft analysis, planning, simulation, navigation, gen
 - **macOS:** extract the ZIP and run `START_F3PLUS.command`. Automation may require Accessibility/Input Monitoring permission.
 - **Linux:** run `START_F3PLUS.sh`. Calculators and foreground workflows do not depend on background-input support.
 
-The launcher prepares a project-local environment and required Python packages when needed. Installed copies continue to launch when update checks are unavailable.
+The launcher prepares a project-local environment and required Python packages when needed. Installed copies continue to launch when update checks are unavailable. Launch-time updates are check-only by default; installation requires explicit opt-in.
 
 ## Workbenches
 
-F3+ no longer presents every historical command, preset, report, and compatibility ID as a separate application. Related operations live inside a small set of task-oriented workbenches:
+F3+ does not present every historical command, preset, report, and compatibility ID as a separate application. Related operations live inside task-oriented workbenches:
 
-- **Automation** — continuous actions, travel, mining, farming, construction, and multi-step sequences.
-- **Navigation** — live position, coordinate/travel math, waypoints/routes/surveys, and portal networks.
-- **World Explorer** — known-seed structure/biome/slime analysis, generated spawners, Nether analysis, local-area reports, and generated-world inspection.
-- **Build & Technical** — shapes/build planning, redstone/timing, storage/logistics, farms, technical mechanics, resource use, speedrun, and End utilities.
+- **Automation** — continuous actions, travel, mining, farming, construction, parameterized routines, and Macro Studio for reusable sequences.
+- **Navigation** — live position, coordinate/travel math, persistent waypoints and groups, coordinate history, routes/surveys, and portal networks.
+- **World Explorer** — known-seed structure/biome/slime analysis, generated spawners, Nether analysis, local-area reports, generated-world inspection, and World Profiles for local Java saves.
+- **Build & Technical** — shapes/build planning, redstone/timing, storage/logistics, farms, technical mechanics, resource use, speedrun/End utilities, and an installed-data Recipe & Material Explorer.
 - **Simulation & RNG** — enchanting/anvil/RNG recovery and timelines, loot/drop exploration, generation RNG models, brewing/dye/cauldron mechanics, and animal/horse breeding.
-- **Villagers** — one visual explorer for professions, levels, trades, search/comparison, librarians, emerald/use planning, curing, breeding, workstations, and halls.
-- **Utilities & Safety** — Minecraft/data version status, profiles, controls/calibration, component state, and automation safety.
+- **Villagers** — one visual explorer for professions, levels, direction filters, trade search/comparison/favorites, librarians, planned uses/restocks, emerald flow, curing, breeding, workstations, and halls.
+- **Utilities & Safety** — Minecraft/data version status, profiles, bindings/calibration, component diagnostics, result history/export, and automation safety.
 
-Historical feature IDs remain an internal compatibility namespace for saved favorites, recents, scripts, and settings. They resolve to the matching workbench operation rather than appearing as hundreds of duplicate buttons.
+Historical feature IDs remain an internal compatibility namespace for saved favorites, recents, scripts, and settings. All 457 historical IDs resolve to the matching canonical workbench operation rather than appearing as hundreds of duplicate buttons.
+
+## Project workbenches
+
+**Macro Studio** records or manually assembles tap/click/wait/hold/turn/slot sequences, shows a dry timeline, saves local macros, imports/exports JSON, and runs them through the same `MacroEngine` safety controls as built-in automation.
+
+**World Profiles & Local Saves** discovers standard Java singleplayer saves and reads `level.dat` locally for world name, version, seed, spawn, and related context. Applying a profile reuses that context in F3+; the world is not modified.
+
+**Recipe & Material Explorer** reads recipe definitions from an installed Minecraft client JAR. It can search recipes and expand a target into a recursive material bill. Alternative ingredients use the first listed choice for planning and unresolved tags remain explicitly marked instead of being guessed.
+
+**Result History** keeps recent calculations locally under the F3+ user-data folder and can export an individual result as JSON. **Diagnostics** reports input-backend state, installed Minecraft versions, component readiness, configuration paths, and saved-state counts.
+
+A **Command Palette** (`Ctrl+K`) searches canonical workbenches and historical operation names without restoring the old flat catalog UI.
 
 ## Results and explorers
 
-Tools request only the values used by the selected operation. Structured results use readable units and labels instead of exposing internal dictionaries as the primary UI. Coordinate-bearing world, route, structure, and planning results can open an interactive X/Z view with wheel zoom, drag panning, fit-to-data, layer visibility, optional point labels, and copyable visible coordinates.
+Configuration fields include contextual help and accessibility descriptions. Search-oriented dialogs explain Radius search, Search until found, maximum radius, exact generation, EULA acceptance, and the explicit ignore-limit override; controls that do not apply to the selected search mode are disabled.
+
+Structured results display status, source and exactness context while hiding internal dispatch metadata. Coordinate-bearing world, route, structure, and planning results can open an interactive X/Z view with wheel zoom, drag panning, fit-to-data, layer visibility, optional point labels, and copyable visible coordinates.
 
 The Villager Explorer uses villager entity/type/profession skin layers and item textures recovered from an installed Java client when available. Trade data and artwork are independent: installed trade definitions are preferred, while a clearly labeled planning baseline keeps the explorer usable when exact local trade data is unavailable.
 
-Simulation workbenches read installed loot tables, enchantment definitions, tags, and textures where Minecraft exposes them. Fallback datasets are labeled as baseline/reference data rather than being presented as exact selected-version results.
+Simulation workbenches read installed loot tables, enchantment definitions, tags, recipes, and textures where Minecraft exposes them. Fallback datasets are labeled as baseline/reference data rather than being presented as exact selected-version results.
 
 ## Search and exactness
 
@@ -58,15 +72,19 @@ Generated-terrain tools can inspect an existing Java save. Where supported, F3+ 
 
 ## Minecraft linking and automation safety
 
-Automation links to a detected Minecraft Java process rather than trusting window-title text alone. F3+ reports whether the current platform/backend can deliver targeted background input, requires focus switching, or is foreground-only.
+Automation links to a detected Minecraft Java process rather than trusting window-title text alone. When multiple clients are detected, F3+ asks which client to control. If the linked client disappears, managed automation is stopped, held input is released, and the stale targeted backend is discarded.
 
-Emergency Stop releases tracked held input. Pause/Resume and the main global hotkeys are configurable under **Options → Automation**. Safe Mode is a conservative multiplayer filter; it does not replace a server's rules.
+Automation can use targeted background input, focus switching, or foreground-only input depending on the platform/backend. When F3+ temporarily switches focus for a macro, it can restore the previous application when the run ends.
+
+Runtime/action limits, delayed start, coordinate recovery attempts, hotbar restoration, stuck detection, focus-loss stop, Emergency Stop, Pause/Resume, and configurable global hotkeys are active settings rather than informational descriptors. Safe Mode is a conservative multiplayer filter; it does not replace a server's rules.
 
 ## Local data, network use, and assets
 
-Prepared calculations, settings, installed-data browsing, and generated-save analysis run locally. Network access may be required for dependency/component acquisition, update checks, optional upstream helpers, or Mojang reference-world acquisition.
+Prepared calculations, settings, world profiles, result history, saved macros, installed-data browsing, and generated-save analysis run locally. Network access may be required for dependency/component acquisition, update checks, optional upstream helpers, or Mojang reference-world acquisition.
 
 F3+ does not bundle Minecraft client/server JARs or Mojang texture files. Minecraft artwork shown in the interface is read from the player's installed Java files at runtime when available.
+
+Themes available under Options are **Chorus, Light, Cyber, Vanilla, and Custom**. Custom can use the recolorable F3+ artwork or recovered Minecraft assets where available.
 
 ## Documentation and security
 
