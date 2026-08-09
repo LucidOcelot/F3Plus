@@ -37,4 +37,4 @@ jobs:
         env:
           F3PLUS_RUN_MOJANG_WORLDGEN: '1'
           F3PLUS_WORLDGEN_TEST_VERSION: '26.3-snapshot-6'
-        run: python -m unittest tests.test_seed_worldgen_integration -v
+        run: python -m unittest discover -s tests -p 'test_seed_worldgen_integration.py' -v
