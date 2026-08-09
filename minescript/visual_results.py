@@ -7,7 +7,6 @@ plot above the detailed cards/tables for structures, slime chunks, shapes, layou
 world scans, generation samples, portal geometry, and RNG sequences.
 """
 
-from collections.abc import Iterable
 import math
 
 
@@ -16,6 +15,7 @@ SPATIAL_KEYS = (
     "nearest_samples", "corners", "vertices", "matches", "largest", "ranked",
     "strand_a", "strand_b", "boundary_segments", "portals", "waypoints",
 )
+PAIR_FIRST_KEYS = {"nearest_samples", "boundary_segments"}
 SEQUENCE_KEYS = ("sequence", "rolls", "values", "samples")
 
 
@@ -56,11 +56,11 @@ def _number(value) -> float | None:
     return None
 
 
-def _point(value) -> tuple[float, float] | None:
+def _point(value, *, pair_first: bool = False) -> tuple[float, float] | None:
     if isinstance(value, dict):
         for key in ("chunk", "position", "point", "nether", "overworld", "center"):
             if key in value:
-                point = _point(value[key])
+                point = _point(value[key], pair_first=pair_first)
                 if point is not None:
                     return point
         pairs = (("x", "z"), ("chunk_x", "chunk_z"), ("cx", "cz"), ("block_x", "block_z"))
@@ -71,6 +71,11 @@ def _point(value) -> tuple[float, float] | None:
                 return x, z
         return None
     if isinstance(value, (list, tuple)):
+        if pair_first and len(value) >= 2:
+            x = _number(value[0])
+            z = _number(value[1])
+            if x is not None and z is not None:
+                return x, z
         if len(value) >= 3:
             x = _number(value[0])
             z = _number(value[2])
@@ -84,13 +89,13 @@ def _point(value) -> tuple[float, float] | None:
     return None
 
 
-def _collect_points(value, limit: int = 2400) -> list[tuple[float, float]]:
+def _collect_points(value, limit: int = 2400, *, pair_first: bool = False) -> list[tuple[float, float]]:
     points: list[tuple[float, float]] = []
 
     def visit(node):
         if len(points) >= limit:
             return
-        point = _point(node)
+        point = _point(node, pair_first=pair_first)
         if point is not None:
             points.append(point)
             return
@@ -119,7 +124,7 @@ def _spatial_series(data) -> list[tuple[str, list[tuple[float, float]]]]:
             for key, value in node.items():
                 key_text = str(key).lower()
                 if key_text in SPATIAL_KEYS:
-                    points = _collect_points(value)
+                    points = _collect_points(value, pair_first=key_text in PAIR_FIRST_KEYS)
                     if len(points) >= 2:
                         found.append((str(key).replace("_", " ").title(), points))
                         if len(found) >= 4:
@@ -134,7 +139,6 @@ def _spatial_series(data) -> list[tuple[str, list[tuple[float, float]]]]:
                         return
 
     walk(data)
-    # If no named collection was discovered, accept a root list of coordinates.
     if not found and isinstance(data, (list, tuple)):
         points = _collect_points(data)
         if len(points) >= 2:
@@ -177,14 +181,13 @@ class _PreviewBase:
 
 def _qt_classes():
     from PySide6.QtCore import Qt, QPointF, QRectF
-    from PySide6.QtGui import QColor, QFont, QPainter, QPainterPath, QPen
+    from PySide6.QtGui import QColor, QPainter, QPainterPath, QPen
     from PySide6.QtWidgets import QFrame
-    return Qt, QPointF, QRectF, QColor, QFont, QPainter, QPainterPath, QPen, QFrame
+    return Qt, QPointF, QRectF, QColor, QPainter, QPainterPath, QPen, QFrame
 
 
-# Define Qt widgets lazily enough that this module remains importable in non-GUI tests.
 try:
-    Qt, QPointF, QRectF, QColor, QFont, QPainter, QPainterPath, QPen, QFrame = _qt_classes()
+    Qt, QPointF, QRectF, QColor, QPainter, QPainterPath, QPen, QFrame = _qt_classes()
 
     class _SpatialPreview(QFrame):
         def __init__(self, title: str, series, colors, parent=None):
