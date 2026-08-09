@@ -8,12 +8,12 @@ UV_DIR="$RUNTIME/uv"
 UV="$UV_DIR/uv"
 UV_VERSION='0.12.0'
 
-echo 'F3+ 1.16.2 - LucidOcelot'
+echo 'F3+ 2.0.0 - LucidOcelot'
 echo '=================================='
 echo
 echo 'Checking installation...'
 
-for required in launcher.py main.py requirements.txt minescript/app.py; do
+for required in launcher.py main.py requirements.txt minescript/app.py updater.py; do
   if [ ! -e "$ROOT/$required" ]; then
     echo 'ERROR: F3+ is not fully extracted.'
     echo 'Extract the entire ZIP to a normal folder and try again.'
@@ -22,27 +22,25 @@ for required in launcher.py main.py requirements.txt minescript/app.py; do
 done
 
 find_python() {
-  # Project-managed runtime first.
   for p in "$RUNTIME/python"/*/bin/python3 "$RUNTIME/python"/*/bin/python "$RUNTIME/python/bin/python3" "$RUNTIME/python/bin/python"; do
     [ -x "$p" ] || continue
-    "$p" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1 && { printf '%s\n' "$p"; return 0; }
+    "$p" -c 'import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)' >/dev/null 2>&1 && { printf '%s\n' "$p"; return 0; }
   done
   for name in python3 python; do
     command -v "$name" >/dev/null 2>&1 || continue
     p=$(command -v "$name")
-    "$p" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1 && { printf '%s\n' "$p"; return 0; }
+    "$p" -c 'import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)' >/dev/null 2>&1 && { printf '%s\n' "$p"; return 0; }
   done
   return 1
 }
 
 PYTHON=$(find_python || true)
 if [ -z "$PYTHON" ]; then
-  echo 'Python 3.11+ was not found. F3+ will prepare a private runtime.'
+  echo 'Python 3.11 through 3.13 was not found. F3+ will prepare a private runtime.'
   mkdir -p "$UV_DIR" "$RUNTIME/python" || exit 2
   if [ ! -x "$UV" ]; then
     command -v curl >/dev/null 2>&1 || { echo 'ERROR: curl is required for automatic first-run setup.'; exit 3; }
     ARCH=$(uname -m)
-    # Update the pinned SHA-256 values below when UV_VERSION changes.
     case "$ARCH" in
       x86_64|amd64)
         UV_ASSET='uv-x86_64-unknown-linux-gnu.tar.gz'
@@ -78,7 +76,6 @@ if [ -z "$PYTHON" ]; then
   "$UV" python install 3.13 || { echo 'ERROR: Could not prepare Python.'; exit 5; }
   PYTHON=$(find_python || true)
   if [ -z "$PYTHON" ]; then
-    # Ask uv for the managed interpreter as a final discovery path.
     PYTHON=$(UV_PYTHON_PREFERENCE=only-managed "$UV" python find 3.13 2>/dev/null || true)
   fi
   [ -n "$PYTHON" ] && [ -x "$PYTHON" ] || { echo 'ERROR: Private Python was installed but could not be located.'; exit 6; }
@@ -87,6 +84,7 @@ fi
 PYVER=$($PYTHON -c 'import sys; print(sys.version.split()[0])' 2>/dev/null || echo unknown)
 echo "Found Python $PYVER"
 echo 'Starting F3+ setup and launch...'
+echo 'F3+ checks GitHub for updates before loading the application; offline launch continues if the check cannot connect.'
 "$PYTHON" "$ROOT/launcher.py"
 RC=$?
 if [ "$RC" -ne 0 ]; then
