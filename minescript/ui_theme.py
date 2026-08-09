@@ -1,6 +1,12 @@
 from __future__ import annotations
 
-"""Color tokens and Qt stylesheet generation for F3+."""
+"""Color tokens and Qt stylesheet generation for F3+.
+
+The stylesheet deliberately gives native Qt container/view classes an explicit
+surface and foreground.  This prevents an operating-system light palette from
+bleeding through a dark F3+ theme when a dialog or workbench uses a plain
+QWidget/QListWidget/QTabWidget rather than a named presentation frame.
+"""
 
 CHORUS = {
     "primary": "#7B3FF2", "primary2": "#5A27B5", "accent": "#D9B64C", "accent2": "#4388FF",
@@ -30,22 +36,6 @@ MINECRAFT = {
     "success": "#68C95A", "warning": "#E5BC50", "danger": "#C84A45",
 }
 
-# Bright, spacious technical-map theme. It intentionally does not reuse Light's blue UI language.
-AETHER = {
-    "primary": "#087F8C", "primary2": "#05616A", "accent": "#D06B49", "accent2": "#2B9FB0",
-    "glow": "#30C4D2", "bg": "#E8F4F3", "surface": "#F9FEFD", "surface2": "#E0F0EE",
-    "surface3": "#CBE5E2", "text": "#173335", "muted": "#5D7879", "border": "#9FC8C5",
-    "success": "#267D62", "warning": "#9B651F", "danger": "#A84040",
-}
-
-# Dense industrial theme built around oxidized metal, brass, and furnace heat.
-FOUNDRY = {
-    "primary": "#D36A2E", "primary2": "#9B461F", "accent": "#D3A64A", "accent2": "#5C899E",
-    "glow": "#F08A42", "bg": "#0D0F10", "surface": "#171A1B", "surface2": "#222627",
-    "surface3": "#303536", "text": "#F0E8DA", "muted": "#AAA194", "border": "#554B42",
-    "success": "#75A66D", "warning": "#D3A64A", "danger": "#D4564A",
-}
-
 DEFAULT_CUSTOM_PALETTE = {
     "primary": "#7A5CFF", "primary2": "#5B42C7", "accent": "#E0B84E", "accent2": "#3DC7D3",
     "glow": "#8AA4FF", "bg": "#0B0D12", "surface": "#151922", "surface2": "#202635",
@@ -58,8 +48,6 @@ PALETTES = {
     "light": LIGHT,
     "cyberpunk": CYBERPUNK,
     "minecraft": MINECRAFT,
-    "aether": AETHER,
-    "foundry": FOUNDRY,
     "custom": DEFAULT_CUSTOM_PALETTE,
 }
 
@@ -83,8 +71,6 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
     cyber = theme == "cyberpunk"
     minecraft = theme == "minecraft"
     light = theme == "light"
-    aether = theme == "aether"
-    foundry = theme == "foundry"
 
     if cyber:
         radius, card_radius = 2, 3
@@ -107,20 +93,6 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
         primary_text = selected_text = "#FFFFFF"
         title_family = "'Segoe UI Semibold','Segoe UI',sans-serif"
         card_border = p["accent"]
-    elif aether:
-        radius, card_radius = 12, 16
-        top_bg = "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #F9FEFD,stop:.52 #DDF1EE,stop:1 #CDE8E5)"
-        rail_bg = "qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #F8FDFC,stop:1 #DCEDEA)"
-        primary_text = selected_text = "#FFFFFF"
-        title_family = "'Segoe UI Variable Display','Segoe UI Semibold','Segoe UI',sans-serif"
-        card_border = p["accent2"]
-    elif foundry:
-        radius, card_radius = 1, 2
-        top_bg = "qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 #131617,stop:.65 #24201D,stop:1 #111314)"
-        rail_bg = "qlineargradient(x1:0,y1:0,x2:0,y2:1,stop:0 #201D1A,stop:.50 #171A1B,stop:1 #0D0F10)"
-        primary_text = selected_text = "#FFF7E8"
-        title_family = "'Bahnschrift SemiCondensed','Segoe UI',sans-serif"
-        card_border = p["accent"]
     else:
         radius, card_radius = 7, 9
         top_bg = f"qlineargradient(x1:0,y1:0,x2:1,y2:0,stop:0 {p['surface']},stop:.62 {p['surface2']},stop:1 {p['bg']})"
@@ -131,8 +103,13 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
 
     return f"""
     * {{ font-family: 'Segoe UI', 'Inter', 'SF Pro Text', sans-serif; font-size: 10.25pt; }}
-    QMainWindow, QDialog, QWidget#AppRoot, QWidget#OptionsPage {{ background: {p['bg']}; color: {p['text']}; }}
-    QWidget, QLabel, QCheckBox, QRadioButton {{ color: {p['text']}; }}
+
+    /* Explicit top-level and native-container colors. Never rely on the OS palette. */
+    QMainWindow, QDialog {{ background: {p['bg']}; color: {p['text']}; }}
+    QWidget {{ color: {p['text']}; }}
+    QWidget#AppRoot {{ background: {p['bg']}; color: {p['text']}; }}
+    QWidget#OptionsPage {{ background: {p['surface']}; color: {p['text']}; }}
+    QLabel, QCheckBox, QRadioButton {{ color: {p['text']}; background: transparent; }}
 
     QMenuBar {{ background: {p['bg']}; color: {p['muted']}; padding: 3px 8px; border-bottom: 1px solid {p['border']}; }}
     QMenuBar::item {{ padding: 5px 9px; }}
@@ -181,7 +158,11 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
     QPushButton#SegmentButton {{ border-radius: {radius}px; padding: 7px 16px; }}
     QPushButton#SegmentButton:checked {{ background: {p['primary2']}; border-color: {p['glow']}; color: {selected_text}; }}
 
-    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QTextBrowser, QTableWidget {{ background: {p['surface2']}; color: {p['text']}; border: 1px solid {p['border']}; border-radius: {radius}px; padding: 7px; selection-background-color: {p['primary2']}; selection-color: {selected_text}; }}
+    QLineEdit, QSpinBox, QDoubleSpinBox, QComboBox, QPlainTextEdit, QTextBrowser, QTableWidget {{
+        background: {p['surface2']}; color: {p['text']}; border: 1px solid {p['border']};
+        border-radius: {radius}px; padding: 7px; selection-background-color: {p['primary2']};
+        selection-color: {selected_text};
+    }}
     QLineEdit:focus, QComboBox:focus, QSpinBox:focus, QDoubleSpinBox:focus {{ border-color: {p['glow']}; }}
     QComboBox::drop-down {{ border: 0; width: 24px; }}
     QComboBox QAbstractItemView {{ background: {p['surface']}; color: {p['text']}; selection-background-color: {p['surface3']}; selection-color: {p['text']}; border: 1px solid {p['border']}; }}
@@ -189,12 +170,19 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
     QCheckBox::indicator:checked {{ background: {p['primary']}; border-color: {p['glow']}; }}
     QCheckBox:disabled {{ color: {p['muted']}; }}
 
-    QTabWidget#OptionsTabs::pane {{ background: {p['surface']}; border: 1px solid {p['border']}; border-radius: {radius}px; top: -1px; }}
-    QTabWidget#OptionsTabs QWidget#OptionsPage {{ background: {p['surface']}; color: {p['text']}; }}
+    /* Tabs get a themed pane even when the caller did not assign OptionsTabs/OptionsPage. */
+    QTabWidget::pane {{ background: {p['surface']}; border: 1px solid {p['border']}; border-radius: {radius}px; top: -1px; }}
+    QTabWidget QStackedWidget > QWidget {{ background: {p['surface']}; color: {p['text']}; }}
     QTabBar::tab {{ background: {p['surface2']}; color: {p['muted']}; border: 1px solid {p['border']}; padding: 8px 14px; min-width: 92px; }}
     QTabBar::tab:selected {{ background: {p['surface3']}; color: {p['text']}; border-bottom-color: {p['primary']}; }}
     QTabBar::tab:hover {{ border-color: {p['glow']}; color: {p['text']}; }}
-    QScrollArea#OptionsScroll, QScrollArea#OptionsScroll > QWidget > QWidget {{ background: {p['surface']}; border: 0; }}
+
+    /* Native item views otherwise inherit Windows/macOS light backgrounds. */
+    QAbstractItemView {{ background: {p['surface']}; color: {p['text']}; border: 1px solid {p['border']}; outline: 0; selection-background-color: {p['surface3']}; selection-color: {p['text']}; }}
+    QListWidget {{ background: {p['surface']}; color: {p['text']}; border: 1px solid {p['border']}; outline: 0; }}
+    QListWidget::item {{ color: {p['text']}; padding: 7px; }}
+    QListWidget::item:selected {{ background: {p['surface3']}; color: {p['text']}; }}
+    QListWidget::item:hover {{ background: {p['surface2']}; color: {p['text']}; }}
 
     QListWidget#NavList, QListWidget#ToolList, QListWidget#TradeCardList, QListWidget#CompareList, QListWidget#ProfessionList {{ background: transparent; border: 0; outline: 0; }}
     QListWidget#NavList::item, QListWidget#ProfessionList::item {{ padding: 10px 10px; margin: 2px 5px; border-radius: {radius}px; color: {p['muted']}; }}
@@ -210,8 +198,12 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
     QHeaderView::section {{ background: {p['surface3']}; color: {p['text']}; border: 0; border-right: 1px solid {p['border']}; border-bottom: 1px solid {p['border']}; padding: 7px; font-weight: 700; }}
     QTableWidget {{ gridline-color: {p['border']}; alternate-background-color: {p['surface']}; }}
 
-    QScrollArea {{ background: transparent; border: 0; }}
+    /* Scroll-area viewport/content backgrounds are explicit as well. */
+    QScrollArea {{ background: {p['surface']}; border: 0; }}
+    QScrollArea QWidget#qt_scrollarea_viewport {{ background: {p['surface']}; }}
+    QScrollArea > QWidget > QWidget {{ background: {p['surface']}; }}
     QStackedWidget {{ background: transparent; border: 0; }}
+    QSplitter {{ background: {p['bg']}; }}
     QSplitter::handle {{ background: {p['border']}; width: 1px; }}
     QSplitter::handle:hover {{ background: {p['glow']}; }}
     QScrollBar:vertical {{ background: transparent; width: 10px; margin: 3px; }}

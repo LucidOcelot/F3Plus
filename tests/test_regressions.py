@@ -21,12 +21,11 @@ from updater import _safe_unpack_archive, auto_update
 
 
 class V2RegressionTests(unittest.TestCase):
-    def test_new_default_themes_are_distinct(self):
-        self.assertIn("aether", PALETTES)
-        self.assertIn("foundry", PALETTES)
-        self.assertNotEqual(palette("aether"), palette("light"))
-        self.assertNotEqual(palette("foundry"), palette("cyberpunk"))
-        self.assertNotEqual(palette("aether"), palette("foundry"))
+    def test_supported_themes_match_product_contract_and_are_distinct(self):
+        expected = {"chorus", "light", "cyberpunk", "minecraft", "custom"}
+        self.assertEqual(set(PALETTES), expected)
+        values = [palette(name) for name in sorted(expected)]
+        self.assertEqual(len({tuple(sorted(value.items())) for value in values}), len(expected))
 
     def test_snapshot_worldgen_fallback_is_explicit(self):
         result = cubiomes_resolution("26.3-snapshot-7")
