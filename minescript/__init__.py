@@ -1,6 +1,4 @@
-__version__ = "2.0.0"
-TARGET_MINECRAFT = "26.3 Snapshot 7"
-STABLE_MINECRAFT = "26.2"
+from .version import VERSION as __version__, TARGET_MINECRAFT, STABLE_MINECRAFT
 
 # Install concrete replacements for the legacy generic fallback families at package
 # import time so CLI/tests/library callers receive the same behavior as the desktop UI.
@@ -28,7 +26,7 @@ from .seed_worldgen_patch import install as _install_seed_worldgen_patch
 _install_seed_worldgen_patch()
 del _install_seed_worldgen_patch
 
-# Keep direct/library executor construction aligned with the current F3+ target.
+# Keep direct/library FeatureExecutor construction aligned with the current F3+ target.
 from .version_defaults import install as _install_version_defaults
 
 _install_version_defaults()
