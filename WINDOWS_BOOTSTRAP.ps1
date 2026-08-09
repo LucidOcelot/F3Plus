@@ -10,6 +10,8 @@ $UvDir = Join-Path $Runtime 'uv'
 $UvExe = Join-Path $UvDir 'uv.exe'
 $MinMajor = 3
 $MinMinor = 11
+$MaxMajor = 3
+$MaxMinor = 13
 $UvVersion = '0.12.0'
 
 function Write-Status([string]$Text = '') {
@@ -19,7 +21,7 @@ function Write-Status([string]$Text = '') {
 
 function Reset-Log {
     @(
-        'F3+ 1.16.2 startup log',
+        'F3+ 2.0.0 startup log',
         ('Started: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
         ('Folder: ' + $Root),
         ''
@@ -36,13 +38,12 @@ function Test-PythonExecutable([string]$Exe) {
     if ([string]::IsNullOrWhiteSpace($Exe)) { return $null }
     $Exe = $Exe.Trim().Trim('"')
 
-    # A rooted path must exist. Command names (e.g. python.exe) may be resolved by Windows.
     if ([System.IO.Path]::IsPathRooted($Exe) -and -not (Test-Path -LiteralPath $Exe -PathType Leaf)) { return $null }
 
     try {
         $psi = New-Object System.Diagnostics.ProcessStartInfo
         $psi.FileName = $Exe
-        $psi.Arguments = '-c "import sys; print(sys.version.split()[0]); print(sys.executable); raise SystemExit(0 if sys.version_info >= (3,11) else 7)"'
+        $psi.Arguments = '-c "import sys; print(sys.version.split()[0]); print(sys.executable); raise SystemExit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 7)"'
         $psi.WorkingDirectory = $Root
         $psi.UseShellExecute = $false
         $psi.RedirectStandardOutput = $true
@@ -138,7 +139,6 @@ function Get-AppPathPythonCandidates {
 function Find-Python {
     $candidates = New-Object 'System.Collections.Generic.List[string]'
 
-    # 1. F3+-managed Python installations, regardless of uv's internal folder name.
     if (Test-Path -LiteralPath $ManagedPythonDir) {
         try {
             foreach ($exe in @(Get-ChildItem -LiteralPath $ManagedPythonDir -Filter 'python.exe' -File -Recurse -ErrorAction SilentlyContinue)) {
@@ -147,7 +147,6 @@ function Find-Python {
         } catch {}
     }
 
-    # 2. Windows Python launcher environments.
     try {
         if (Get-Command py.exe -ErrorAction SilentlyContinue) {
             foreach ($line in @(& py.exe -0p 2>$null)) {
@@ -159,8 +158,6 @@ function Find-Python {
         }
     } catch {}
 
-    # 3. PATH / command discovery. Do not reject WindowsApps automatically: a Store
-    #    alias is valid when an actual Store Python package is installed and runnable.
     foreach ($name in @('python.exe','python3.exe')) {
         try {
             foreach ($cmd in @(Get-Command $name -All -ErrorAction SilentlyContinue)) {
@@ -171,13 +168,10 @@ function Find-Python {
         try { foreach ($p in @(& where.exe $name 2>$null)) { Add-Candidate $candidates $p } } catch {}
     }
 
-    # 4. Python.org registration, App Paths, and installer/uninstall metadata.
     foreach ($p in @(Get-RegistryPythonCandidates)) { Add-Candidate $candidates $p }
     foreach ($p in @(Get-AppPathPythonCandidates)) { Add-Candidate $candidates $p }
     foreach ($p in @(Get-UninstallPythonCandidates)) { Add-Candidate $candidates $p }
 
-    # 5. Common install folders. Scan recursively because Python's patch/install layout
-    #    differs across installer, Store, package manager, and per-user installs.
     foreach ($base in @(
         (Join-Path $env:LOCALAPPDATA 'Programs\Python'),
         (Join-Path $env:LOCALAPPDATA 'Python'),
@@ -193,7 +187,6 @@ function Find-Python {
         } catch {}
     }
 
-    # 6. Microsoft Store alias only when an actual Python Store package is installed.
     try {
         $storePython = @(Get-AppxPackage -ErrorAction SilentlyContinue | Where-Object { $_.Name -match 'PythonSoftwareFoundation\.Python' })
         if ($storePython.Count -gt 0) {
@@ -213,7 +206,7 @@ function Ensure-Uv {
     if (Test-Path -LiteralPath $UvExe -PathType Leaf) { return $UvExe }
     New-Item -ItemType Directory -Force -Path $UvDir | Out-Null
     Write-Status ''
-    Write-Status 'No usable Python 3.11+ installation was found.'
+    Write-Status 'No usable Python 3.11 through 3.13 installation was found.'
     Write-Status 'F3+ will prepare a private managed Python runtime.'
     Write-Status 'No administrator rights are required and Windows PATH will not be changed.'
 
@@ -279,7 +272,7 @@ function Install-ManagedPython {
 
 try {
     Reset-Log
-    Write-Host 'F3+ 1.16.2 - LucidOcelot'
+    Write-Host 'F3+ 2.0.0 - LucidOcelot'
     Write-Host '===================================' 
     Write-Host ''
     Write-Status 'Checking installation...'
@@ -297,6 +290,7 @@ try {
     Write-Status ('Interpreter: ' + $python.Exe)
     Write-Status ''
     Write-Status 'Starting F3+ setup and launch...'
+    Write-Status 'F3+ checks GitHub for updates before loading the application; if GitHub is unavailable, the installed build still opens.'
     Write-Status 'The first launch may install interface/input packages and can take several minutes.'
     Write-Status 'This window will remain open and show progress.'
     Write-Status ''
