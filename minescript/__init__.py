@@ -52,3 +52,10 @@ from .analysis_reports_v2 import install as _install_analysis_reports_v2
 
 _install_analysis_reports_v2()
 del _install_analysis_reports_v2
+
+# Late report overrides intercept some features before the legacy executor merges its
+# defaults. Normalize missing params at the outer edge for direct/library callers.
+from .default_params_v2 import install as _install_default_params_v2
+
+_install_default_params_v2()
+del _install_default_params_v2
