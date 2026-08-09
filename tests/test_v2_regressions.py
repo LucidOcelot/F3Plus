@@ -10,6 +10,8 @@ from unittest.mock import patch
 
 from minescript import TARGET_MINECRAFT
 from minescript.feature_executor import FeatureExecutor
+from minescript.platform_input.base import MinecraftTarget
+from minescript.platform_input.windows_identity import is_minecraft_java_target
 from minescript.ui_theme import PALETTES, palette
 from minescript.version_context import resolve
 from minescript.villagers import Trade, trade_direction, trade_key
@@ -48,6 +50,13 @@ class V2RegressionTests(unittest.TestCase):
         self.assertEqual(trade_direction(buying), "Villager buys from you")
         self.assertEqual(trade_direction(selling), "Villager sells to you")
         self.assertNotEqual(trade_key(buying), trade_key(selling))
+
+    def test_browser_title_is_not_a_minecraft_link(self):
+        target = MinecraftTarget(key="hwnd:1", title="F3Plus Minecraft tools - Google Chrome", pid=123)
+        with patch("minescript.platform_input.windows_identity.process_image", return_value=r"C:\Program Files\Google\Chrome\chrome.exe"):
+            self.assertFalse(is_minecraft_java_target(target))
+        with patch("minescript.platform_input.windows_identity.process_image", return_value=r"C:\Java\bin\javaw.exe"):
+            self.assertTrue(is_minecraft_java_target(target))
 
     def test_updater_can_be_disabled_without_network(self):
         with patch.dict(os.environ, {"F3PLUS_SKIP_UPDATE": "1"}, clear=False):
