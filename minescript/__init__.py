@@ -125,3 +125,11 @@ from .search_modes_v234 import install as _install_search_modes_v234
 
 _install_search_modes_v234()
 del _install_search_modes_v234
+
+# Keep Simulation Lab data behavior correct for direct/library callers as well as Qt:
+# exact source labels, modern item-tag objects, one-pass loot predicates, and treasure
+# enchantment exclusion from normal enchanting-table offers.
+from .simulator_hardening_v234 import install as _install_simulator_hardening_v234
+
+_install_simulator_hardening_v234()
+del _install_simulator_hardening_v234
