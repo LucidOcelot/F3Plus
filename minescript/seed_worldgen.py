@@ -14,9 +14,10 @@ from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
 
+from .version import TARGET_MINECRAFT, USER_AGENT
+
 MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 CACHE_ROOT = Path.home() / ".f3plus" / "minecraft-worldgen"
-USER_AGENT = "F3Plus/2.0.0"
 
 
 class WorldgenError(RuntimeError):
@@ -155,8 +156,6 @@ def _java_candidates(explicit: str | None = None) -> list[str]:
     add(shutil.which("java"))
 
     executable_name = "java.exe" if os.name == "nt" else "java"
-    # The official launcher normally keeps the game runtimes under .minecraft/runtime.
-    # Prefer these before asking the player to install another JDK.
     for root in _minecraft_roots():
         runtime = root / "runtime"
         if not runtime.is_dir():
@@ -385,7 +384,7 @@ def resolve_world_source(params: dict[str, Any], executor=None, *, default_radiu
         return supplied, {"source": "generated-world save", "exactness": "observed generated chunks"}
     if not bool(params.get("regenerate_from_seed", True)):
         return None, {"requires_generated_world": True, "reason": "No world save selected and exact seed regeneration is disabled."}
-    version = str(params.get("minecraft_version") or getattr(executor, "minecraft_version", "26.3 Snapshot 7"))
+    version = str(params.get("minecraft_version") or getattr(executor, "minecraft_version", TARGET_MINECRAFT))
     seed = int(str(params.get("seed", 0)).strip())
     radius = max(0, int(params.get("radius", default_radius)))
     max_chunks = max(1, int(params.get("worldgen_max_chunks", 4096)))
