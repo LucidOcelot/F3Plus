@@ -13,6 +13,7 @@ PROFESSIONS = [
     "armorer", "butcher", "cartographer", "cleric", "farmer", "fisherman",
     "fletcher", "leatherworker", "librarian", "mason", "shepherd", "toolsmith", "weaponsmith",
 ]
+BASELINE_SOURCE = "Bundled baseline reference"
 
 
 @dataclass
@@ -158,7 +159,7 @@ def _parse_path(path: str):
         return None
 
 
-@lru_cache(maxsize=8)
+@lru_cache(maxsize=16)
 def _load_trades_cached(path_text: str, mtime_ns: int, size: int) -> tuple[Trade, ...]:
     jar = Path(path_text)
     rows = []
@@ -206,7 +207,6 @@ def _load_trades_cached(path_text: str, mtime_ns: int, size: int) -> tuple[Trade
 
 
 def load_trades_from_jar(jar: Path) -> list[Trade]:
-    """Load one version JAR, caching by file revision rather than only its path."""
     stat = jar.stat()
     return list(_load_trades_cached(str(jar.resolve()), int(stat.st_mtime_ns), int(stat.st_size)))
 
@@ -215,30 +215,124 @@ def _normal(value: str) -> str:
     return str(value or "").strip().lower().replace(" ", "-")
 
 
+def _is_unstable(value: str) -> bool:
+    text = _normal(value)
+    return bool(
+        re.fullmatch(r"\d{2}w\d{2}[a-z]", text)
+        or any(token in text for token in ("snapshot", "pre", "rc", "experimental"))
+    )
+
+
 def _version_key(value: str):
     text = _normal(value)
-    numbers = [int(x) for x in re.findall(r"\d+", text)[:4]]
-    while len(numbers) < 4:
+    # Release-style versions sort semantically; old weekly snapshots are deliberately
+    # not allowed to masquerade as a giant release such as "23.18".
+    release = re.fullmatch(r"(\d+)\.(\d+)(?:\.(\d+))?", text)
+    if release:
+        return (3, int(release.group(1)), int(release.group(2)), int(release.group(3) or 0), text)
+    modern_snapshot = re.fullmatch(r"(\d+)\.(\d+)-snapshot-(\d+)", text)
+    if modern_snapshot:
+        return (2, int(modern_snapshot.group(1)), int(modern_snapshot.group(2)), int(modern_snapshot.group(3)), text)
+    weekly = re.fullmatch(r"(\d{2})w(\d{2})([a-z])", text)
+    if weekly:
+        return (1, int(weekly.group(1)), int(weekly.group(2)), ord(weekly.group(3)) - 96, text)
+    numbers = [int(x) for x in re.findall(r"\d+", text)[:3]]
+    while len(numbers) < 3:
         numbers.append(0)
-    unstable = 1 if any(token in text for token in ("snapshot", "pre", "rc", "experimental")) else 0
-    return (*numbers, -unstable, text)
+    return (0, *numbers, text)
+
+
+def _stack(count: str | int, item: str) -> str:
+    return f"{count} {item}"
+
+
+def _baseline_trade(profession, level, name, wants_count, wants_id, gives_count, gives_id, *, additional=None, max_uses=12, xp=1, details=""):
+    additional_text = None
+    additional_id = ""
+    additional_count = "1"
+    if additional:
+        additional_count, additional_id = additional
+        additional_text = _stack(additional_count, additional_id)
+    return Trade(
+        profession=profession, level=level, name=name,
+        wants=_stack(wants_count, wants_id), gives=_stack(gives_count, gives_id),
+        additional_wants=additional_text, max_uses=max_uses, xp=xp,
+        source="bundled-baseline", raw_path=f"baseline/{profession}/{level}/{name}",
+        wants_id=wants_id, wants_count=str(wants_count),
+        additional_wants_id=additional_id, additional_wants_count=str(additional_count),
+        gives_id=gives_id, gives_count=str(gives_count), details=details,
+    )
+
+
+@lru_cache(maxsize=1)
+def baseline_trades() -> tuple[Trade, ...]:
+    """Useful vanilla planning reference when an installed JAR exposes no trade JSON.
+
+    It is intentionally labeled baseline instead of pretending to be exact for the
+    selected version. Exact data-driven trade JSON always wins when available.
+    """
+    b = _baseline_trade
+    rows = [
+        b("armorer",1,"coal for emerald",15,"coal",1,"emerald",max_uses=16), b("armorer",1,"iron boots",4,"emerald",1,"iron_boots"),
+        b("armorer",2,"iron for emerald",4,"iron_ingot",1,"emerald",max_uses=12), b("armorer",3,"lava bucket for emerald",1,"lava_bucket",1,"emerald",max_uses=12), b("armorer",5,"diamond chestplate",19,"emerald",1,"diamond_chestplate",max_uses=3),
+        b("butcher",1,"raw chicken for emerald",14,"chicken",1,"emerald",max_uses=16), b("butcher",2,"raw porkchop for emerald",7,"porkchop",1,"emerald",max_uses=16), b("butcher",3,"cooked porkchop",1,"emerald",5,"cooked_porkchop",max_uses=16),
+        b("cartographer",1,"paper for emerald",24,"paper",1,"emerald",max_uses=16), b("cartographer",2,"glass panes for emerald",11,"glass_pane",1,"emerald",max_uses=12), b("cartographer",3,"explorer map",13,"emerald",1,"filled_map",additional=(1,"compass"),max_uses=12,details="Explorer map destination depends on the offer/version."),
+        b("cleric",1,"rotten flesh for emerald",32,"rotten_flesh",1,"emerald",max_uses=16), b("cleric",2,"gold for emerald",3,"gold_ingot",1,"emerald",max_uses=12), b("cleric",4,"ender pearl",5,"emerald",1,"ender_pearl",max_uses=12), b("cleric",5,"bottle o enchanting",3,"emerald",1,"experience_bottle",max_uses=12),
+        b("farmer",1,"wheat for emerald",20,"wheat",1,"emerald",max_uses=16), b("farmer",1,"bread",1,"emerald",6,"bread",max_uses=16), b("farmer",2,"pumpkin for emerald",6,"pumpkin",1,"emerald",max_uses=12), b("farmer",4,"cake",1,"emerald",1,"cake",max_uses=12), b("farmer",5,"golden carrots",3,"emerald",3,"golden_carrot",max_uses=12),
+        b("fisherman",1,"string for emerald",20,"string",1,"emerald",max_uses=16), b("fisherman",1,"coal for emerald",15,"coal",1,"emerald",max_uses=16), b("fisherman",2,"cod for emerald",15,"cod",1,"emerald",max_uses=16), b("fisherman",3,"fishing rod",7,"emerald",1,"fishing_rod",max_uses=3,details="May carry enchantments depending on version/offer."),
+        b("fletcher",1,"sticks for emerald",32,"stick",1,"emerald",max_uses=16), b("fletcher",1,"arrows",1,"emerald",16,"arrow",max_uses=12), b("fletcher",2,"flint for emerald",26,"flint",1,"emerald",max_uses=12), b("fletcher",4,"bow",2,"emerald",1,"bow",max_uses=3,details="May carry enchantments."), b("fletcher",5,"tipped arrows",2,"emerald",5,"tipped_arrow",max_uses=12,details="Potion effect varies by offer/version."),
+        b("leatherworker",1,"leather for emerald",6,"leather",1,"emerald",max_uses=16), b("leatherworker",2,"leather leggings",3,"emerald",1,"leather_leggings",max_uses=12), b("leatherworker",5,"saddle",6,"emerald",1,"saddle",max_uses=12),
+        b("librarian",1,"paper for emerald",24,"paper",1,"emerald",max_uses=16), b("librarian",1,"enchanted book",5,"emerald",1,"enchanted_book",additional=(1,"book"),max_uses=12,details="Random enchanted-book offer; emerald price and enchantment vary. Use exact installed trade data when available."), b("librarian",2,"books for emerald",4,"book",1,"emerald",max_uses=12), b("librarian",3,"ink sac for emerald",5,"ink_sac",1,"emerald",max_uses=12), b("librarian",4,"compass",4,"emerald",1,"compass",max_uses=12), b("librarian",5,"name tag",20,"emerald",1,"name_tag",max_uses=12),
+        b("mason",1,"clay for emerald",10,"clay_ball",1,"emerald",max_uses=16), b("mason",2,"stone for emerald",20,"stone",1,"emerald",max_uses=16), b("mason",3,"granite",1,"emerald",4,"granite",max_uses=16), b("mason",5,"quartz block",1,"emerald",1,"quartz_block",max_uses=12),
+        b("shepherd",1,"white wool for emerald",18,"white_wool",1,"emerald",max_uses=16), b("shepherd",1,"shears",2,"emerald",1,"shears",max_uses=12), b("shepherd",2,"colored wool",1,"emerald",1,"blue_wool",max_uses=16,details="Color varies by offer."), b("shepherd",5,"painting",2,"emerald",3,"painting",max_uses=12),
+        b("toolsmith",1,"coal for emerald",15,"coal",1,"emerald",max_uses=16), b("toolsmith",1,"stone axe",1,"emerald",1,"stone_axe",max_uses=12), b("toolsmith",2,"iron for emerald",4,"iron_ingot",1,"emerald",max_uses=12), b("toolsmith",4,"diamond shovel",7,"emerald",1,"diamond_shovel",max_uses=3,details="May carry enchantments."), b("toolsmith",5,"diamond pickaxe",18,"emerald",1,"diamond_pickaxe",max_uses=3,details="May carry enchantments."),
+        b("weaponsmith",1,"coal for emerald",15,"coal",1,"emerald",max_uses=16), b("weaponsmith",1,"iron axe",3,"emerald",1,"iron_axe",max_uses=12), b("weaponsmith",2,"iron for emerald",4,"iron_ingot",1,"emerald",max_uses=12), b("weaponsmith",4,"diamond axe",12,"emerald",1,"diamond_axe",max_uses=3,details="May carry enchantments."), b("weaponsmith",5,"diamond sword",17,"emerald",1,"diamond_sword",max_uses=3,details="May carry enchantments."),
+    ]
+    return tuple(sorted(rows, key=lambda trade: (trade.profession, trade.level, trade.name)))
+
+
+def preferred_texture_version(selected_version: str | None = None) -> str | None:
+    versions = installed_versions()
+    if not versions:
+        return None
+    wanted = _normal(selected_version or "")
+    exact = next((name for name in versions if _normal(name) == wanted), None)
+    if exact:
+        return exact
+    stable = [name for name in versions if not _is_unstable(name)]
+    pool = stable or list(versions)
+    return max(pool, key=_version_key)
 
 
 def load_for_version(version: str | None = None) -> tuple[list[Trade], str]:
     versions = installed_versions()
     if not versions:
-        return [], "not-installed"
+        return list(baseline_trades()), BASELINE_SOURCE
     wanted = _normal(version or "")
-    for name, jar in versions.items():
-        if _normal(name) == wanted:
-            return load_trades_from_jar(jar), name
-    stable = [
-        name for name in versions
-        if not any(token in name.lower() for token in ("snapshot", "pre", "rc", "experimental"))
-    ]
-    pool = stable or list(versions)
-    pick = max(pool, key=_version_key)
-    return load_trades_from_jar(versions[pick]), pick
+    exact = next((name for name in versions if _normal(name) == wanted), None)
+    if exact:
+        try:
+            rows = load_trades_from_jar(versions[exact])
+        except (OSError, zipfile.BadZipFile):
+            rows = []
+        if rows:
+            return rows, exact
+
+    stable = [name for name in versions if not _is_unstable(name)]
+    ordered = sorted(stable or list(versions), key=_version_key, reverse=True)
+    for name in ordered:
+        try:
+            rows = load_trades_from_jar(versions[name])
+        except (OSError, zipfile.BadZipFile):
+            continue
+        if rows:
+            return rows, name
+
+    # Older versions hard-code villager offers in Java instead of exposing the newer
+    # data-driven JSON. A non-empty, explicitly labeled reference is more useful than
+    # presenting a broken zero-row explorer or pretending an unrelated weekly snapshot
+    # contains exact data.
+    return list(baseline_trades()), BASELINE_SOURCE
 
 
 def search(trades: list[Trade], text: str = "", profession=None, level=None) -> list[Trade]:
@@ -251,7 +345,7 @@ def search(trades: list[Trade], text: str = "", profession=None, level=None) -> 
             continue
         haystack = " ".join([
             trade.name, trade.wants, trade.gives, trade.additional_wants or "",
-            trade.profession, trade.details,
+            trade.profession, trade.details, LEVEL_NAMES.get(trade.level, ""),
         ]).lower()
         if query and query not in haystack:
             continue
