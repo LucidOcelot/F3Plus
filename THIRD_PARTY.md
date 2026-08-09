@@ -2,16 +2,9 @@
 
 Third-party components retain their upstream licenses. The F3+ MIT license does not replace those terms.
 
-**AI Disclosure:**
+## AI-assisted development disclosure
 
-F3+ was unfortunately developed with generative AI assistance.
-In the spirit of transparency, AI use is described below.
-
-Approximately 35% of F3+'s original first-party work is estimated to be substantially AI-created or AI-assisted translation, porting, integration, and refactoring of existing human/community work. The remaining work originates from human-written code and designs, ports of earlier Minescript/M.A.R.T. work, or implementations based on established community tools, algorithms, and research.
-
-Generative AI was also used extensively for integration, debugging, iterative testing in sandboxed environments, UI development, refactoring, documentation, and project organization. Project, features, testing feedback, revisions, and release decisions remained human work.
-
-All final inclusions were reviewed and edited by a human before being included in the project.
+Generative AI was used during development for code translation/porting, refactoring, integration, debugging, test construction, UI iteration, and documentation. Project direction, feature selection, testing feedback, revisions, release decisions, and final inclusion decisions remained human-directed and human-reviewed.
 
 F3+ does not use generative AI during normal operation and does not transmit Minecraft, world, seed, coordinate, account, or other user data to an AI provider.
 
@@ -44,7 +37,7 @@ F3+ can acquire the supported upstream release on first use and verifies the pin
 
 ## Python and runtime bootstrap
 
-F3+ 2.3.4 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
+F3+ 2.4.0 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
 
 - **uv:** Astral Software Inc.; Apache-2.0 OR MIT
 - **CPython:** Python Software Foundation; upstream Python licensing
