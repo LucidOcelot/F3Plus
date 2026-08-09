@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """F3+ 2.x shared interaction layer.
 
-This module keeps the catalog/algorithms independent from Qt while giving every tool
+The algorithms and catalog stay independent from Qt while every user-facing tool gets
 one visual language for configuration, warnings, version context, and results.
 """
 
@@ -11,20 +11,21 @@ from typing import Any
 
 
 def install() -> None:
-    from PySide6.QtCore import Qt, QSize
-    from PySide6.QtGui import QFont
+    from PySide6.QtCore import Qt
     from PySide6.QtWidgets import (
-        QApplication, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
-        QFileDialog, QFormLayout, QFrame, QGridLayout, QHBoxLayout, QLabel, QLineEdit,
-        QPushButton, QScrollArea, QSpinBox, QTableWidget, QTableWidgetItem, QVBoxLayout,
-        QWidget,
+        QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox,
+        QDoubleSpinBox, QFormLayout, QFrame, QGridLayout, QHBoxLayout, QLabel,
+        QLineEdit, QPushButton, QScrollArea, QSpinBox, QTableWidget,
+        QTableWidgetItem, QVBoxLayout, QWidget,
     )
 
+    from . import descriptions, tool_guides
     from .app import F3Plus, OptionsDialog, ValuesDialog
+    from .feature_executor import FeatureExecutor
     from .safe_mode import restriction_reason as safe_mode_restriction
-    from .tool_guides import nav_section, workspace_group
     from .version_context import resolve as resolve_version_context
     from .villager_explorer import VillagerExplorer
+    from .world.versioning import resolve_cubiomes_mc
 
     if getattr(F3Plus, "_v2_ux_installed", False):
         return
@@ -38,6 +39,25 @@ def install() -> None:
         "Foundry": "foundry",
         "Custom": "custom",
     }
+
+    descriptions.SPECIAL.update({
+        "Trade Browser": "Opens the visual Villager Trade Explorer with item textures, profession navigation, level and direction filters, favorites, comparison, and exact installed-version source metadata.",
+        "Trade Search": "Opens the visual Villager Trade Explorer with search focused so trades can be filtered by item, profession, level, enchantment detail, or transaction direction.",
+        "Trade Comparison": "Opens the visual Villager Trade Explorer and lets up to three offers be compared side by side by profession, level, item requirements, and planned emerald cost.",
+        "Emerald Calculator": "Opens the visual Villager Trade Explorer with planned-use totals so emerald costs can be estimated from the actual loaded trade definitions.",
+        "Trade Cycle Calculator": "Opens the visual Villager Trade Explorer with repeat-use planning, max-use/restock context, and emerald totals for the selected offer.",
+        "Librarian Browser": "Opens the visual Villager Trade Explorer already filtered to Librarians, including searchable book/enchantment definition details when the installed trade data exposes them.",
+        "Refresh Trades From Installed Version": "Reloads the visual trade explorer from the selected Minecraft installation, or clearly labels the installed stable version used when the selected version is not available locally.",
+    })
+    tool_guides._USE_BY_GROUP["Browse Trades"] = (
+        "Use the visual explorer when choosing villager offers. Pick a profession, level, or direction; search by item or definition detail; then favorite or compare the offers you care about."
+    )
+    tool_guides._OUTPUT_EXACT.update({
+        "Trade Browser": "Opens a visual card-based trade explorer using textures and trade definitions read from the installed Minecraft version shown in the explorer header.",
+        "Trade Search": "Opens the same explorer with search controls for item, profession, level, direction, and definition details.",
+        "Trade Comparison": "Opens the explorer with a three-offer comparison tray and planned-use cost summaries.",
+        "Librarian Browser": "Opens the explorer filtered to Librarian offers rather than a separate text-entry popup.",
+    })
 
     original_options_init = OptionsDialog.__init__
 
@@ -138,6 +158,31 @@ def install() -> None:
 
     ValuesDialog.__init__ = values_init
 
+    original_input_fields = FeatureExecutor.input_fields
+    original_execute = FeatureExecutor.execute
+
+    def input_fields(self, feature):
+        spec = self.spec(feature)
+        if spec.name == "Cubiomes Biome Query":
+            return [
+                ("seed", "World seed", 12345, "text"),
+                ("dimension", "Dimension", ["Overworld", "Nether", "End"], "choice"),
+                ("x", "Block X", 0, "int"),
+                ("y", "Block Y", 64, "int"),
+                ("z", "Block Z", 0, "int"),
+            ]
+        return original_input_fields(self, spec)
+
+    def execute(self, feature, params=None, dry_run=False):
+        spec = self.spec(feature)
+        values = dict(params or {})
+        if spec.name == "Cubiomes Biome Query" and "mc" not in values:
+            values["mc"] = resolve_cubiomes_mc(self.minecraft_version)
+        return original_execute(self, spec, values, dry_run)
+
+    FeatureExecutor.input_fields = input_fields
+    FeatureExecutor.execute = execute
+
     class ResultView(QScrollArea):
         def __init__(self, parent=None):
             super().__init__(parent)
@@ -148,7 +193,6 @@ def install() -> None:
             self.layout = QVBoxLayout(self.body)
             self.layout.setContentsMargins(6, 6, 6, 12)
             self.layout.setSpacing(10)
-            self.layout.addStretch(1)
             self.setWidget(self.body)
             self.placeholder = "Run a tool to see its result."
             self._show_placeholder()
@@ -157,7 +201,6 @@ def install() -> None:
             self.placeholder = str(value)
 
         def clear(self):
-            self._clear()
             self._show_placeholder()
 
         def appendPlainText(self, text):
@@ -211,15 +254,7 @@ def install() -> None:
             if scalar_rows:
                 self._add_metrics(scalar_rows)
             if free:
-                section = QFrame()
-                section.setObjectName("ResultSection")
-                layout = QVBoxLayout(section)
-                for line in free:
-                    label = QLabel(line)
-                    label.setWordWrap(True)
-                    label.setTextInteractionFlags(Qt.TextSelectableByMouse)
-                    layout.addWidget(label)
-                self.layout.addWidget(section)
+                self._add_text_section("Details", "\n".join(free))
             self.layout.addStretch(1)
 
         def show_structured(self, title: str, data: Any, note: str = "", warning: str = ""):
@@ -264,7 +299,8 @@ def install() -> None:
             grid = QGridLayout(card)
             grid.setSpacing(8)
             columns = 3
-            for index, (label, value) in enumerate(rows[:18]):
+            preview = rows[:18]
+            for index, (label, value) in enumerate(preview):
                 metric = QFrame()
                 metric.setObjectName("ResultMetric")
                 box = QVBoxLayout(metric)
@@ -279,6 +315,10 @@ def install() -> None:
                 name.setWordWrap(True)
                 box.addWidget(name)
                 grid.addWidget(metric, index // columns, index % columns)
+            if len(rows) > len(preview):
+                extra = QLabel(f"{len(rows) - len(preview)} additional scalar fields are available in the tool output.")
+                extra.setObjectName("Muted")
+                grid.addWidget(extra, (len(preview) + columns - 1) // columns, 0, 1, columns)
             self.layout.addWidget(card)
 
         def _render_value(self, name: str, value: Any):
@@ -342,8 +382,8 @@ def install() -> None:
                 layout.addWidget(note)
             table = QTableWidget(len(preview), len(columns))
             table.setHorizontalHeaderLabels([human_key(column) for column in columns])
-            table.setEditTriggers(QTableWidget.NoEditTriggers)
-            table.setSelectionBehavior(QTableWidget.SelectRows)
+            table.setEditTriggers(QAbstractItemView.NoEditTriggers)
+            table.setSelectionBehavior(QAbstractItemView.SelectRows)
             table.setAlternatingRowColors(True)
             for r, row in enumerate(preview):
                 for c, key in enumerate(columns):
@@ -356,7 +396,6 @@ def install() -> None:
 
     original_f3_init = F3Plus.__init__
     original_run_selected = F3Plus.run_selected
-    original_open_trades = F3Plus.open_trade_browser
     original_update_badges = F3Plus.update_link_badges
     original_version_dialog = F3Plus.version_dialog
     original_options_dialog = F3Plus.options_dialog
@@ -410,8 +449,7 @@ def install() -> None:
         return original_run_selected(self)
 
     def write(self, text):
-        warning = _result_warning(self)
-        self.output.show_text(str(text).rstrip(), warning=warning)
+        self.output.show_text(str(text).rstrip(), warning=_result_warning(self))
 
     def show_result(self, title, data, note=""):
         self.output.show_structured(title, data, note=note, warning=_result_warning(self))
@@ -443,9 +481,10 @@ def install() -> None:
         context = getattr(self, "_version_context", resolve_version_context(self.settings.minecraft_version))
         if not context.uses_worldgen_fallback or not _worldgen_relevant(spec):
             return base
-        p = __import__("minescript.ui_theme", fromlist=["palette"]).palette(self.settings.theme, self.settings.custom_palette)
+        from .ui_theme import palette
+        colors = palette(self.settings.theme, self.settings.custom_palette)
         warning = (
-            f"<div style='padding:10px;border:1px solid {p['warning']};background:{p['surface3']};border-radius:6px'>"
+            f"<div style='padding:10px;border:1px solid {colors['warning']};background:{colors['surface3']};border-radius:6px'>"
             f"<b>World-generation fallback</b><br>{html.escape(context.calculation_reason)}</div>"
         )
         return warning + base
@@ -501,6 +540,7 @@ def _field_label(label: str) -> str:
 
 
 def _browse_path(dialog, edit):
+    from PySide6.QtWidgets import QFileDialog
     path = QFileDialog.getExistingDirectory(dialog, "Select folder", edit.text().strip())
     if path:
         edit.setText(path)
