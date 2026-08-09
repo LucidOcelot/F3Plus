@@ -64,6 +64,16 @@ The historical `Dungeon/Pig Spawner Locator` ID is displayed as **Spawner Locato
 
 When mob identity is encoded in `EntityId`, `SpawnData`, or `SpawnPotentials`, F3+ translates that NBT into the mob name instead of reporting every block only as `minecraft:mob_spawner`. Double, triple, quad, and cluster-ranking tools apply their own minimum/grouping rules to the selected spawner type. Spawner hits include block position, chunk, distance from the reference, and map-ready coordinates.
 
+### Finder search modes
+
+Location-oriented search tools expose **Radius search** and **Search until found** when a concrete match/non-match result exists. Radius search evaluates exactly one user-selected radius. Search until found begins at that radius and expands by a configurable step until the first matching result appears or the configured maximum radius is reached. Results include the mode, search units, number of attempts, last radius checked, and the radius that first produced a match.
+
+This policy applies to the Spawner Locator family, structure candidate finders, selected biome/boundary/intersection finders, generated-terrain locators, Nether fortress/bastion finders, and slime-cluster searches. Reports whose job is analysis rather than locating a first target—such as Structure Density, Rare Biome Search, and Search Radius Optimizer—do not receive an artificial until-found mode.
+
+Spawner searches against an existing generated save skip Anvil region files that cannot intersect the requested radius. Exact seed-regenerated spawner searches remain bounded by the user's **Maximum exact chunks to generate** setting; if that budget prevents the requested expansion, the result explains the effective radius limit instead of silently exceeding the generation budget.
+
+Generated-terrain locators use **chunk X/Z and chunk radius** because they inspect generated chunks. Cubiomes biome target searches use **block X/Z and block radius**. The UI keeps those units separate.
+
 ## Navigation
 
 Navigation includes coordinate capture/conversion, bearings, block/chunk/region geometry, waypoints, routes, surveys, breadcrumbs, and Overworld/Nether planning. Similar-looking entries answer different questions: Nearest Waypoint returns one saved location; Sort Waypoints measures every saved waypoint from the same origin; Waypoint Route creates a nearest-next route with per-leg distances. Coordinate Route, Resource Route, Structure Tour, Biome Expedition, Survey Mode, and recording tools likewise keep separate output semantics.
