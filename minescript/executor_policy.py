@@ -2,15 +2,43 @@ from __future__ import annotations
 
 """Explicit composition policy for historical operation compatibility.
 
-This module contains routing only. Domain algorithms remain in their canonical services.
+The order here replaces the old import-time installer stack. New/canonical semantics
+win first; older domain models only fill an operation that has no newer implementation.
 """
 
 from typing import Any
 
+from . import full_catalog as catalog_models
 from . import operation_semantics as semantics
+from . import qa_features as qa_models
 from . import result_quality as quality
 from . import search_policy, seed_generation, spawners, supplemental_operations
 from . import waypoint_semantics as waypoints
+
+
+def _legacy_catalog_fields(spec):
+    if spec.top == "Seed Tools" and spec.submenu == "Biomes":
+        return [
+            ("seed", "World seed", 123456789, "text"),
+            ("x", "Center X", 0, "int"),
+            ("y", "Sample Y", 64, "int"),
+            ("z", "Center Z", 0, "int"),
+            ("radius", "Radius (blocks)", 256, "int"),
+            ("step", "Sample step (blocks)", 16, "int"),
+            ("target_biome", "Target biome numeric ID", 1, "int"),
+            ("world_path", "Generated world path (terrain-shape tools)", "", "text"),
+        ]
+    if spec.top == "Seed Tools" and spec.submenu == "World Analysis":
+        return [
+            ("seed", "World seed", 123456789, "text"),
+            ("second_seed", "Comparison seed", 987654321, "text"),
+            ("cx", "Center chunk X", 0, "int"),
+            ("cz", "Center chunk Z", 0, "int"),
+            ("radius", "Radius (chunks)", 64, "int"),
+            ("world_path", "Generated world path", "", "text"),
+            ("simulation_distance", "Simulation distance", 10, "int"),
+        ]
+    return None
 
 
 def input_fields(executor, spec):
@@ -33,6 +61,8 @@ def input_fields(executor, spec):
         if fields is None and spec.top == "Seed Tools" and spec.submenu == "Spawners":
             fields = spawners.input_fields(spec.name)
         if fields is None:
+            fields = _legacy_catalog_fields(spec)
+        if fields is None:
             fields = executor._base_input_fields(spec)
     if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
         fields = seed_generation.add_fields(fields)
@@ -54,7 +84,7 @@ def dry_run(executor, spec):
     return execute(executor, spec, values, True)
 
 
-def semantic_result(executor, spec, values):
+def _current_semantic_result(executor, spec, values):
     data = None
     if spec.top == "Navigation" and spec.submenu == "Waypoints" and spec.name in {
         "Nearest Waypoint", "Sort Waypoints by Distance", "Waypoint Route",
@@ -93,16 +123,54 @@ def semantic_result(executor, spec, values):
     if data is None and spec.top == "Seed Tools" and spec.submenu == "Slime" and spec.name == "Farm Location Ranking":
         data = quality._farm_location_report(values)
     if data is None and spec.top == "Seed Tools" and spec.submenu == "World Analysis":
-        resolvers = {
+        resolver = {
             "Spawn Chunk Optimizer": quality._spawn_site_report,
             "Chunk Loading Simulator": quality._chunk_loading_report,
             "Search Radius Optimizer": quality._search_radius_report,
-        }
-        resolver = resolvers.get(spec.name)
+        }.get(spec.name)
         if resolver is not None:
             data = resolver(values)
     if data is None and spec.top == "Calculators" and spec.submenu == "Build" and spec.name == "Circle Layer Export":
         data = quality._circle_export(values)
+    return data
+
+
+def _legacy_model_result(executor, spec, values):
+    """Run pre-rewrite models as ordinary fallbacks, never as installers."""
+    data = None
+    if spec.top == "Calculators":
+        data = catalog_models.calculator_tool(spec, values)
+    elif spec.top == "Seed Tools":
+        data = catalog_models.seed_tool(spec, values, executor)
+    elif spec.top == "RNG Tools":
+        data = catalog_models.rng_tool(spec, values)
+    if data is not None:
+        return data
+    if spec.top == "Navigation":
+        return qa_models.navigation(spec.name, values)
+    if spec.top == "RNG Tools":
+        return qa_models.rng_tool(spec.name, values, executor)
+    if spec.top == "Seed Tools":
+        return qa_models.world_seed_tool(spec.name, spec.submenu, values, executor)
+    if spec.top == "Villager Explorer":
+        return qa_models.villager_tool(spec.name, executor.minecraft_version, values)
+    if spec.top == "Safety":
+        return qa_models.safety_descriptor(spec.name, values, executor)
+    if spec.top == "Utilities":
+        return qa_models.utility_descriptor(spec.name, values, executor)
+    return None
+
+
+def semantic_result(executor, spec, values):
+    data = _current_semantic_result(executor, spec, values)
+    waiting_for_exact_world = (
+        spec.top == "Seed Tools"
+        and spec.name in seed_generation.SEED_REGENERATABLE
+        and not str(values.get("world_path", "")).strip()
+        and bool(values.get("regenerate_from_seed", False))
+    )
+    if data is None and not waiting_for_exact_world:
+        data = _legacy_model_result(executor, spec, values)
     if data is None:
         return None
     status = "unavailable" if isinstance(data, dict) and data.get("available") is False else "ok"
@@ -129,6 +197,17 @@ def apply_result_semantics(spec, result):
     return result
 
 
+def _seed_values_for_base(executor, spec, values):
+    if spec.top != "Seed Tools" or "mc" in values:
+        return values, None
+    normalized = dict(values)
+    try:
+        normalized["mc"] = qa_models._selected_mc(executor, normalized)
+    except ValueError as exc:
+        return normalized, executor._result(spec, "unavailable", {"available": False, "version_error": str(exc)})
+    return normalized, None
+
+
 def execute_once(executor, spec, values, dry_run=False):
     semantic = semantic_result(executor, spec, values)
     if semantic is not None:
@@ -149,6 +228,14 @@ def execute_once(executor, spec, values, dry_run=False):
         if world is None:
             return executor._result(spec, "unavailable", {"operation": spec.name, **source})
         generated = dict(values); generated["world_path"] = world
+        generated_semantic = semantic_result(executor, spec, generated)
+        if generated_semantic is not None:
+            if isinstance(getattr(generated_semantic, "data", None), dict):
+                generated_semantic.data = {**generated_semantic.data, "worldgen_source": dict(source)}
+            return apply_result_semantics(spec, generated_semantic)
+        generated, version_error = _seed_values_for_base(executor, spec, generated)
+        if version_error is not None:
+            return version_error
         result = executor._base_execute(spec, generated, False)
         if isinstance(getattr(result, "data", None), dict):
             source = dict(source)
@@ -160,7 +247,10 @@ def execute_once(executor, spec, values, dry_run=False):
                 )
             result.data = {**result.data, "worldgen_source": source}
         return apply_result_semantics(spec, result)
-    return apply_result_semantics(spec, executor._base_execute(spec, values, dry_run))
+    base_values, version_error = _seed_values_for_base(executor, spec, values)
+    if version_error is not None:
+        return version_error
+    return apply_result_semantics(spec, executor._base_execute(spec, base_values, dry_run))
 
 
 def execute(executor, spec, params: dict[str, Any] | None = None, dry_run=False):
