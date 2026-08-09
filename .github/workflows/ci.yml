@@ -29,10 +29,10 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: '3.13'
-      - uses: actions/setup-java@v4
+      - uses: actions/setup-java@v5
         with:
           distribution: temurin
-          java-version: '21'
+          java-version: '25'
       - name: Verify exact seed regeneration against independent Mojang server world
         env:
           F3PLUS_RUN_MOJANG_WORLDGEN: '1'
