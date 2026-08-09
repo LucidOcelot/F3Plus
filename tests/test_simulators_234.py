@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import unittest
 
-from minescript.minecraft_simulators_v234 import (
+from minescript.minecraft_simulators import (
     AnimalBreedingEngine,
     AnvilEngine,
     BASE_POTIONS,
@@ -13,20 +13,17 @@ from minescript.minecraft_simulators_v234 import (
     LootTableEngine,
     MinecraftJarData,
     PotionState,
+    SIMULATOR_ICON_CANDIDATES,
     cauldron_wash,
     dye_mix,
     loot_category,
     mix_leather_colors,
     modern_horse_attribute,
 )
-from minescript.simulation_lab_ui_v234 import SIMULATOR_ICON_CANDIDATES
 
 
-class Simulator234Tests(unittest.TestCase):
+class SimulatorTests(unittest.TestCase):
     def setUp(self):
-        # An impossible version hint normally falls back to the newest installed JAR;
-        # the engines remain valid either way. Tests only assert behavior common to
-        # installed data and the bundled baseline.
         self.data = MinecraftJarData("__f3plus_test_missing_version__")
 
     def test_loot_explorer_has_major_vanilla_source_categories(self):
@@ -58,7 +55,7 @@ class Simulator234Tests(unittest.TestCase):
         self.assertEqual(a["stats"], b["stats"])
         self.assertEqual(a["examples"], b["examples"])
 
-    def test_random_chance_entry_is_not_checked_twice(self):
+    def test_random_chance_entry_is_checked_once(self):
         engine = LootTableEngine(self.data)
         engine.tables = {
             "minecraft:test/half": {
@@ -98,12 +95,9 @@ class Simulator234Tests(unittest.TestCase):
         enchanting = EnchantingEngine(self.data)
         anvil = AnvilEngine(enchanting)
         result = anvil.combine(
-            "diamond_pickaxe",
-            {"minecraft:efficiency": 4},
-            {"minecraft:efficiency": 4},
-            left_prior_operations=2,
-            right_prior_operations=1,
-            rename=True,
+            "diamond_pickaxe", {"minecraft:efficiency": 4},
+            {"minecraft:efficiency": 4}, left_prior_operations=2,
+            right_prior_operations=1, rename=True,
         )
         self.assertEqual(result["left_prior_penalty"], 3)
         self.assertEqual(result["right_prior_penalty"], 1)
@@ -119,10 +113,7 @@ class Simulator234Tests(unittest.TestCase):
         self.assertEqual(speed["output"].potion, "swiftness")
         splash = engine.brew(BASE_POTIONS["swiftness"], "gunpowder")
         self.assertEqual(splash["output"].bottle, "splash_potion")
-        lingering = engine.brew(
-            PotionState("swiftness", "Speed", 180, 0, "splash_potion"),
-            "dragon_breath",
-        )
+        lingering = engine.brew(PotionState("swiftness", "Speed", 180, 0, "splash_potion"), "dragon_breath")
         self.assertEqual(lingering["output"].bottle, "lingering_potion")
 
     def test_leather_dye_mixing_is_stable_and_brightness_preserving(self):
@@ -136,8 +127,7 @@ class Simulator234Tests(unittest.TestCase):
         result = cauldron_wash(3, True)
         self.assertTrue(result["washed"])
         self.assertEqual(result["water_after"], 2)
-        empty = cauldron_wash(0, True)
-        self.assertFalse(empty["washed"])
+        self.assertFalse(cauldron_wash(0, True)["washed"])
 
     def test_modern_horse_attribute_stays_inside_vanilla_bounds(self):
         import random
@@ -152,8 +142,7 @@ class Simulator234Tests(unittest.TestCase):
         result = engine.simulate(
             {"max_health": 24, "movement_speed": 0.24, "jump_strength": 0.75, "color": 1, "markings": 2},
             {"max_health": 28, "movement_speed": 0.28, "jump_strength": 0.85, "color": 4, "markings": 3},
-            children=64,
-            seed=99,
+            children=64, seed=99,
         )
         self.assertEqual(result["children"], 64)
         self.assertIn("max_health", result["stats"])
