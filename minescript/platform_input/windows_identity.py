@@ -9,7 +9,6 @@ window is offered as a client target.
 
 import ctypes
 from ctypes import wintypes
-from pathlib import Path
 
 from .base import MinecraftTarget
 
@@ -40,11 +39,17 @@ def process_image(pid: int) -> str:
     return ""
 
 
+def _executable_name(path: str) -> str:
+    # The identity value is a Windows path even when this helper is exercised by
+    # Linux/macOS CI. pathlib.Path follows the host separator, so normalize both
+    # separators explicitly before taking the basename.
+    return str(path or "").replace("\\", "/").rstrip("/").rsplit("/", 1)[-1].lower()
+
+
 def is_minecraft_java_target(target: MinecraftTarget) -> bool:
     if not target.pid:
         return False
-    image = process_image(int(target.pid))
-    executable = Path(image).name.lower() if image else ""
+    executable = _executable_name(process_image(int(target.pid)))
     # Title text is never sufficient. If process identity cannot be read, fail
     # closed and leave the client unlinked rather than risk targeting another app.
     return executable in {"java.exe", "javaw.exe"} or executable.startswith("java")
