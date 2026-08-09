@@ -4,7 +4,8 @@ from __future__ import annotations
 
 The legacy dispatcher still formats text for compatibility with CLI/tests. The desktop
 UI keeps the actual result object long enough to render nested dictionaries and rows as
-metrics, sections, and tables rather than flattening them into a debug-style dump.
+metrics, sections, tables, and supplemental visual previews rather than flattening them
+into a debug-style dump.
 """
 
 
@@ -39,12 +40,24 @@ def install() -> None:
             except Exception:
                 warning = ""
             guide = self._guide_for(spec)
+            data = getattr(result, "data", {})
             self.output.show_structured(
                 guide.title,
-                getattr(result, "data", {}),
+                data,
                 note=getattr(result, "note", "") or "",
                 warning=warning,
             )
+            try:
+                from .visual_results import attach_visual_preview
+                attach_visual_preview(
+                    self.output,
+                    spec,
+                    data,
+                    self.settings.theme,
+                    self.settings.custom_palette,
+                )
+            except Exception:
+                pass
             self.executor._last_visual_result = None
             return
         return original_write(self, text)
