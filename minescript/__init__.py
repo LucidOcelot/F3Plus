@@ -45,3 +45,10 @@ from .display_metadata_v2 import install as _install_display_metadata_v2
 
 _install_display_metadata_v2()
 del _install_display_metadata_v2
+
+# Replace ambiguous aggregate values and duplicate reports with distinct, readable
+# seed/world analysis reports. Raw IDs remain available only where technically useful.
+from .analysis_reports_v2 import install as _install_analysis_reports_v2
+
+_install_analysis_reports_v2()
+del _install_analysis_reports_v2
