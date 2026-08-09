@@ -3,8 +3,8 @@ from __future__ import annotations
 """Canonical compatibility executor.
 
 Historical FeatureSpec IDs remain executable for saved favorites, scripts, and regression
-coverage.  Distinct jobs are explicit dispatches inside the canonical executor; aliases
-may intentionally share a workbench/mode.  No module mutates this class at import time.
+coverage. Distinct jobs are explicit dispatches inside the canonical executor; aliases
+may intentionally share a workbench/mode. No module mutates this class at import time.
 """
 
 from .feature_engine import (
@@ -23,7 +23,6 @@ class FeatureExecutor(_BaseFeatureExecutor):
 
     def input_fields(self, feature):
         spec = self.spec(feature)
-
         if spec.top == "Navigation" and spec.submenu == "Waypoints" and spec.name in {
             "Nearest Waypoint", "Sort Waypoints by Distance", "Waypoint Route",
         }:
@@ -42,13 +41,19 @@ class FeatureExecutor(_BaseFeatureExecutor):
                 fields = spawners.input_fields(spec.name)
             if fields is None:
                 fields = super().input_fields(spec)
-
         if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
             fields = seed_generation.add_fields(fields)
         return search_policy.add_fields(spec, fields)
 
     def dry_run(self, feature):
         spec = self.spec(feature)
+        if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE and spec.submenu != "Spawners":
+            return self._result(spec, "unavailable", {
+                "available": False,
+                "requires_generated_world": True,
+                "requires_seed_worldgen": True,
+                "reason": "This operation needs generated Java world data. Select a save or run it with exact Mojang reference-world generation after accepting the EULA.",
+            })
         params = self.defaults(spec)
         if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
             params["regenerate_from_seed"] = False
@@ -87,7 +92,6 @@ class FeatureExecutor(_BaseFeatureExecutor):
                 data = _semantics._target_event_report(spec.name, values)
             if data is None and spec.submenu == "Generation RNG":
                 data = _semantics._generation_report(spec.name, values, self)
-
         if data is None and spec.top == "Seed Tools" and spec.submenu == "Slime" and spec.name == "Farm Location Ranking":
             data = _quality._farm_location_report(values)
         if data is None and spec.top == "Seed Tools" and spec.submenu == "World Analysis":
@@ -99,7 +103,6 @@ class FeatureExecutor(_BaseFeatureExecutor):
                 data = _quality._search_radius_report(values)
         if data is None and spec.top == "Calculators" and spec.submenu == "Build" and spec.name == "Circle Layer Export":
             data = _quality._circle_export(values)
-
         if data is None:
             return None
         status = "unavailable" if isinstance(data, dict) and data.get("available") is False else "ok"
@@ -128,12 +131,10 @@ class FeatureExecutor(_BaseFeatureExecutor):
         semantic = self._semantic_result(spec, values)
         if semantic is not None:
             return semantic
-
         if spec.top == "Seed Tools" and spec.submenu == "Spawners":
             data = spawners.report(spec.name, values, self, dry_run)
             status = "unavailable" if data.get("available") is False else "ok"
             return self._result(spec, status, data)
-
         if (
             not dry_run
             and spec.top == "Seed Tools"
@@ -157,7 +158,6 @@ class FeatureExecutor(_BaseFeatureExecutor):
                     )
                 result.data = {**result.data, "worldgen_source": source}
             return self._apply_result_semantics(spec, result)
-
         return self._apply_result_semantics(spec, super().execute(spec, values, dry_run))
 
     def execute(self, feature, params=None, dry_run=False):
@@ -166,14 +166,12 @@ class FeatureExecutor(_BaseFeatureExecutor):
         if dry_run and spec.name in seed_generation.SEED_REGENERATABLE:
             values["regenerate_from_seed"] = False
             values["accept_minecraft_eula"] = False
-
         if search_policy.supports(spec) and not dry_run and str(values.get("search_mode", search_policy.SEARCH_MODES[0])) == "Search until found":
             def at_radius(radius):
                 attempt = search_policy.prepare_attempt(spec, values, radius)
                 return self._execute_once(spec, attempt, False)
             result, summary = search_policy.run_until_found(spec, values, at_radius)
             return search_policy.decorate(result, summary)
-
         result = self._execute_once(spec, values, dry_run)
         if search_policy.supports(spec) and not dry_run:
             radius = max(0, int(values.get("radius", 0)))
