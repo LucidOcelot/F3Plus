@@ -11,6 +11,10 @@ import math
 from typing import Any, Callable
 
 SEARCH_MODES = ["Radius search", "Search until found"]
+IGNORE_LIMIT_KEY = "ignore_max_generation_limit"
+# This is not a user-facing generation/search limit. It exists only to prevent an
+# accidental infinite Python loop if a backend can never satisfy an impossible query.
+PROCESS_SAFETY_ATTEMPTS = 4096
 
 _STRUCTURE_TARGETS = {
     "Structure Finder", "Village", "Stronghold", "Trial Chamber", "Ancient City",
@@ -154,11 +158,15 @@ def _has_match(spec, data: dict[str, Any]) -> bool:
 
 
 def _exact_regeneration_cap(spec, values: dict[str, Any], requested_max: int) -> tuple[int, str]:
-    """Bound generated-world spawner expansion by the user's exact-world chunk budget."""
+    """Bound exact regenerated spawner expansion unless the user explicitly overrides it."""
     if getattr(spec, "submenu", "") != "Spawners":
         return requested_max, ""
     if str(values.get("world_path", "")).strip() or not bool(values.get("regenerate_from_seed", True)):
         return requested_max, ""
+    if bool(values.get(IGNORE_LIMIT_KEY, False)):
+        return requested_max, (
+            "The configured search/generation maximum is being ignored. Exact reference-world generation may use substantial CPU, memory, disk space, and time."
+        )
     try:
         max_chunks = max(1, int(values.get("worldgen_max_chunks", 4096)))
     except (TypeError, ValueError):
@@ -169,7 +177,7 @@ def _exact_regeneration_cap(spec, values: dict[str, Any], requested_max: int) ->
     if int(requested_max) > cap:
         return effective, (
             f"Exact regenerated-world search is limited to radius {cap} chunks by the current "
-            f"{max_chunks:,}-chunk generation budget. Increase Maximum exact chunks to search farther."
+            f"{max_chunks:,}-chunk generation budget. Increase Maximum exact chunks or enable the explicit ignore-limit toggle to search farther."
         )
     return effective, ""
 
@@ -187,29 +195,51 @@ def _run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[
     start = max(0, int(values.get("radius", 0)))
     default_step, default_max = _defaults_for(spec)
     step = max(1, int(values.get("radius_step", default_step)))
-    requested_max = max(start, int(values.get("max_search_radius", default_max)))
-    effective_max, limit_reason = _exact_regeneration_cap(spec, values, requested_max)
-    radii = _search_radii(start, step, effective_max)
+    configured_max = max(start, int(values.get("max_search_radius", default_max)))
+    ignore_limit = bool(values.get(IGNORE_LIMIT_KEY, False))
+
+    if ignore_limit:
+        effective_max = None
+        limit_reason = (
+            "Configured maximum radius/generation limits are ignored for this run. The search continues outward until a match, a backend error, or the internal runaway-loop guard is reached."
+        )
+    else:
+        effective_max, limit_reason = _exact_regeneration_cap(spec, values, configured_max)
 
     last = None
     found_radius = None
     attempts = 0
-    for radius in radii:
+    current = start
+    safety_stop = False
+
+    while True:
+        if attempts >= PROCESS_SAFETY_ATTEMPTS:
+            safety_stop = True
+            break
         attempts += 1
-        last = execute_at_radius(radius)
+        last = execute_at_radius(current)
         if _terminal_unavailable(last):
             break
         if _has_match(spec, getattr(last, "data", {}) or {}):
-            found_radius = radius
+            found_radius = current
             break
+        if not ignore_limit and effective_max is not None and current >= effective_max:
+            break
+        next_radius = current + step
+        if not ignore_limit and effective_max is not None:
+            next_radius = min(effective_max, next_radius)
+            if next_radius == current:
+                break
+        current = next_radius
 
-    last_radius = radii[min(max(0, attempts - 1), len(radii) - 1)]
+    last_radius = current if attempts else start
     summary = {
         "mode": "Search until found",
         "unit": _unit(spec),
         "start_radius": start,
         "radius_step": step,
-        "maximum_radius": requested_max,
+        "configured_maximum_radius": configured_max,
+        "ignore_maximum_limit": ignore_limit,
         "effective_maximum_radius": effective_max,
         "attempts": attempts,
         "last_radius_searched": last_radius,
@@ -217,9 +247,17 @@ def _run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[
         "found_radius": found_radius,
     }
     if limit_reason:
-        summary["limit_reason"] = limit_reason
-    if found_radius is None and last is not None and not _terminal_unavailable(last):
-        summary["result"] = "No matching target was found before the configured maximum radius."
+        summary["limit_note"] = limit_reason
+    if safety_stop:
+        summary["process_safety_stop"] = (
+            f"Stopped after {PROCESS_SAFETY_ATTEMPTS:,} expansion attempts to prevent a non-terminating process. This guard is separate from the user-configured search/generation maximum."
+        )
+    elif found_radius is None and last is not None and not _terminal_unavailable(last):
+        summary["result"] = (
+            "No matching target was found before the configured maximum radius."
+            if not ignore_limit
+            else "No match was found before the search ended because the backend became unavailable."
+        )
     return last, summary
 
 
@@ -232,6 +270,25 @@ def _terrain_fields(spec):
         ("cz", "Center chunk Z", 0, "int"),
         ("radius", "Search radius (chunks)", 32, "int"),
     ]
+
+
+def _prepare_unbounded_exact_generation(spec, values: dict[str, Any], radius: int) -> dict[str, Any]:
+    """Raise the per-attempt exact-generation budget when the user knowingly bypasses it."""
+    attempt = dict(values)
+    attempt["radius"] = radius
+    if not bool(values.get(IGNORE_LIMIT_KEY, False)):
+        return attempt
+    if getattr(spec, "submenu", "") != "Spawners":
+        return attempt
+    if str(values.get("world_path", "")).strip() or not bool(values.get("regenerate_from_seed", True)):
+        return attempt
+    required = (2 * max(0, int(radius)) + 1) ** 2
+    try:
+        configured = max(1, int(values.get("worldgen_max_chunks", 4096)))
+    except (TypeError, ValueError):
+        configured = 4096
+    attempt["worldgen_max_chunks"] = max(configured, required)
+    return attempt
 
 
 def install() -> None:
@@ -264,6 +321,7 @@ def install() -> None:
             ("search_mode", "Search mode", SEARCH_MODES, "choice"),
             ("radius_step", f"Until-found expansion step ({unit})", default_step, "int"),
             ("max_search_radius", f"Until-found maximum radius ({unit})", default_max, "int"),
+            (IGNORE_LIMIT_KEY, "Ignore maximum search / generation limit", False, "bool"),
         ]
         fields.extend(field for field in additions if field[0] not in existing)
         return fields
@@ -285,26 +343,25 @@ def install() -> None:
                     "unit": _unit(spec),
                     "radius": radius,
                     "found": _has_match(spec, getattr(result, "data", {}) or {}),
+                    "ignore_maximum_limit": False,
                 })
             return result
 
         def execute_at_radius(radius: int):
-            attempt = dict(values)
-            attempt["radius"] = radius
+            attempt = _prepare_unbounded_exact_generation(spec, values, radius)
             return previous_execute(self, spec, attempt, False)
 
         result, summary = _run_until_found(spec, values, execute_at_radius)
         return _decorate(result, summary)
 
-    # Keep the most visible finder descriptions explicit about the shared behavior.
     current = descriptions.SPECIAL.get("Dungeon/Pig Spawner Locator", "")
     if "Search until found" not in current:
         descriptions.SPECIAL["Dungeon/Pig Spawner Locator"] = (
             current.rstrip(".")
-            + ". Choose Radius search for one bounded area or Search until found to expand outward until a matching spawner is found or the configured safety radius is reached."
+            + ". Choose Radius search for one bounded area or Search until found to expand outward until a matching spawner is found. The explicit ignore-limit toggle can bypass the configured maximum, including the exact-generation chunk budget."
         )
     tool_guides._OUTPUT_EXACT["Dungeon/Pig Spawner Locator"] = (
-        "Returns the selected spawner type, mob identity when encoded in NBT, block position, chunk, distance from the reference, map-ready hits, and the radius/expansion search summary."
+        "Returns the selected spawner type, mob identity when encoded in NBT, block position, chunk, distance from the reference, map-ready hits, and the complete bounded/until-found search summary."
     )
 
     FeatureExecutor.input_fields = input_fields
