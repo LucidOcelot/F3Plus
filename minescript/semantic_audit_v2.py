@@ -22,17 +22,27 @@ INTENTIONAL_CANONICAL_VIEWS = (
     }),
 )
 
+# Prose is deliberately excluded from duplicate fingerprints. A tool is not allowed to
+# evade the audit simply by attaching a different sentence to the same data structure.
+# Semantic fields such as units, coordinates, thresholds, modes, shapes, and route data
+# are retained and therefore still distinguish genuinely different user-facing jobs.
+AUDIT_IGNORED_KEYS = {
+    "implementation", "implementation_detail", "operation", "display_name",
+    "source", "backend", "mc_enum", "backend_error", "worldgen_source",
+    "purpose", "note", "interpretation", "warning", "metric_warning",
+    "model_limit", "next_step", "why_this_entry_exists", "classification_basis",
+    "ranking_basis", "ranking_order", "pattern_definition", "cluster_definition",
+    "identification_limit", "required_input", "requested_analysis", "routing_method",
+    "reroll_planning", "planning_readout", "loot_roll_readout",
+}
+
 
 def _strip_internal(value: Any) -> Any:
     if isinstance(value, dict):
-        ignored = {
-            "implementation", "implementation_detail", "operation", "display_name",
-            "source", "backend", "mc_enum", "backend_error", "worldgen_source",
-        }
         return {
             str(key): _strip_internal(child)
             for key, child in sorted(value.items(), key=lambda item: str(item[0]))
-            if str(key) not in ignored
+            if str(key) not in AUDIT_IGNORED_KEYS
         }
     if isinstance(value, (list, tuple)):
         return [_strip_internal(item) for item in value]
@@ -52,12 +62,13 @@ def _intentional_group(names: set[str]) -> bool:
 
 
 def scan_duplicate_reports(executor) -> dict[str, Any]:
-    """Dry-run every catalog entry and return exact user-facing duplicate groups.
+    """Dry-run every catalog entry and return exact semantic duplicate groups.
 
     Controls, automation presets, external tools, unavailable prerequisite screens, and
     generated-world prompts are omitted because sharing a status screen is not a
-    duplicate calculation. Everything else is compared after stripping implementation
-    metadata and the historical operation/display-name labels.
+    duplicate calculation. Everything else is compared after stripping implementation,
+    historical naming, and explanatory prose. This means a different description alone
+    cannot make two otherwise identical reports pass the audit.
     """
     from .catalog_ids import SPECS
 
