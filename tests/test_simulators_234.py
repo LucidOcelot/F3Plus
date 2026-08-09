@@ -32,12 +32,12 @@ class Simulator234Tests(unittest.TestCase):
     def test_loot_explorer_has_major_vanilla_source_categories(self):
         engine = LootTableEngine(self.data)
         categories = set(engine.categories())
-        # If a local JAR is present it contains the real categories; otherwise the
-        # baseline explicitly covers each source class below.
         self.assertIn("Chests", categories)
         self.assertIn("Entity drops", categories)
         self.assertIn("Fishing", categories)
         self.assertIn("Piglin bartering", categories)
+        if engine.using_baseline:
+            self.assertEqual(engine.source, "Bundled baseline examples")
 
     def test_fishing_possible_loot_expands_nested_tables(self):
         engine = LootTableEngine(self.data)
@@ -58,13 +58,32 @@ class Simulator234Tests(unittest.TestCase):
         self.assertEqual(a["stats"], b["stats"])
         self.assertEqual(a["examples"], b["examples"])
 
+    def test_random_chance_entry_is_not_checked_twice(self):
+        engine = LootTableEngine(self.data)
+        engine.tables = {
+            "minecraft:test/half": {
+                "pools": [{
+                    "rolls": 1,
+                    "entries": [{
+                        "type": "minecraft:item",
+                        "name": "minecraft:diamond",
+                        "conditions": [{"condition": "minecraft:random_chance", "chance": 0.5}],
+                    }],
+                }]
+            }
+        }
+        result = engine.simulate("minecraft:test/half", pulls=20000, seed=123)
+        diamond = next(row for row in result["stats"] if row["item"] == "minecraft:diamond")
+        self.assertGreater(diamond["observed_hit_rate"], 0.46)
+        self.assertLess(diamond["observed_hit_rate"], 0.54)
+
     def test_loot_category_classifies_special_gameplay_tables(self):
         self.assertEqual(loot_category("minecraft:gameplay/fishing"), "Fishing")
         self.assertEqual(loot_category("minecraft:gameplay/piglin_bartering"), "Piglin bartering")
         self.assertEqual(loot_category("minecraft:chests/ancient_city"), "Chests")
         self.assertEqual(loot_category("minecraft:entities/zombie"), "Entity drops")
 
-    def test_enchanting_three_slots_are_deterministic(self):
+    def test_enchanting_three_slots_are_deterministic_and_exclude_treasure(self):
         engine = EnchantingEngine(self.data)
         first = engine.roll_offers("diamond_pickaxe", 15, 12345)
         second = engine.roll_offers("diamond_pickaxe", 15, 12345)
@@ -72,6 +91,8 @@ class Simulator234Tests(unittest.TestCase):
         self.assertEqual(len(first), 3)
         self.assertEqual([row["slot"] for row in first], [1, 2, 3])
         self.assertEqual([row["lapis_cost"] for row in first], [1, 2, 3])
+        offered = {entry["id"] for offer in first for entry in offer["enchantments"]}
+        self.assertFalse(offered & set(engine.treasure_enchantments))
 
     def test_anvil_prior_work_and_merge_cost_are_exposed(self):
         enchanting = EnchantingEngine(self.data)
