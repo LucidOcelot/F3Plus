@@ -2,10 +2,9 @@ from __future__ import annotations
 
 """Color tokens and Qt stylesheet generation for F3+.
 
-The stylesheet deliberately gives native Qt container/view classes an explicit
-surface and foreground.  This prevents an operating-system light palette from
-bleeding through a dark F3+ theme when a dialog or workbench uses a plain
-QWidget/QListWidget/QTabWidget rather than a named presentation frame.
+Every native Qt container/view gets an explicit surface and foreground. This avoids
+platform palette leakage (especially Windows light QList/QScrollArea viewports) when
+F3+ is using one of its dark themes.
 """
 
 CHORUS = {
@@ -104,7 +103,6 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
     return f"""
     * {{ font-family: 'Segoe UI', 'Inter', 'SF Pro Text', sans-serif; font-size: 10.25pt; }}
 
-    /* Explicit top-level and native-container colors. Never rely on the OS palette. */
     QMainWindow, QDialog {{ background: {p['bg']}; color: {p['text']}; }}
     QWidget {{ color: {p['text']}; }}
     QWidget#AppRoot {{ background: {p['bg']}; color: {p['text']}; }}
@@ -170,43 +168,58 @@ def stylesheet(theme: str = "chorus", custom: dict | None = None) -> str:
     QCheckBox::indicator:checked {{ background: {p['primary']}; border-color: {p['glow']}; }}
     QCheckBox:disabled {{ color: {p['muted']}; }}
 
-    /* Tabs get a themed pane even when the caller did not assign OptionsTabs/OptionsPage. */
     QTabWidget::pane {{ background: {p['surface']}; border: 1px solid {p['border']}; border-radius: {radius}px; top: -1px; }}
     QTabWidget QStackedWidget > QWidget {{ background: {p['surface']}; color: {p['text']}; }}
     QTabBar::tab {{ background: {p['surface2']}; color: {p['muted']}; border: 1px solid {p['border']}; padding: 8px 14px; min-width: 92px; }}
     QTabBar::tab:selected {{ background: {p['surface3']}; color: {p['text']}; border-bottom-color: {p['primary']}; }}
     QTabBar::tab:hover {{ border-color: {p['glow']}; color: {p['text']}; }}
 
-    /* Native item views otherwise inherit Windows/macOS light backgrounds. */
-    QAbstractItemView {{ background: {p['surface']}; color: {p['text']}; border: 1px solid {p['border']}; outline: 0; selection-background-color: {p['surface3']}; selection-color: {p['text']}; }}
-    QListWidget {{ background: {p['surface']}; color: {p['text']}; border: 1px solid {p['border']}; outline: 0; }}
-    QListWidget::item {{ color: {p['text']}; padding: 7px; }}
-    QListWidget::item:selected {{ background: {p['surface3']}; color: {p['text']}; }}
-    QListWidget::item:hover {{ background: {p['surface2']}; color: {p['text']}; }}
+    QAbstractItemView {{
+        background-color: {p['surface']}; color: {p['text']}; border: 1px solid {p['border']};
+        outline: 0; selection-background-color: {p['surface3']}; selection-color: {p['text']};
+    }}
+    QListView, QTreeView, QTableView, QListWidget, QTableWidget {{
+        background-color: {p['surface']}; color: {p['text']}; border: 1px solid {p['border']};
+        alternate-background-color: {p['surface2']}; selection-background-color: {p['surface3']};
+        selection-color: {p['text']}; outline: 0;
+    }}
+    QListView::item, QTreeView::item, QListWidget::item {{ color: {p['text']}; background-color: {p['surface']}; padding: 7px; }}
+    QListView::item:selected, QTreeView::item:selected, QListWidget::item:selected {{ background-color: {p['surface3']}; color: {p['text']}; }}
+    QListView::item:hover, QTreeView::item:hover, QListWidget::item:hover {{ background-color: {p['surface2']}; color: {p['text']}; }}
 
-    QListWidget#NavList, QListWidget#ToolList, QListWidget#TradeCardList, QListWidget#CompareList, QListWidget#ProfessionList {{ background: transparent; border: 0; outline: 0; }}
+    /* These named lists used to be transparent. Windows can paint their internal
+       viewport with the native light palette, so give the list itself a real surface. */
+    QListWidget#NavList {{ background-color: {p['bg']}; color: {p['text']}; border: 0; outline: 0; }}
+    QListWidget#ToolList, QListWidget#TradeCardList, QListWidget#CompareList, QListWidget#ProfessionList {{ background-color: {p['surface']}; color: {p['text']}; border: 0; outline: 0; }}
+    QListWidget#NavList QWidget#qt_scrollarea_viewport {{ background-color: {p['bg']}; }}
+    QListWidget#ToolList QWidget#qt_scrollarea_viewport,
+    QListWidget#TradeCardList QWidget#qt_scrollarea_viewport,
+    QListWidget#CompareList QWidget#qt_scrollarea_viewport,
+    QListWidget#ProfessionList QWidget#qt_scrollarea_viewport {{ background-color: {p['surface']}; }}
     QListWidget#NavList::item, QListWidget#ProfessionList::item {{ padding: 10px 10px; margin: 2px 5px; border-radius: {radius}px; color: {p['muted']}; }}
-    QListWidget#NavList::item:selected, QListWidget#ProfessionList::item:selected {{ background: {p['surface3']}; color: {p['text']}; border-left: 3px solid {p['primary']}; }}
-    QListWidget#NavList::item:hover, QListWidget#ProfessionList::item:hover {{ background: {p['surface2']}; color: {p['text']}; }}
-    QListWidget#ToolList::item {{ background: {p['surface2']}; color: {p['text']}; border: 1px solid {p['border']}; border-radius: {card_radius}px; padding: 10px; margin: 4px 2px; }}
-    QListWidget#ToolList::item:selected {{ background: {p['surface3']}; border: 1px solid {p['glow']}; }}
-    QListWidget#ToolList::item:hover {{ border-color: {p['accent']}; }}
-    QListWidget#TradeCardList::item {{ background: transparent; border: 0; padding: 0; margin: 0; }}
-    QListWidget#TradeCardList::item:selected {{ background: {p['surface3']}; border-left: 3px solid {p['primary']}; }}
-    QListWidget#CompareList::item {{ padding: 6px; margin: 2px; background: {p['surface2']}; border: 1px solid {p['border']}; border-radius: {radius}px; }}
+    QListWidget#NavList::item {{ background-color: {p['bg']}; }}
+    QListWidget#ProfessionList::item {{ background-color: {p['surface']}; }}
+    QListWidget#NavList::item:selected, QListWidget#ProfessionList::item:selected {{ background-color: {p['surface3']}; color: {p['text']}; border-left: 3px solid {p['primary']}; }}
+    QListWidget#NavList::item:hover, QListWidget#ProfessionList::item:hover {{ background-color: {p['surface2']}; color: {p['text']}; }}
+    QListWidget#ToolList::item {{ background-color: {p['surface2']}; color: {p['text']}; border: 1px solid {p['border']}; border-radius: {card_radius}px; padding: 10px; margin: 4px 2px; }}
+    QListWidget#ToolList::item:selected {{ background-color: {p['surface3']}; color: {p['text']}; border: 1px solid {p['glow']}; }}
+    QListWidget#ToolList::item:hover {{ background-color: {p['surface3']}; border-color: {p['accent']}; }}
+    QListWidget#TradeCardList::item {{ background-color: {p['surface']}; border: 0; padding: 0; margin: 0; }}
+    QListWidget#TradeCardList::item:selected {{ background-color: {p['surface3']}; border-left: 3px solid {p['primary']}; }}
+    QListWidget#CompareList::item {{ padding: 6px; margin: 2px; background-color: {p['surface2']}; border: 1px solid {p['border']}; border-radius: {radius}px; }}
 
     QHeaderView::section {{ background: {p['surface3']}; color: {p['text']}; border: 0; border-right: 1px solid {p['border']}; border-bottom: 1px solid {p['border']}; padding: 7px; font-weight: 700; }}
-    QTableWidget {{ gridline-color: {p['border']}; alternate-background-color: {p['surface']}; }}
+    QTableWidget {{ gridline-color: {p['border']}; alternate-background-color: {p['surface2']}; }}
 
-    /* Scroll-area viewport/content backgrounds are explicit as well. */
-    QScrollArea {{ background: {p['surface']}; border: 0; }}
-    QScrollArea QWidget#qt_scrollarea_viewport {{ background: {p['surface']}; }}
-    QScrollArea > QWidget > QWidget {{ background: {p['surface']}; }}
+    QAbstractScrollArea {{ background-color: {p['surface']}; color: {p['text']}; border-color: {p['border']}; }}
+    QAbstractScrollArea QWidget#qt_scrollarea_viewport {{ background-color: {p['surface']}; color: {p['text']}; }}
+    QScrollArea {{ background-color: {p['surface']}; border: 0; }}
+    QScrollArea > QWidget > QWidget {{ background-color: {p['surface']}; color: {p['text']}; }}
     QStackedWidget {{ background: transparent; border: 0; }}
     QSplitter {{ background: {p['bg']}; }}
     QSplitter::handle {{ background: {p['border']}; width: 1px; }}
     QSplitter::handle:hover {{ background: {p['glow']}; }}
-    QScrollBar:vertical {{ background: transparent; width: 10px; margin: 3px; }}
+    QScrollBar:vertical {{ background: {p['surface']}; width: 10px; margin: 3px; }}
     QScrollBar::handle:vertical {{ background: {p['border']}; min-height: 26px; border-radius: 4px; }}
     QScrollBar::handle:vertical:hover {{ background: {p['primary']}; }}
     QScrollBar::add-line:vertical, QScrollBar::sub-line:vertical {{ height: 0; }}
