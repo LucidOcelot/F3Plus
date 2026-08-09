@@ -11,7 +11,6 @@ from minescript.runtime_deps import USER_AGENT as DEPS_USER_AGENT
 from minescript.rng_recovery import USER_AGENT as RNG_USER_AGENT
 from updater import USER_AGENT as UPDATER_USER_AGENT
 
-
 ROOT = Path(__file__).resolve().parents[1]
 
 
@@ -41,25 +40,28 @@ class ReleaseAudit234Tests(unittest.TestCase):
             self.assertIn("2.3.4", text, relative)
             self.assertNotIn("2.0.0", text, relative)
 
-    def test_public_docs_identify_234_and_supported_python_range(self):
+    def test_public_docs_describe_current_release_and_canonical_workbenches(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         features = (ROOT / "FEATURES.md").read_text(encoding="utf-8")
         third_party = (ROOT / "THIRD_PARTY.md").read_text(encoding="utf-8")
+        security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
         self.assertIn("# F3+ 2.3.4", readme)
-        self.assertIn("# F3+ 2.3.4 Feature Guide", features)
+        self.assertIn("# F3+ Workbench Guide", features)
         self.assertIn("3.11 through 3.13", readme)
         self.assertIn("3.11 through 3.13", third_party)
-        self.assertNotIn("# F3+ 2.0", readme)
-        self.assertNotIn("# F3+ 2.0", features)
+        self.assertIn("historical feature ids", readme.lower())
+        self.assertIn("compatibility aliases", features.lower())
+        self.assertIn("automation permissions", security.lower())
 
-    def test_ai_disclosure_required_sentence_is_preserved(self):
+    def test_ai_disclosure_is_neutral_and_does_not_claim_fake_precision(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("F3+ was unfortunately developed with generative AI assistance.", readme)
+        self.assertIn("AI-assisted development disclosure", readme)
+        self.assertIn("Generative AI was used during development", readme)
+        self.assertNotIn("unfortunately developed", readme)
+        self.assertNotRegex(readme, r"Approximately\s+\d+%.*AI")
 
     def test_legacy_release_user_agents_are_absent_from_runtime_sources(self):
-        for relative in (
-            "updater.py", "minescript/seed_worldgen.py", "minescript/runtime_deps.py", "minescript/rng_recovery.py"
-        ):
+        for relative in ("updater.py", "minescript/seed_worldgen.py", "minescript/runtime_deps.py", "minescript/rng_recovery.py"):
             text = (ROOT / relative).read_text(encoding="utf-8")
             self.assertNotIn("F3Plus/2.0.0", text, relative)
             self.assertNotIn("F3Plus/1.16.2", text, relative)
