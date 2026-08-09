@@ -8,9 +8,9 @@ UV="$UV_DIR/uv"
 UV_VERSION='0.12.0'
 exec > >(tee -a "$LOG") 2>&1
 
-printf 'F3+ 1.16.2 - LucidOcelot\n==================================\n\n'
+printf 'F3+ 2.0.0 - LucidOcelot\n==================================\n\n'
 echo 'Checking installation...'
-for required in launcher.py main.py requirements.txt minescript/app.py; do
+for required in launcher.py main.py requirements.txt minescript/app.py updater.py; do
   if [ ! -e "$ROOT/$required" ]; then
     echo 'ERROR: F3+ is not fully extracted.'
     echo 'Extract the entire ZIP to a normal folder, then run START_F3PLUS.command again.'
@@ -23,23 +23,23 @@ find_python() {
   local p
   for p in "$RUNTIME/python"/*/bin/python3 "$RUNTIME/python"/*/bin/python "$RUNTIME/python/bin/python3" "$RUNTIME/python/bin/python"; do
     [ -x "$p" ] || continue
-    "$p" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1 && { print -r -- "$p"; return 0; }
+    "$p" -c 'import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)' >/dev/null 2>&1 && { print -r -- "$p"; return 0; }
   done
   for p in /opt/homebrew/bin/python3 /usr/local/bin/python3 /Library/Frameworks/Python.framework/Versions/Current/bin/python3; do
     [ -x "$p" ] || continue
-    "$p" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1 && { print -r -- "$p"; return 0; }
+    "$p" -c 'import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)' >/dev/null 2>&1 && { print -r -- "$p"; return 0; }
   done
   for name in python3 python; do
     command -v "$name" >/dev/null 2>&1 || continue
     p="$(command -v "$name")"
-    "$p" -c 'import sys; raise SystemExit(0 if sys.version_info >= (3,11) else 1)' >/dev/null 2>&1 && { print -r -- "$p"; return 0; }
+    "$p" -c 'import sys; raise SystemExit(0 if (3,11) <= sys.version_info[:2] <= (3,13) else 1)' >/dev/null 2>&1 && { print -r -- "$p"; return 0; }
   done
   return 1
 }
 
 PYTHON="$(find_python 2>/dev/null || true)"
 if [ -z "$PYTHON" ]; then
-  echo 'Python 3.11+ was not found. F3+ will prepare a private runtime.'
+  echo 'Python 3.11 through 3.13 was not found. F3+ will prepare a private runtime.'
   mkdir -p "$UV_DIR" "$RUNTIME/python" || { echo 'ERROR: Could not create .runtime.'; read '?Press Return to close...'; exit 2; }
   if [ ! -x "$UV" ]; then
     if ! command -v curl >/dev/null 2>&1; then
@@ -47,7 +47,6 @@ if [ -z "$PYTHON" ]; then
       read '?Press Return to close...'; exit 3
     fi
     ARCH="$(uname -m)"
-    # Update the pinned SHA-256 values below when UV_VERSION changes.
     case "$ARCH" in
       arm64|aarch64)
         UV_ASSET='uv-aarch64-apple-darwin.tar.gz'
@@ -99,6 +98,7 @@ fi
 PYVER="$($PYTHON -c 'import sys; print(sys.version.split()[0])')"
 echo "Found Python $PYVER"
 echo 'Starting F3+ setup and launch...'
+echo 'F3+ checks GitHub for updates before loading the application; offline launch continues if the check cannot connect.'
 "$PYTHON" "$ROOT/launcher.py"
 RC=$?
 if [ "$RC" -ne 0 ]; then
