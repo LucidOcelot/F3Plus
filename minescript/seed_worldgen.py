@@ -16,6 +16,7 @@ from typing import Any
 
 MANIFEST_URL = "https://piston-meta.mojang.com/mc/game/version_manifest_v2.json"
 CACHE_ROOT = Path.home() / ".f3plus" / "minecraft-worldgen"
+USER_AGENT = "F3Plus/2.0.0"
 
 
 class WorldgenError(RuntimeError):
@@ -39,7 +40,7 @@ def canonical_version_id(value: str) -> str:
 
 
 def _json_url(url: str, timeout: int = 30) -> dict[str, Any]:
-    req = urllib.request.Request(url, headers={"User-Agent": "F3Plus/1.16.3"})
+    req = urllib.request.Request(url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=timeout) as response:
         return json.loads(response.read().decode("utf-8"))
 
@@ -76,7 +77,7 @@ def acquire_server(version: str, *, cache_root: Path = CACHE_ROOT) -> ServerArti
     if artifact.path.is_file() and _sha1(artifact.path) == artifact.sha1:
         return artifact
     tmp = artifact.path.with_suffix(".download")
-    req = urllib.request.Request(artifact.url, headers={"User-Agent": "F3Plus/1.16.3"})
+    req = urllib.request.Request(artifact.url, headers={"User-Agent": USER_AGENT})
     with urllib.request.urlopen(req, timeout=120) as response, tmp.open("wb") as out:
         shutil.copyfileobj(response, out)
     actual = _sha1(tmp)
@@ -145,9 +146,6 @@ def _wait_for(lines: queue.Queue[str], predicate, timeout: float, log: list[str]
 
 
 def _find_overworld_root(target: Path, preferred: Path) -> Path | None:
-    # Vanilla historically uses <level-name>/region, but snapshots may move storage
-    # while retaining Anvil region files. Discover the actual Overworld root instead
-    # of encoding a directory-layout assumption into seed prediction correctness.
     candidates = [preferred, target]
     candidates.extend(path.parent for path in target.rglob("region") if path.is_dir())
     seen: set[Path] = set()
@@ -292,7 +290,7 @@ def resolve_world_source(params: dict[str, Any], executor=None, *, default_radiu
         return supplied, {"source": "generated-world save", "exactness": "observed generated chunks"}
     if not bool(params.get("regenerate_from_seed", True)):
         return None, {"requires_generated_world": True, "reason": "No world save selected and seed regeneration is disabled."}
-    version = str(params.get("minecraft_version") or getattr(executor, "minecraft_version", "26.3 Snapshot 6"))
+    version = str(params.get("minecraft_version") or getattr(executor, "minecraft_version", "26.3 Snapshot 7"))
     seed = int(str(params.get("seed", 0)).strip())
     radius = max(0, int(params.get("radius", default_radius)))
     max_chunks = max(1, int(params.get("worldgen_max_chunks", 4096)))
