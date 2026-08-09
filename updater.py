@@ -1,12 +1,14 @@
 from __future__ import annotations
 
-"""Small dependency-free updater used by launcher.py before F3+ starts.
+"""Dependency-free launch updater for F3+.
 
 Git checkouts fast-forward from origin/main. Extracted ZIP installs compare a saved
-commit SHA with GitHub's main branch and overlay an immutable commit archive. User
-configuration lives under ~/.f3plus and is never touched by this updater.
+commit SHA with GitHub's main branch and overlay an immutable commit archive. A
+manifest lets later ZIP updates remove files that were deleted upstream without ever
+touching user configuration, local runtimes, Git metadata, or startup logs.
 """
 
+import io
 import json
 import os
 import shutil
@@ -15,13 +17,14 @@ import tempfile
 import urllib.error
 import urllib.request
 import zipfile
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 REPOSITORY = "LucidOcelot/F3Plus"
 BRANCH = "main"
 API_HEAD = f"https://api.github.com/repos/{REPOSITORY}/commits/{BRANCH}"
 STATE_FILE = ".f3plus-update.json"
-USER_AGENT = "F3Plus-Updater/2.0"
+USER_AGENT = "F3Plus-Updater/2.0.0"
+MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
 EXCLUDED_TOP_LEVEL = {
     ".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log",
     "__pycache__", "build", "dist",
@@ -80,14 +83,99 @@ def _read_state(root: Path) -> dict:
         return {}
 
 
-def _write_state(root: Path, sha: str) -> None:
+def _write_state(root: Path, sha: str, files: list[str]) -> None:
     try:
         (root / STATE_FILE).write_text(
-            json.dumps({"repository": REPOSITORY, "branch": BRANCH, "sha": sha}, indent=2) + "\n",
+            json.dumps({
+                "repository": REPOSITORY,
+                "branch": BRANCH,
+                "sha": sha,
+                "files": sorted(set(files)),
+            }, indent=2) + "\n",
             encoding="utf-8",
         )
     except OSError:
         pass
+
+
+def _allowed_relative(path: PurePosixPath) -> bool:
+    if path.is_absolute() or not path.parts or any(part in {"", ".", ".."} for part in path.parts):
+        return False
+    return path.parts[0] not in EXCLUDED_TOP_LEVEL
+
+
+def _download_archive(url: str) -> bytes:
+    with _request(url, timeout=20) as response:
+        length = response.headers.get("Content-Length")
+        if length and int(length) > MAX_ARCHIVE_BYTES:
+            raise RuntimeError("GitHub update archive is unexpectedly large")
+        data = response.read(MAX_ARCHIVE_BYTES + 1)
+    if len(data) > MAX_ARCHIVE_BYTES:
+        raise RuntimeError("GitHub update archive exceeded the safety limit")
+    return data
+
+
+def _safe_unpack_archive(data: bytes, destination: Path) -> tuple[Path, list[str]]:
+    destination.mkdir(parents=True, exist_ok=True)
+    with zipfile.ZipFile(io.BytesIO(data)) as archive:
+        members = [info for info in archive.infolist() if info.filename and not info.filename.endswith("/")]
+        roots = {PurePosixPath(info.filename).parts[0] for info in members if PurePosixPath(info.filename).parts}
+        if len(roots) != 1:
+            raise RuntimeError("Downloaded update did not contain one repository root")
+        archive_root = next(iter(roots))
+        files: list[str] = []
+        for info in archive.infolist():
+            raw = PurePosixPath(info.filename)
+            if not raw.parts or raw.parts[0] != archive_root:
+                continue
+            relative = PurePosixPath(*raw.parts[1:])
+            if not relative.parts:
+                continue
+            if not _allowed_relative(relative):
+                if relative.parts[0] in EXCLUDED_TOP_LEVEL:
+                    continue
+                raise RuntimeError("Unsafe path found in GitHub update archive")
+            out = destination.joinpath(*relative.parts)
+            resolved = out.resolve()
+            base = destination.resolve()
+            if resolved != base and base not in resolved.parents:
+                raise RuntimeError("Unsafe path found in GitHub update archive")
+            if info.is_dir():
+                out.mkdir(parents=True, exist_ok=True)
+                continue
+            out.parent.mkdir(parents=True, exist_ok=True)
+            with archive.open(info) as source, out.open("wb") as target:
+                shutil.copyfileobj(source, target)
+            files.append(relative.as_posix())
+    return destination, files
+
+
+def _remove_deleted_files(root: Path, old_files: list[str], new_files: set[str]) -> None:
+    candidates = sorted(set(str(value) for value in old_files) - new_files, key=lambda value: value.count("/"), reverse=True)
+    base = root.resolve()
+    for text in candidates:
+        relative = PurePosixPath(text)
+        if not _allowed_relative(relative):
+            continue
+        target = root.joinpath(*relative.parts)
+        try:
+            resolved = target.resolve()
+        except OSError:
+            continue
+        if resolved != base and base not in resolved.parents:
+            continue
+        try:
+            if target.is_file() or target.is_symlink():
+                target.unlink()
+        except OSError:
+            continue
+        parent = target.parent
+        while parent != root:
+            try:
+                parent.rmdir()
+            except OSError:
+                break
+            parent = parent.parent
 
 
 def _overlay_tree(source: Path, root: Path) -> None:
@@ -116,18 +204,15 @@ def _archive_update(root: Path) -> tuple[bool, str]:
     if state.get("sha") == remote:
         return False, "F3+ is current."
     url = f"https://github.com/{REPOSITORY}/archive/{remote}.zip"
-    with tempfile.TemporaryDirectory(prefix="f3plus-update-") as tmp_text:
-        tmp = Path(tmp_text)
-        archive = tmp / "update.zip"
-        with _request(url, timeout=20) as response, archive.open("wb") as output:
-            shutil.copyfileobj(response, output)
-        with zipfile.ZipFile(archive) as zf:
-            zf.extractall(tmp / "unpacked")
-        roots = [p for p in (tmp / "unpacked").iterdir() if p.is_dir()]
-        if len(roots) != 1 or not (roots[0] / "main.py").is_file() or not (roots[0] / "minescript" / "__init__.py").is_file():
+    data = _download_archive(url)
+    with tempfile.TemporaryDirectory(prefix="f3plus-update-") as temp_text:
+        unpacked = Path(temp_text) / "unpacked"
+        source, files = _safe_unpack_archive(data, unpacked)
+        if not (source / "main.py").is_file() or not (source / "minescript" / "__init__.py").is_file():
             raise RuntimeError("Downloaded update did not contain a valid F3+ source tree")
-        _overlay_tree(roots[0], root)
-    _write_state(root, remote)
+        _remove_deleted_files(root, list(state.get("files", [])), set(files))
+        _overlay_tree(source, root)
+    _write_state(root, remote, files)
     return True, f"Updated F3+ to {remote[:12]}."
 
 
