@@ -7,8 +7,8 @@ from .seed_worldgen import resolve_world_source
 
 # These are the original catalog tools whose truthful answer can be obtained from
 # generated block/entity state. When no save is supplied, F3+ can now materialize
-# exact vanilla chunks from seed + exact Minecraft server version and feed those
-# chunks into the same analyzers used for ordinary saves.
+# vanilla chunks from seed + exact Minecraft server version and feed those chunks
+# into the same analyzers used for ordinary saves.
 SEED_REGENERATABLE = {
     "Dungeon/Pig Spawner Locator", "Double Spawner Locator", "Triple Spawner Locator",
     "Quad Spawner Locator", "Spawner Cluster Ranking", "Stronghold Silverfish",
@@ -18,6 +18,8 @@ SEED_REGENERATABLE = {
     "Lake Density", "Cliff Locator", "Ore Distribution", "Ore Exposure Estimate",
     "Cave Exposure Estimate", "Technical World Score", "Resource Score",
 }
+
+TICK_SENSITIVE = {"Largest Cave Region", "Cave Exposure Estimate", "Ore Exposure Estimate"}
 
 
 def _seed_worldgen_fields(fields):
@@ -30,7 +32,7 @@ def _seed_worldgen_fields(fields):
             out[i] = (field[0], field[1], 8, field[3])
     present = {f[0] for f in out}
     extra = [
-        ("regenerate_from_seed", "Generate exact vanilla chunks from seed when no save is selected", True, "bool"),
+        ("regenerate_from_seed", "Generate vanilla chunks from seed when no save is selected", True, "bool"),
         ("accept_minecraft_eula", "I accept the Minecraft EULA for this local server generation", False, "bool"),
         ("worldgen_max_chunks", "Maximum exact chunks to generate", 4096, "int"),
     ]
@@ -77,6 +79,13 @@ def install() -> None:
                 result = previous_execute(spec, q, executor)
                 if isinstance(result, dict):
                     result = dict(result)
+                    source = dict(source)
+                    if spec.name in TICK_SENSITIVE:
+                        source["limitation"] = (
+                            "Cave/air/exposure state is measured from a freshly generated vanilla server save. "
+                            "Scheduled fluid, gravity, and other game ticks can change some air/exposure blocks after generation; "
+                            "ore placement and immutable geology are separately integration-tested for exact repeatability."
+                        )
                     result["worldgen_source"] = source
                 return result
         return previous_execute(spec, p, executor)
