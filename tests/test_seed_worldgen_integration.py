@@ -15,15 +15,15 @@ RUN = os.environ.get("F3PLUS_RUN_MOJANG_WORLDGEN") == "1"
 def _chunk_zero_blocks(world: Path):
     """Return stable generation-derived block coordinates for chunk 0,0.
 
-    A running server can legitimately mutate foliage, fluids, fire, snow and other
-    tick-sensitive states after chunk generation. Ore coordinates and the underlying
-    geology are world-generation outputs, so those are the appropriate block-level
-    oracle for F3+'s seed-derived ore/terrain analyzers.
+    A running server can legitimately mutate foliage, fluids, fire, snow and
+    gravity/scheduled-update blocks after chunk generation. Ore coordinates and the
+    non-gravity underground geology are world-generation outputs, so those are the
+    appropriate block-level oracle for F3+'s seed-derived terrain/ore analyzers.
     """
     geology = {
         "minecraft:stone", "minecraft:deepslate", "minecraft:tuff", "minecraft:bedrock",
         "minecraft:granite", "minecraft:diorite", "minecraft:andesite", "minecraft:calcite",
-        "minecraft:dripstone_block", "minecraft:gravel", "minecraft:dirt", "minecraft:sand",
+        "minecraft:dripstone_block",
         *ORE_NAMES,
     }
     ores = set()
@@ -82,7 +82,7 @@ class MojangWorldgenIntegrationTests(unittest.TestCase):
             actual_stable, actual_ores = _chunk_zero_blocks(actual)
             # Exact block-coordinate comparison against an independently generated
             # vanilla control world. This directly validates ore distribution and a
-            # broad stable-geology subset rather than tick-sensitive post-startup state.
+            # broad immutable-geology subset rather than tick-sensitive server state.
             self.assertEqual(predicted_ores, actual_ores)
             self.assertEqual(predicted_stable, actual_stable)
             self.assertGreater(len(predicted_stable), 1000)
