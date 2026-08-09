@@ -23,7 +23,7 @@ REPOSITORY = "LucidOcelot/F3Plus"
 BRANCH = "main"
 API_HEAD = f"https://api.github.com/repos/{REPOSITORY}/commits/{BRANCH}"
 STATE_FILE = ".f3plus-update.json"
-USER_AGENT = "F3Plus-Updater/2.0.0"
+USER_AGENT = "F3Plus-Updater/2.3.4"
 MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
 EXCLUDED_TOP_LEVEL = {
     ".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log",
