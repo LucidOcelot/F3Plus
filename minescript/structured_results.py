@@ -2,11 +2,35 @@ from __future__ import annotations
 
 """Connect raw FeatureResult data to the 2.x visual result renderer.
 
-The legacy dispatcher still formats text for compatibility with CLI/tests. The desktop
-UI keeps the actual result object long enough to render nested dictionaries and rows as
-metrics, sections, tables, and supplemental visual previews rather than flattening them
-into a debug-style dump.
+The executor keeps complete technical result dictionaries for tests, library callers,
+and debugging. The desktop presentation intentionally removes internal dispatch and
+implementation-contract metadata so the normal result view answers the user's question
+instead of reading like a backend dump.
 """
+
+
+_HIDDEN_PRESENTATION_KEYS = {
+    "implementation",   # internal integrity contract; explained by the Inspector
+    "operation",        # normally just repeats the selected tool name
+    "display_name",     # already used as the visible guide/result title
+    "mc_enum",          # Cubiomes implementation detail; version text is shown instead
+    "bundled_newest_enum",
+}
+
+
+def _presentation_data(value):
+    if isinstance(value, dict):
+        out = {}
+        for key, child in value.items():
+            if str(key) in _HIDDEN_PRESENTATION_KEYS:
+                continue
+            out[key] = _presentation_data(child)
+        return out
+    if isinstance(value, list):
+        return [_presentation_data(child) for child in value]
+    if isinstance(value, tuple):
+        return tuple(_presentation_data(child) for child in value)
+    return value
 
 
 def install() -> None:
@@ -40,19 +64,22 @@ def install() -> None:
             except Exception:
                 warning = ""
             guide = self._guide_for(spec)
-            data = getattr(result, "data", {})
+            raw_data = getattr(result, "data", {})
+            visible_data = _presentation_data(raw_data)
             self.output.show_structured(
                 guide.title,
-                data,
+                visible_data,
                 note=getattr(result, "note", "") or "",
                 warning=warning,
             )
             try:
                 from .visual_results import attach_visual_preview
+                # Previews use the complete raw structure because internal technical
+                # keys can still contain useful coordinate collections.
                 attach_visual_preview(
                     self.output,
                     spec,
-                    data,
+                    raw_data,
                     self.settings.theme,
                     self.settings.custom_palette,
                 )
