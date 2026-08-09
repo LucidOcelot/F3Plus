@@ -7,7 +7,6 @@ import queue
 import re
 import shutil
 import subprocess
-import tempfile
 import threading
 import time
 import urllib.request
@@ -145,6 +144,27 @@ def _wait_for(lines: queue.Queue[str], predicate, timeout: float, log: list[str]
     raise WorldgenError("Timed out waiting for Minecraft server world generation.\n" + "\n".join(log[-40:]))
 
 
+def _find_overworld_root(target: Path, preferred: Path) -> Path | None:
+    # Vanilla historically uses <level-name>/region, but snapshots may move storage
+    # while retaining Anvil region files. Discover the actual Overworld root instead
+    # of encoding a directory-layout assumption into seed prediction correctness.
+    candidates = [preferred, target]
+    candidates.extend(path.parent for path in target.rglob("region") if path.is_dir())
+    seen: set[Path] = set()
+    for root in candidates:
+        try:
+            resolved = root.resolve()
+        except OSError:
+            resolved = root
+        if resolved in seen:
+            continue
+        seen.add(resolved)
+        region = root / "region"
+        if region.is_dir() and any(region.glob("r.*.*.mca")):
+            return root
+    return None
+
+
 def generate_reference_world(
     seed: int,
     version: str,
@@ -161,9 +181,9 @@ def generate_reference_world(
     """Materialize exact vanilla chunks from seed using Mojang's matching server jar.
 
     This is intentionally a reference-generation backend, not a reimplementation of
-    Mojang's private worldgen internals. It lets seed-only tools operate without a
-    pre-existing save while preserving exact version behavior. The server jar is
-    downloaded from Mojang on first use and verified by the launcher-manifest SHA-1.
+    Mojang's worldgen internals. It lets seed-only tools operate without a pre-existing
+    save while preserving exact version behavior. The server jar is downloaded from
+    Mojang on first use and verified by the launcher-manifest SHA-1.
     """
     if not accept_eula:
         raise WorldgenError("Seed world generation requires explicit acceptance of the Minecraft EULA for the local server run.")
@@ -178,10 +198,17 @@ def generate_reference_world(
     artifact = acquire_server(version, cache_root=cache_root)
     key = hashlib.sha256(f"{artifact.version_id}|{int(seed)}|{cx}|{cz}|{radius}".encode()).hexdigest()[:20]
     target = cache_root / "worlds" / artifact.version_id / str(int(seed)) / key
-    world = target / "world"
+    preferred_world = target / "world"
     marker = target / ".f3plus-worldgen.json"
-    if marker.is_file() and (world / "region").is_dir():
-        return world
+    if marker.is_file():
+        try:
+            meta = json.loads(marker.read_text(encoding="utf-8"))
+            cached = target / str(meta.get("world_relative", "world"))
+            found = _find_overworld_root(target, cached)
+            if found is not None:
+                return found
+        except (OSError, ValueError, json.JSONDecodeError):
+            pass
     target.mkdir(parents=True, exist_ok=True)
     _write_properties(target, int(seed), "world")
     (target / "eula.txt").write_text("eula=true\n", encoding="utf-8")
@@ -206,8 +233,6 @@ def generate_reference_world(
             proc.stdin.write(f"forceload add {x0 * 16} {z0 * 16} {x1 * 16 + 15} {z1 * 16 + 15}\n")
         proc.stdin.write("save-all flush\n")
         proc.stdin.flush()
-        # Force-loaded chunks generate asynchronously. Wait until the save command is
-        # acknowledged, then give the chunk system a bounded settle window and flush again.
         _wait_for(lines, lambda line: "Saved the game" in line or "Saving the game" in line, max(30.0, requested * 0.15), log)
         time.sleep(min(30.0, max(2.0, requested * 0.03)))
         proc.stdin.write("save-all flush\n")
@@ -225,10 +250,29 @@ def generate_reference_world(
         except Exception:
             proc.kill()
         raise
+    finally:
+        try:
+            proc.stdin.close()
+        except Exception:
+            pass
+        try:
+            proc.stdout.close()
+        except Exception:
+            pass
     if proc.returncode not in (0, None):
         raise WorldgenError(f"Minecraft server exited with code {proc.returncode}.\n" + "\n".join(log[-40:]))
-    if not (world / "region").is_dir():
-        raise WorldgenError("Minecraft server completed without producing an Overworld region directory.")
+    world = _find_overworld_root(target, preferred_world)
+    if world is None:
+        tree = sorted(str(path.relative_to(target)) for path in target.rglob("*") if path.is_file())[:120]
+        raise WorldgenError(
+            "Minecraft server completed without a readable Overworld Anvil region directory.\n"
+            + "Recent server output:\n" + "\n".join(log[-30:])
+            + "\nGenerated files:\n" + "\n".join(tree)
+        )
+    try:
+        rel = str(world.relative_to(target))
+    except ValueError:
+        rel = str(world)
     marker.write_text(json.dumps({
         "version": artifact.version_id,
         "seed": int(seed),
@@ -236,6 +280,7 @@ def generate_reference_world(
         "radius_chunks": radius,
         "server_sha1": artifact.sha1,
         "source": "official Mojang server reference generation",
+        "world_relative": rel,
     }, indent=2), encoding="utf-8")
     return world
 
