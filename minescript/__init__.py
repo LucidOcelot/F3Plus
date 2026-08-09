@@ -99,3 +99,10 @@ from .spawner_v3 import install as _install_spawner_v3
 
 _install_spawner_v3()
 del _install_spawner_v3
+
+# The final spawner layer still participates in the catalog integrity contract used by
+# dry-run regression tests and technical details.
+from .spawner_contract_v3 import install as _install_spawner_contract_v3
+
+_install_spawner_contract_v3()
+del _install_spawner_contract_v3
