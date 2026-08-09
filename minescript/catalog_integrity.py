@@ -47,7 +47,7 @@ def contract_for(spec) -> ImplementationContract:
     if name in _GENERATED_WORLD:
         return ImplementationContract(
             "generated-world-analysis", "Anvil/NBT + generated block-state scanner", "observed-world",
-            "generated Java world save",
+            "generated Java world save or exact seed-regenerated chunks",
             "The result describes generated chunks only; ungenerated terrain is not invented from biome/structure proxies.",
         )
     if spec.top == "Gameplay":
@@ -71,13 +71,13 @@ def contract_for(spec) -> ImplementationContract:
         return ImplementationContract(
             "seed-analysis", "Cubiomes/local deterministic math/generated-world scanner", "version-bounded",
             "known world seed or generated save, depending on tool",
-            "Unsupported Cubiomes versions fail closed rather than silently substituting another generation version.",
+            "Unsupported Cubiomes versions use only the explicitly labeled calculation fallback; selected-version identity is retained.",
         )
     if spec.top == "Villager Explorer":
         return ImplementationContract(
-            "version-data", "installed Minecraft JAR villager_trade JSON", "installed-version",
-            "compatible installed Minecraft version",
-            "No synthetic trade table is substituted when the selected version data is unavailable.",
+            "version-data", "installed Minecraft JAR trade JSON + labeled planning fallback", "source-labeled",
+            "installed Minecraft data for exact data-driven offers",
+            "Installed data-driven trade JSON is preferred. If none is available, the explorer uses a visibly labeled baseline planning reference and does not claim it is exact for the selected version.",
         )
     if spec.top == "Wizards" or name.endswith("Wizard") or name.endswith("Setup"):
         return ImplementationContract(
