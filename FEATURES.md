@@ -1,6 +1,6 @@
-# F3+ 2.0 Feature Guide
+# F3+ 2.3.4 Feature Guide
 
-F3+ is an offline-first technical companion for Minecraft Java Edition. It combines automation, navigation, known-seed analysis, generated-world inspection, RNG utilities, villagers, construction/farming planners, calculators, guided setups, and safety controls without requiring a modified Minecraft client.
+F3+ is an offline-first technical companion for Minecraft Java Edition. Release 2.3.4 targets Minecraft Java **26.3 Snapshot 7** by default and combines automation, navigation, known-seed analysis, generated-world inspection, RNG utilities, villagers, construction/farming planners, calculators, guided setups, and safety controls without requiring a modified Minecraft client.
 
 ## Common interface
 
@@ -72,13 +72,13 @@ Navigation includes coordinate capture/conversion, bearings, block/chunk/region 
 
 Coordinate/travel, storage/logistics, redstone, mob/loading, farm, speedrun, durability/resource, End, building, and shape tools use task-specific labels and units. Storage Capacity answers how much chosen storage holds, while Shulker/Chest Requirement answers how many containers a target needs. Render Distance and Simulation Distance are presented as different concepts.
 
-Construction inputs are now purpose-specific: a Bridge Span asks for span/support spacing; a Roof Pitch asks for run/rise; a Stair Calculator asks for rise and run per step; grids ask for footprint and spacing; shape tools ask only for the dimensions relevant to that shape. Layout-producing tools expose coordinates or footprints and use visual plan previews rather than only returning a scalar count.
+Construction inputs are purpose-specific: a Bridge Span asks for span/support spacing; a Roof Pitch asks for run/rise; a Stair Calculator asks for rise and run per step; grids ask for footprint and spacing; shape tools ask only for the dimensions relevant to that shape. Layout-producing tools expose coordinates or footprints and use visual plan previews rather than only returning a scalar count.
 
 Construction Grid is a regular spacing grid; Lighting Grid includes far edges for boundary coverage. Planar Spiral stays in X/Z while 3D Helix rises along Y. Circle Layer Export produces copy-ready coordinate text rather than duplicating the Circle preview.
 
 ## RNG
 
-Gameplay RNG recovery is separate from world-seed recovery. The two Java LCG recovery entries now expose their actual observations: **2 nextInt** records the two consecutive `nextInt()` observations, while **nextLong** records the one observed `nextLong()` and the derived pair of 32-bit outputs. They therefore cannot collapse into the same empty-candidate report.
+Gameplay RNG recovery is separate from world-seed recovery. The two Java LCG recovery entries expose their actual observations: **2 nextInt** records the two consecutive `nextInt()` observations, while **nextLong** records the one observed `nextLong()` and the derived pair of 32-bit outputs. They therefore cannot collapse into the same empty-candidate report.
 
 RNG Sequence Viewer, RNG Timeline, enchantment planning, generation previews, loot simulations, tree attempts, geode frequency, and structure placement previews remain separate views/models. Generic probability tools state their attempt unit and model instead of presenting unrelated mechanics as one universal loot calculation.
 
@@ -106,7 +106,7 @@ Minecraft artwork is read from the player's installed Java files at runtime wher
 
 ## Automatic updates and offline behavior
 
-F3+ checks `LucidOcelot/F3Plus` `main` on GitHub at launch. Clean Git checkouts fast-forward; extracted ZIP installs compare their stored commit with GitHub and apply a validated newer commit archive. User configuration under `~/.f3plus` is preserved. Tracked local Git changes are not overwritten. Update/network failure does not stop an already installed copy from launching, and `F3PLUS_SKIP_UPDATE=1` disables the check for development/recovery.
+F3+ 2.3.4 checks `LucidOcelot/F3Plus` `main` on GitHub at launch. Clean Git checkouts fast-forward; extracted ZIP installs compare their stored commit with GitHub and apply a validated newer commit archive. User configuration under `~/.f3plus` is preserved. Tracked local Git changes are not overwritten. Update/network failure does not stop an already installed copy from launching, and `F3PLUS_SKIP_UPDATE=1` disables the check for development/recovery.
 
 Normal calculations, local data browsing, settings, prepared components, and generated-save analysis run locally. Network access is used for the launch update check, dependency/component acquisition, or exact Mojang reference-world generation when those workflows are requested.
 
