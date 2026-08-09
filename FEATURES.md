@@ -15,6 +15,24 @@ Every tool uses the same interaction model:
 - **Version notices** stay visible when a tool is using data or world-generation rules from a version other than the selected Minecraft version.
 - **Favorites and recent tools** provide a smaller Home workspace without hiding the complete catalog.
 
+## Tool identity and shared engines
+
+F3+ keeps the historical 457-entry catalog and stable feature IDs for saved favorites, recents, and compatibility. A shared implementation engine is allowed; an unexplained duplicate tool is not.
+
+Two differently named tools must therefore do one of the following:
+
+- expose a genuinely different calculation, filter, route, visualization, or decision;
+- present a clearly different user-oriented view over shared math; or
+- identify itself as an intentional shortcut/preset into one canonical workflow.
+
+Examples in 2.0 include separate direct/resource/structure/biome/survey route reports; separate chunk-border and chunk-line navigation; separate portal routing, reliability, reciprocity, and graph reports; separate build-stack, shulker, and chest requirements; separate planar Spiral and 3D Helix layouts; and separate RNG sequence, timeline, tree-attempt, geode-frequency, and structure-placement views.
+
+The Villager entries are an intentional exception in navigation rather than implementation: Trade Search, Trade Comparison, Emerald Calculator, Trade Cycle Calculator, Librarian Browser, profession entries, and Trade Browser are modes/presets of the single visual Villager Trade Explorer and are labeled as such.
+
+Guided automation shortcuts work the same way. Entries such as Branch Mine Wizard or Quarry Wizard identify the corresponding canonical Guided Setup instead of pretending the same setup engine is a second algorithm.
+
+The regression suite dry-runs the complete catalog and performs a semantic duplicate scan after removing internal implementation metadata. Unexpected indistinguishable reports are treated as regressions.
+
 ## Minecraft version state
 
 F3+ separates three version concepts that were previously easy to confuse:
@@ -77,11 +95,15 @@ Examples include continuous attack/use actions, travel presets, coordinate-aware
 
 Coordinate capture and conversion, distance/bearing math, chunk and region geometry, waypoints, routes, surveys, breadcrumb tools, and Overworld/Nether portal planning.
 
+Route tools are purpose-specific: a direct Coordinate Route is not the same report as a Resource Route, Structure Tour, Biome Expedition, recorded breadcrumb/expedition summary, or generated Survey Grid Route.
+
 Live-position features can use F3+C capture. Pure coordinate calculators do not require a linked client.
 
 ### World & Seed
 
-Known-seed slime tools, Nether analysis, local-area reports, broader world scoring, generation components, and the permitted world-seed recovery workflow.
+Known-seed slime tools, Nether analysis, local-area reports, broader world reports, generation components, and the permitted world-seed recovery workflow.
+
+Local-area tools separate biome sampling, structure placement candidates, slime-chunk facts, technical-site context, build-site context, and exploration context rather than recombining the same inputs into several opaque scores.
 
 **Nether Bedrock Cracker remains the only F3+ world/structure-seed recovery path.** Gameplay RNG recovery is a separate system and is never presented as world-seed recovery.
 
@@ -91,11 +113,15 @@ Structure candidate searches, multi-structure relationships, generated-world spa
 
 Placement candidates are not automatically equivalent to final generated structures. Where biome/terrain viability or generated chunk data is required, the result explains that boundary.
 
+Spawner cluster tools explicitly distinguish two-, three-, four-spawner minimums, exact 2×2 slime layouts versus generic four-chunk slime components, ranking radii, and individual-spawner scans.
+
 Terrain-shape tools that need actual generated block states use generated-world data rather than pretending a biome ID is terrain geometry.
 
 ### Calculators
 
 Coordinate/travel math, redstone timing, storage/logistics, technical farm geometry, mob/loading calculations, speedrun planning, resource/durability estimates, and End travel helpers.
+
+Similar calculators now expose their actual question rather than one shared data dump. For example, Storage Capacity asks how much chosen containers hold, while Shulker/Chest Requirement asks how many containers a target item count needs; Render Distance and Simulation Distance are also reported as different concepts.
 
 These are deterministic local calculators unless a tool explicitly identifies a simulation or version-sensitive game mechanic.
 
@@ -103,11 +129,17 @@ These are deterministic local calculators unless a tool explicitly identifies a 
 
 Material counts, dimensions, storage requirements, stairs/bridges/roads/grids, shape layouts, crop and animal planning, furnace/fuel systems, villager halls, and technical farm layouts.
 
+Construction Grid is a regular spacing grid; Lighting Grid deliberately includes far edges for boundary coverage. Planar Spiral stays on X/Z while 3D Helix rises along Y.
+
 Shape tools return block-coordinate layouts or layers rather than only a nominal radius/diameter.
 
 ### RNG
 
-Gameplay/player RNG recovery, enchanting helpers, repeated probability calculations, loot simulations, and generation-RNG previews.
+Gameplay/player RNG recovery, enchanting helpers, repeated probability calculations, weighted/user-supplied loot models, and generation-RNG previews.
+
+RNG Sequence Viewer exposes indexed raw Java values; RNG Timeline adds normalized progression/deltas; Enchantment Sequence Simulator groups progression into attempt-sized bundles without claiming exact modern offers. Tree and geode entries are no longer the same Bernoulli report: the tree model reports successful attempt positions, while the geode model reports chunk-level frequency across a sample grid. Structure placement previews use structure placement candidates rather than generic random coordinates.
+
+Probability/loot presets identify their attempt unit and model. The generic Loot Table Simulator accepts user-supplied weighted entries rather than silently applying one fabricated rarity table to every loot source.
 
 RNG tools do not automatically imply exact current-version Minecraft behavior. The Inspector identifies when a workflow is an exact supported recovery method, a deterministic Java-RNG calculation, or a planning/simulation model.
 
@@ -118,6 +150,8 @@ The visual Trade Explorer plus curing, breeding, workstation, and hall-planning 
 ### Guided Setups
 
 Higher-level workflows that combine related measurements for common mining, farming, portal, and building tasks. They are intended to reduce the need to open several calculators manually.
+
+Automation-menu wizard entries are shortcuts to these canonical setups when they share the same planning engine.
 
 ### Utilities
 
