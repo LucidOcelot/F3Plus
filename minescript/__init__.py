@@ -1,5 +1,5 @@
-__version__ = "1.16.3"
-TARGET_MINECRAFT = "26.3 Snapshot 6"
+__version__ = "2.0.0"
+TARGET_MINECRAFT = "26.3 Snapshot 7"
 STABLE_MINECRAFT = "26.2"
 
 # Install concrete replacements for the legacy generic fallback families at package
