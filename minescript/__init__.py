@@ -59,3 +59,10 @@ from .default_params_v2 import install as _install_default_params_v2
 
 _install_default_params_v2()
 del _install_default_params_v2
+
+# Final catalog-wide semantic pass. Historical IDs remain stable, while different
+# buttons now expose genuinely different jobs or explicitly labeled canonical views.
+from .semantic_cleanup_v2 import install as _install_semantic_cleanup_v2
+
+_install_semantic_cleanup_v2()
+del _install_semantic_cleanup_v2
