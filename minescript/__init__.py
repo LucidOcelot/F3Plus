@@ -39,3 +39,9 @@ from .result_semantics_v2 import install as _install_result_semantics_v2
 
 _install_result_semantics_v2()
 del _install_result_semantics_v2
+
+# Apply display-only naming/documentation corrections without changing feature IDs.
+from .display_metadata_v2 import install as _install_display_metadata_v2
+
+_install_display_metadata_v2()
+del _install_display_metadata_v2
