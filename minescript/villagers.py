@@ -217,9 +217,11 @@ def _normal(value: str) -> str:
 
 def _version_key(value: str):
     text = _normal(value)
-    nums = tuple(int(x) for x in re.findall(r"\d+", text)[:4])
+    numbers = [int(x) for x in re.findall(r"\d+", text)[:4]]
+    while len(numbers) < 4:
+        numbers.append(0)
     unstable = 1 if any(token in text for token in ("snapshot", "pre", "rc", "experimental")) else 0
-    return (*nums, -unstable, text)
+    return (*numbers, -unstable, text)
 
 
 def load_for_version(version: str | None = None) -> tuple[list[Trade], str]:
