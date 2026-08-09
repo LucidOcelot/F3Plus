@@ -2,7 +2,9 @@ from __future__ import annotations
 
 import json
 import os
+from pathlib import Path
 import shutil
+import stat
 import subprocess
 import threading
 import time
@@ -32,13 +34,15 @@ class HyprlandFocusController:
     def focus(self, target):
         return bool(target.pid and subprocess.run(
             ["hyprctl", "dispatch", "focuswindow", f"pid:{target.pid}"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         ).returncode == 0)
 
     def restore(self, token):
         return bool(token and subprocess.run(
             ["hyprctl", "dispatch", "focuswindow", f"pid:{int(token)}"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         ).returncode == 0)
 
 
@@ -67,13 +71,15 @@ class SwayFocusController:
     def focus(self, target):
         return bool(target.pid and subprocess.run(
             ["swaymsg", f"[pid={target.pid}]", "focus"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         ).returncode == 0)
 
     def restore(self, token):
         return bool(token and subprocess.run(
             ["swaymsg", f"[pid={int(token)}]", "focus"],
-            stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL,
+            stdout=subprocess.DEVNULL,
+            stderr=subprocess.DEVNULL,
         ).returncode == 0)
 
 
@@ -89,28 +95,69 @@ def wayland_focus_controller():
     return None
 
 
-# Linux input-event codes used by ydotool/uinput. This is the supported Linux
-# background-input path used by the supported Linux Wayland workflow.
 _YD_KEY = {
     **{c: n for c, n in zip("1234567890", range(2, 12))},
-    "q":16,"w":17,"e":18,"r":19,"t":20,"y":21,"u":22,"i":23,"o":24,"p":25,
-    "a":30,"s":31,"d":32,"f":33,"g":34,"h":35,"j":36,"k":37,"l":38,
-    "z":44,"x":45,"c":46,"v":47,"b":48,"n":49,"m":50,
-    "esc":1,"tab":15,"enter":28,"ctrl":29,"shift":42,"alt":56,"space":57,
-    "f1":59,"f2":60,"f3":61,"f4":62,"f5":63,"f6":64,"f7":65,"f8":66,
-    "f9":67,"f10":68,"f11":87,"f12":88,
+    "q": 16, "w": 17, "e": 18, "r": 19, "t": 20, "y": 21, "u": 22, "i": 23, "o": 24, "p": 25,
+    "a": 30, "s": 31, "d": 32, "f": 33, "g": 34, "h": 35, "j": 36, "k": 37, "l": 38,
+    "z": 44, "x": 45, "c": 46, "v": 47, "b": 48, "n": 49, "m": 50,
+    "esc": 1, "tab": 15, "enter": 28, "ctrl": 29, "shift": 42, "alt": 56, "space": 57,
+    "f1": 59, "f2": 60, "f3": 61, "f4": 62, "f5": 63, "f6": 64, "f7": 65, "f8": 66,
+    "f9": 67, "f10": 68, "f11": 87, "f12": 88,
 }
 
 
+def ydotool_socket_candidates() -> list[Path]:
+    """Return likely ydotoold sockets in priority order."""
+    candidates: list[Path] = []
+
+    def add(value) -> None:
+        if not value:
+            return
+        path = Path(str(value)).expanduser()
+        if path not in candidates:
+            candidates.append(path)
+
+    add(os.environ.get("YDOTOOL_SOCKET"))
+    runtime = os.environ.get("XDG_RUNTIME_DIR")
+    if runtime:
+        add(Path(runtime) / ".ydotool_socket")
+    try:
+        add(Path("/run/user") / str(os.getuid()) / ".ydotool_socket")
+    except AttributeError:
+        pass
+    add("/tmp/.ydotool_socket")
+    add("/run/ydotoold/socket")
+    return candidates
+
+
+def _is_socket(path: Path) -> bool:
+    try:
+        return stat.S_ISSOCK(path.stat().st_mode)
+    except OSError:
+        return False
+
+
+def find_ydotool_socket() -> Path | None:
+    for path in ydotool_socket_candidates():
+        if _is_socket(path):
+            return path
+    return None
+
+
 class LinuxYdotoolInput:
-    """Native-Wayland virtual input through an existing ydotool/ydotoold setup."""
+    """Wayland/global virtual input through ydotoold.
+
+    The daemon may be started after F3+ itself. Socket discovery therefore happens
+    again before every command instead of being frozen at application startup.
+    """
 
     def __init__(self):
         self.exe = shutil.which("ydotool")
         if not self.exe:
             raise TargetedInputError("ydotool is not installed.")
-        self._held_keys = set()
-        self._held_buttons = set()
+        self.socket_path: Path | None = find_ydotool_socket()
+        self._held_keys: set[str] = set()
+        self._held_buttons: set[str] = set()
         self._lock = threading.RLock()
         self.capabilities = InputCapabilities(
             name="Wayland virtual input (ydotool)",
@@ -119,25 +166,93 @@ class LinuxYdotoolInput:
             targeted_relative_mouse=False,
             unfocused=False,
             minimized=False,
-            focus_switch=True,
+            focus_switch=False,
             relative_requires_focus=True,
             all_input_requires_focus=True,
             session="wayland",
-            background_label="Focus switch + uinput",
-            minimized_label="Restores/focuses window first",
+            background_label="Global uinput; focused app receives input",
+            minimized_label="Restore and focus first",
             notes=(
-                "Linux background input uses Wayland focus control plus ydotool/uinput. "
-                "ydotoold must be running with permission to /dev/uinput."
+                "ydotool emits global uinput events; it does not target the linked Minecraft window. "
+                "F3+ auto-detects common ydotoold socket paths and re-checks them on every command. "
+                "On Hyprland/Sway a compositor helper can focus Minecraft; on other Wayland desktops focus Minecraft during the countdown."
             ),
         )
 
-    def _run(self, *args):
-        proc = subprocess.run([self.exe, *map(str, args)], capture_output=True, text=True, timeout=8)
-        if proc.returncode != 0:
-            detail = (proc.stderr or proc.stdout or "").strip()
+    def _resolve_socket(self) -> Path:
+        explicit = os.environ.get("YDOTOOL_SOCKET")
+        if explicit:
+            candidate = Path(explicit).expanduser()
+            if _is_socket(candidate):
+                self.socket_path = candidate
+                return candidate
+        if self.socket_path is not None and _is_socket(self.socket_path):
+            return self.socket_path
+        found = find_ydotool_socket()
+        if found is not None:
+            self.socket_path = found
+            return found
+        checked = ", ".join(str(path) for path in ydotool_socket_candidates())
+        raise TargetedInputError(
+            "ydotool is installed, but F3+ cannot find a usable ydotoold socket. "
+            f"Checked: {checked}. Start ydotoold and ensure the socket is accessible to your user, "
+            "or set YDOTOOL_SOCKET to the daemon socket path."
+        )
+
+    def _invoke(self, *args, timeout=8):
+        socket_path = self._resolve_socket()
+        env = os.environ.copy()
+        env["YDOTOOL_SOCKET"] = str(socket_path)
+        return subprocess.run(
+            [self.exe, *map(str, args)],
+            capture_output=True,
+            text=True,
+            timeout=timeout,
+            env=env,
+        )
+
+    @staticmethod
+    def _failure_text(proc) -> str:
+        return "\n".join(part.strip() for part in (proc.stderr, proc.stdout) if part and part.strip())
+
+    def preflight(self) -> None:
+        """Verify the active daemon connection without generating a real key press."""
+        try:
+            proc = self._invoke("key", "0:0", timeout=4)
+        except (OSError, subprocess.SubprocessError, TargetedInputError):
+            raise
+        detail = self._failure_text(proc)
+        low = detail.lower()
+        bad_notice = any(text in low for text in (
+            "failed to connect",
+            "connection refused",
+            "permission denied",
+            "backend unavailable",
+            "no such file",
+        ))
+        if proc.returncode != 0 or bad_notice:
             raise TargetedInputError(
-                "ydotool could not send input."
-                + (f" {detail}" if detail else " Make sure ydotoold is running and can access /dev/uinput.")
+                f"ydotoold is not usable through {self.socket_path}. "
+                + (detail if detail else "Check the daemon and socket permissions.")
+            )
+
+    def _run(self, *args):
+        try:
+            proc = self._invoke(*args)
+        except (OSError, subprocess.SubprocessError) as exc:
+            raise TargetedInputError(f"ydotool could not send input: {exc}") from exc
+        detail = self._failure_text(proc)
+        low = detail.lower()
+        if proc.returncode != 0 or any(text in low for text in (
+            "failed to connect",
+            "connection refused",
+            "permission denied",
+            "backend unavailable",
+        )):
+            raise TargetedInputError(
+                "ydotool could not send input through "
+                f"{self.socket_path}. "
+                + (detail if detail else "Make sure ydotoold is running and the socket is accessible to this user.")
             )
 
     def _code(self, name):

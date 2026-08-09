@@ -21,6 +21,10 @@ class MacroStatus:
 
 class MacroEngine:
     def __init__(self, input_engine, settings=None):
+        self._settings_from_disk = settings is None
+        if settings is None:
+            from .config import Settings
+            settings = Settings.load()
         self.settings = settings
         self.input = self._wrap_input(input_engine)
         self.stop_event = threading.Event()
@@ -35,10 +39,38 @@ class MacroEngine:
     def _wrap_input(self, input_engine):
         if isinstance(input_engine, IntentTrackingInput):
             return input_engine
-        backend = input_engine
-        if self.settings is not None:
-            backend = BoundInput(input_engine, self.settings.keybinds)
+        backend = BoundInput(input_engine, self.settings.keybinds)
         return IntentTrackingInput(backend)
+
+    def _refresh_settings(self) -> None:
+        if not self._settings_from_disk:
+            return
+        from .config import Settings
+        self.settings = Settings.load()
+        backend = getattr(self.input, "backend", None)
+        if isinstance(backend, BoundInput):
+            backend.keybinds = self.settings.keybinds
+
+    def _physical_backend(self):
+        backend = getattr(self.input, "backend", self.input)
+        seen = set()
+        while id(backend) not in seen:
+            seen.add(id(backend))
+            if isinstance(backend, BoundInput):
+                backend = backend.backend
+                continue
+            nested = getattr(backend, "backend", None)
+            if nested is not None and nested is not backend:
+                backend = nested
+                continue
+            break
+        return backend
+
+    def _preflight_input(self) -> None:
+        backend = self._physical_backend()
+        preflight = getattr(backend, "preflight", None)
+        if callable(preflight):
+            preflight()
 
     def _emit(self) -> None:
         if self.on_status:
@@ -46,9 +78,11 @@ class MacroEngine:
 
     def set_input(self, input_engine) -> None:
         self.stop()
+        self._refresh_settings()
         self.input = self._wrap_input(input_engine)
 
     def set_settings(self, settings) -> None:
+        self._settings_from_disk = False
         self.settings = settings
         backend = getattr(self.input, "backend", self.input)
         if isinstance(backend, BoundInput):
@@ -67,8 +101,6 @@ class MacroEngine:
 
     def coordinate_policy(self):
         from .gameplay.coordinate_control import CoordinatePolicy
-        if self.settings is None:
-            return CoordinatePolicy()
         interval = max(0.1, float(self.settings.movement_check_ms) / 1000.0)
         stuck_samples = max(1, round(float(self.settings.stuck_window_seconds) / interval))
         return CoordinatePolicy(
@@ -79,14 +111,13 @@ class MacroEngine:
         )
 
     def turn_degrees(self, degrees: float) -> None:
-        units_per_90 = 900
-        if self.settings is not None:
-            units_per_90 = max(1, int(self.settings.turn_units_per_90))
+        units_per_90 = max(1, int(self.settings.turn_units_per_90))
         self.input.move_relative(round(float(degrees) * units_per_90 / 90.0), 0)
         self.record_action()
 
     def start(self, name: str, fn: Callable) -> None:
         self.stop()
+        self._refresh_settings()
         self.stop_event.clear()
         self.pause_event.clear()
         self._stop_reason = ""
@@ -96,6 +127,7 @@ class MacroEngine:
         def runner() -> None:
             natural_completion = False
             try:
+                self._preflight_input()
                 delay = int(getattr(self.settings, "delayed_start_seconds", 0) or 0)
                 if delay and self.wait(delay):
                     return
@@ -103,6 +135,7 @@ class MacroEngine:
                 natural_completion = not self.stop_event.is_set()
             except Exception as exc:
                 self.status.message = str(exc)
+                self.status.name = f"{name} failed: {exc}"
             finally:
                 self.input.release_all(clear_intent=True)
                 if natural_completion:
