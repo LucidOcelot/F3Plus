@@ -16,6 +16,9 @@ def install() -> None:
         ("Seed Tools", "World Analysis", "Ancient City Area Analysis"): "Ancient City Candidate Area Analysis",
         ("Seed Tools", "Biomes", "Terrain Base Finder"): "Generated Terrain Base-Site Ranking",
         ("Calculators", "Build", "Circle Layer Export"): "Circle Layer Coordinate Export",
+        ("Navigation", "Waypoints", "Nearest Waypoint"): "Nearest Saved Waypoint",
+        ("Navigation", "Waypoints", "Sort Waypoints by Distance"): "Saved Waypoints by Distance",
+        ("Navigation", "Waypoints", "Waypoint Route"): "Saved Waypoint Route",
     })
 
     descriptions.SPECIAL.update({
@@ -70,6 +73,15 @@ def install() -> None:
         "Largest Cave Region": (
             "Explains the cave-air threshold used to decide which generated chunks join the connected cave-region map."
         ),
+        "Nearest Waypoint": (
+            "Finds only the single saved waypoint nearest to the supplied/current position and reports straight-line distance, vertical change, and direction."
+        ),
+        "Sort Waypoints by Distance": (
+            "Ranks every saved waypoint independently by straight-line distance from the same origin. It does not reuse the multi-stop route order."
+        ),
+        "Waypoint Route": (
+            "Builds a greedy nearest-next route through all saved waypoints, reports each leg and total horizontal route length, and can return to the origin."
+        ),
     })
 
     tool_guides._OUTPUT_EXACT.update({
@@ -81,4 +93,7 @@ def install() -> None:
         "Terrain Base Finder": "Returns ranked generated chunks with mean surface Y, local relief, and a readable finding rather than an opaque base score.",
         "Circle Layer Export": "Returns circle coordinates plus copy/export-ready text in the selected format.",
         "Seed Comparison": "Returns both seed summaries plus explicit second-minus-first deltas for the metrics actually measured.",
+        "Nearest Waypoint": "Returns one nearest saved waypoint with coordinates, horizontal/3D distance, vertical change, and direction.",
+        "Sort Waypoints by Distance": "Returns all saved waypoints ranked by distance from the same origin; it is not a route.",
+        "Waypoint Route": "Returns greedy route order, per-leg distances/directions, total horizontal route length, and optional return-to-origin state.",
     })
