@@ -51,6 +51,29 @@ class OperationDialog(QDialog):
                     self.mode_combo.setCurrentIndex(index); break
         self._rebuild()
 
+    def exec(self):
+        if self._modes:
+            return super().exec()
+        owner = self.parent()
+        if owner is None:
+            return QDialog.Rejected
+        if self.tool.id == "automation.macro_studio":
+            from .automation_workbench import MacroStudioDialog
+            MacroStudioDialog(owner).exec()
+        elif self.tool.id == "world.profiles":
+            from .state_workbenches import WorldProfilesDialog
+            WorldProfilesDialog(owner).exec()
+        elif self.tool.id == "build.recipes":
+            from .recipe_workbench import RecipeExplorerDialog
+            RecipeExplorerDialog(owner).exec()
+        elif self.tool.id == "utilities.results":
+            from .state_workbenches import ResultHistoryDialog
+            ResultHistoryDialog(owner).exec()
+        elif self.tool.id == "utilities.diagnostics":
+            from .state_workbenches import DiagnosticsDialog
+            DiagnosticsDialog(owner).exec()
+        return QDialog.Rejected
+
     def _clear_form(self):
         while self.form.rowCount():
             self.form.removeRow(0)
