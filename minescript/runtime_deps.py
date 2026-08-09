@@ -30,14 +30,10 @@ NBC_BINARY_URLS = {
     "Darwin": f"https://github.com/19MisterX98/Nether_Bedrock_Cracker/releases/download/{NBC_VERSION}/cracker_gui-x86_64-apple-darwin",
     "Linux": f"https://github.com/19MisterX98/Nether_Bedrock_Cracker/releases/download/{NBC_VERSION}/bedrock_cracker-x86_64-unknown-linux-gnu",
 }
-# Pinned release digests. Windows 0.3.0 is independently pinned for automatic
-# acquisition. Platforms without a pinned digest fail closed and use bundled source.
 NBC_BINARY_SHA256 = {
     "Windows": "d6f8c3c8cb6645e789cfdc6a020b881e60a724926b0122e49b946b6497176cd9",
 }
 
-# Used only if no local C compiler is available. Zig is MIT-licensed and is not
-# bundled; it is cached under third_party/_bootstrap when first needed.
 ZIG_VERSION = "0.13.0"
 ZIG_URLS = {
     ("Windows", "x86_64"): f"https://ziglang.org/download/{ZIG_VERSION}/zig-windows-x86_64-{ZIG_VERSION}.zip",
@@ -64,7 +60,7 @@ def _machine() -> str:
 
 def _fetch(url: str, *, timeout: int = 180, max_bytes: int = 512 * 1024 * 1024) -> bytes:
     """Fetch one pinned upstream payload with a hard size limit."""
-    req = urllib.request.Request(url, headers={"User-Agent": "F3+/1.16.2 dependency bootstrap"})
+    req = urllib.request.Request(url, headers={"User-Agent": "F3Plus/2.0.0 dependency bootstrap"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         length = r.headers.get("Content-Length")
         if length and int(length) > max_bytes:
@@ -109,8 +105,6 @@ def _safe_tar_xz(data: bytes, dest: Path) -> None:
             out = (dest / rel).resolve()
             if base not in out.parents and out != base:
                 raise RuntimeError("Unsafe tar member path")
-            # Downloaded compiler archives do not need links, devices, or FIFOs.
-            # Reject them instead of relying on tarfile's platform-dependent policy.
             if member.issym() or member.islnk() or member.isdev() or member.isfifo():
                 raise RuntimeError("Unsafe tar member type")
         for member in members:
