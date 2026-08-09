@@ -32,6 +32,7 @@ F3+ combines automation, navigation, known-seed analysis, RNG utilities, generat
 - X/Z maps for spatial seed/world results and visual plans for spatial construction/layout results;
 - a visual Villager Trade Explorer with named Novice–Master levels, local Minecraft artwork when available, and an explicitly labeled planning baseline when exact local trade JSON is unavailable;
 - a mob-aware Spawner Locator with filters for common dungeon mobs, trial spawners, vaults, and unknown/custom spawners;
+- radius and expand-until-found modes for location-oriented seed/world searches;
 - compatible-Java discovery for exact Mojang reference-world generation instead of exposing raw class-version failures;
 - catalog-wide semantic regression checks so differently named tools cannot silently collapse into identical reports unless they are explicitly documented presets/shortcuts.
 
@@ -103,11 +104,17 @@ F3+ prefers data-driven villager trade JSON from the exact selected installed JA
 
 The user-facing **Spawner Locator** can filter generated spawner NBT for all mob spawners or specific Zombie, Skeleton, Spider, Cave Spider, Blaze, Silverfish, Pig, Magma Cube, unknown/custom, Trial Spawner, or Vault entries. Where the NBT provides mob identity, F3+ translates it to a readable mob name and reports block/chunk coordinates plus a map-ready hit list. Double/triple/quad and cluster-ranking entries apply their own grouping rules to the selected type.
 
+Spawner tools and other location-oriented finders expose two search policies. **Radius search** checks one configured area around the reference point. **Search until found** starts at that radius and expands outward by the configured step until a matching result appears or the user-selected maximum radius is reached. The result reports the mode, attempts, final radius, and whether a target was found. Exact regenerated-world spawner searches also respect the configured maximum generated-chunk budget rather than silently expanding without bound.
+
+The same search policy is available where a real found/not-found result exists for structure finders, selected biome/boundary/intersection searches, generated-terrain locators, Nether fortress/bastion finders, and slime-cluster searches. Analysis tools such as Structure Density, Rare Biome Search, and Search Radius Optimizer keep their existing bounded analysis behavior because “first match” is not meaningful for those reports.
+
 ## World, seed, and spatial reports
 
 Local-area and world-analysis tools are intentionally separated by user question. Biome composition, structure candidate summaries, slime distribution, technical-site context, build-site context, exploration context, generated terrain, caves, and resources are not combined into several renamed copies of the same generic report.
 
 Coordinates in normal results identify whether they are blocks, chunks, or regions. Structure placement candidates are distinguished from final generated structures. Spatial candidate sets, slime chunks, biome samples, routes, spawner hits, and similar data can be plotted on the result map.
+
+Generated-terrain finders use generated-world chunk coordinates and chunk-radius inputs; biome sampling tools use block coordinates and block-radius inputs. These units are kept separate in the configuration UI so a terrain scan cannot accidentally interpret a biome-sample radius as thousands of chunks.
 
 ## Construction and planning
 
