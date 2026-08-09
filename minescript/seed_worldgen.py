@@ -29,6 +29,7 @@ class ServerArtifact:
     url: str
     sha1: str
     path: Path
+    java_major: int | None = None
 
 
 def canonical_version_id(value: str) -> str:
@@ -59,8 +60,15 @@ def resolve_server_artifact(version: str, *, cache_root: Path = CACHE_ROOT) -> S
     server = version_meta.get("downloads", {}).get("server")
     if not isinstance(server, dict) or not server.get("url") or not server.get("sha1"):
         raise WorldgenError(f"Mojang does not publish a server jar for {version_id}.")
+    java_major = None
+    java_meta = version_meta.get("javaVersion")
+    if isinstance(java_meta, dict):
+        try:
+            java_major = int(java_meta.get("majorVersion"))
+        except (TypeError, ValueError):
+            java_major = None
     path = cache_root / "servers" / version_id / "server.jar"
-    return ServerArtifact(version_id, str(server["url"]), str(server["sha1"]), path)
+    return ServerArtifact(version_id, str(server["url"]), str(server["sha1"]), path, java_major)
 
 
 def _sha1(path: Path) -> str:
@@ -86,6 +94,99 @@ def acquire_server(version: str, *, cache_root: Path = CACHE_ROOT) -> ServerArti
         raise WorldgenError(f"Server jar SHA-1 mismatch for {artifact.version_id}: expected {artifact.sha1}, got {actual}.")
     os.replace(tmp, artifact.path)
     return artifact
+
+
+def _java_major(executable: str | Path) -> int | None:
+    try:
+        proc = subprocess.run(
+            [str(executable), "-version"],
+            stdout=subprocess.PIPE,
+            stderr=subprocess.STDOUT,
+            text=True,
+            timeout=12,
+            check=False,
+        )
+    except (OSError, subprocess.TimeoutExpired):
+        return None
+    text = proc.stdout or ""
+    match = re.search(r'(?:java|openjdk)\s+version\s+"?(\d+)', text, re.I)
+    if not match:
+        match = re.search(r'version\s+"?(\d+)', text, re.I)
+    return int(match.group(1)) if match else None
+
+
+def _minecraft_roots() -> list[Path]:
+    roots: list[Path] = []
+    appdata = os.environ.get("APPDATA")
+    if appdata:
+        roots.append(Path(appdata) / ".minecraft")
+    home = Path.home()
+    roots.extend([
+        home / ".minecraft",
+        home / "Library" / "Application Support" / "minecraft",
+    ])
+    out: list[Path] = []
+    for root in roots:
+        try:
+            if root.exists() and root not in out:
+                out.append(root)
+        except OSError:
+            pass
+    return out
+
+
+def _java_candidates(explicit: str | None = None) -> list[str]:
+    values: list[str] = []
+
+    def add(value: str | Path | None):
+        if not value:
+            return
+        text = str(value)
+        if text not in values:
+            values.append(text)
+
+    add(os.environ.get("F3PLUS_JAVA"))
+    if explicit and explicit != "java":
+        add(explicit)
+    java_home = os.environ.get("JAVA_HOME")
+    if java_home:
+        add(Path(java_home) / "bin" / ("java.exe" if os.name == "nt" else "java"))
+    add(shutil.which(explicit or "java"))
+    add(shutil.which("java"))
+
+    executable_name = "java.exe" if os.name == "nt" else "java"
+    # The official launcher normally keeps the game runtimes under .minecraft/runtime.
+    # Prefer these before asking the player to install another JDK.
+    for root in _minecraft_roots():
+        runtime = root / "runtime"
+        if not runtime.is_dir():
+            continue
+        try:
+            for candidate in runtime.rglob(executable_name):
+                if candidate.parent.name == "bin":
+                    add(candidate)
+        except OSError:
+            continue
+    return values
+
+
+def resolve_java_runtime(required_major: int | None, explicit: str | None = None) -> tuple[str, int | None]:
+    checked: list[tuple[str, int | None]] = []
+    for candidate in _java_candidates(explicit):
+        major = _java_major(candidate)
+        if major is None:
+            continue
+        checked.append((candidate, major))
+        if required_major is None or major >= required_major:
+            return candidate, major
+    if required_major is None and explicit:
+        return explicit, _java_major(explicit)
+    found = ", ".join(f"Java {major} at {path}" for path, major in checked[:5]) or "no usable Java runtime"
+    raise WorldgenError(
+        f"This Minecraft version requires Java {required_major or 'a compatible runtime'}, but F3+ found {found}. "
+        "Start the selected Minecraft version once through the official launcher so its bundled runtime is installed, "
+        "or set F3PLUS_JAVA / JAVA_HOME to a compatible Java executable."
+    )
 
 
 def _chunk_rectangles(cx: int, cz: int, radius: int, tile: int = 16):
@@ -139,10 +240,11 @@ def _wait_for(lines: queue.Queue[str], predicate, timeout: float, log: list[str]
             continue
         log.append(line)
         if line == "__F3PLUS_EOF__":
-            raise WorldgenError("Minecraft server exited before world generation completed.\n" + "\n".join(log[-40:]))
+            excerpt = "\n".join(log[-18:])
+            raise WorldgenError("Minecraft's local reference server stopped before generation completed.\n" + excerpt)
         if predicate(line):
             return line
-    raise WorldgenError("Timed out waiting for Minecraft server world generation.\n" + "\n".join(log[-40:]))
+    raise WorldgenError("Timed out waiting for Minecraft's local reference server to generate the requested chunks.\n" + "\n".join(log[-18:]))
 
 
 def _find_overworld_root(target: Path, preferred: Path) -> Path | None:
@@ -170,30 +272,25 @@ def generate_reference_world(
     center_chunk: tuple[int, int] = (0, 0),
     radius_chunks: int = 4,
     dimension: str = "Overworld",
-    java: str = "java",
+    java: str | None = None,
     accept_eula: bool = False,
     cache_root: Path = CACHE_ROOT,
     max_chunks: int = 4096,
     startup_timeout: float = 180.0,
 ) -> Path:
-    """Materialize exact vanilla chunks from seed using Mojang's matching server jar.
-
-    This is intentionally a reference-generation backend, not a reimplementation of
-    Mojang's worldgen internals. It lets seed-only tools operate without a pre-existing
-    save while preserving exact version behavior. The server jar is downloaded from
-    Mojang on first use and verified by the launcher-manifest SHA-1.
-    """
+    """Materialize exact vanilla chunks from seed using Mojang's matching server jar."""
     if not accept_eula:
-        raise WorldgenError("Seed world generation requires explicit acceptance of the Minecraft EULA for the local server run.")
+        raise WorldgenError("Exact seed regeneration needs explicit Minecraft EULA acceptance for the temporary local server run.")
     dim = str(dimension).lower()
     if dim not in {"overworld", "0"}:
-        raise WorldgenError("Reference seed materialization currently supports Overworld chunks only; Nether/End support is not yet advertised.")
+        raise WorldgenError("Exact seed regeneration currently supports Overworld chunks only.")
     radius = max(0, int(radius_chunks))
     requested = (2 * radius + 1) ** 2
     if requested > int(max_chunks):
-        raise WorldgenError(f"Requested {requested} chunks exceeds the configured exact-generation limit of {max_chunks}. Reduce radius or raise the limit knowingly.")
+        raise WorldgenError(f"The requested area is {requested:,} chunks, above the configured exact-generation limit of {max_chunks:,}. Reduce the radius or raise the limit knowingly.")
     cx, cz = map(int, center_chunk)
     artifact = acquire_server(version, cache_root=cache_root)
+    java_executable, java_major = resolve_java_runtime(artifact.java_major, java)
     key = hashlib.sha256(f"{artifact.version_id}|{int(seed)}|{cx}|{cz}|{radius}".encode()).hexdigest()[:20]
     target = cache_root / "worlds" / artifact.version_id / str(int(seed)) / key
     preferred_world = target / "world"
@@ -212,7 +309,7 @@ def generate_reference_world(
     (target / "eula.txt").write_text("eula=true\n", encoding="utf-8")
 
     proc = subprocess.Popen(
-        [java, "-Xms512M", "-Xmx2G", "-jar", str(artifact.path), "nogui"],
+        [java_executable, "-Xms512M", "-Xmx2G", "-jar", str(artifact.path), "nogui"],
         cwd=target,
         stdin=subprocess.PIPE,
         stdout=subprocess.PIPE,
@@ -221,7 +318,7 @@ def generate_reference_world(
         bufsize=1,
     )
     if proc.stdin is None or proc.stdout is None:
-        raise WorldgenError("Could not open Minecraft server command streams.")
+        raise WorldgenError("Could not open the local Minecraft server command streams.")
     lines: queue.Queue[str] = queue.Queue()
     log: list[str] = []
     threading.Thread(target=_reader, args=(proc.stdout, lines), daemon=True).start()
@@ -258,15 +355,10 @@ def generate_reference_world(
         except Exception:
             pass
     if proc.returncode not in (0, None):
-        raise WorldgenError(f"Minecraft server exited with code {proc.returncode}.\n" + "\n".join(log[-40:]))
+        raise WorldgenError(f"Minecraft's local reference server exited with code {proc.returncode}.\n" + "\n".join(log[-18:]))
     world = _find_overworld_root(target, preferred_world)
     if world is None:
-        tree = sorted(str(path.relative_to(target)) for path in target.rglob("*") if path.is_file())[:120]
-        raise WorldgenError(
-            "Minecraft server completed without a readable Overworld Anvil region directory.\n"
-            + "Recent server output:\n" + "\n".join(log[-30:])
-            + "\nGenerated files:\n" + "\n".join(tree)
-        )
+        raise WorldgenError("Minecraft finished the local reference run, but F3+ could not find the generated Overworld region files.")
     try:
         rel = str(world.relative_to(target))
     except ValueError:
@@ -277,6 +369,9 @@ def generate_reference_world(
         "center_chunk": [cx, cz],
         "radius_chunks": radius,
         "server_sha1": artifact.sha1,
+        "java_major_required": artifact.java_major,
+        "java_major_used": java_major,
+        "java_executable": java_executable,
         "source": "official Mojang server reference generation",
         "world_relative": rel,
     }, indent=2), encoding="utf-8")
@@ -289,7 +384,7 @@ def resolve_world_source(params: dict[str, Any], executor=None, *, default_radiu
     if supplied:
         return supplied, {"source": "generated-world save", "exactness": "observed generated chunks"}
     if not bool(params.get("regenerate_from_seed", True)):
-        return None, {"requires_generated_world": True, "reason": "No world save selected and seed regeneration is disabled."}
+        return None, {"requires_generated_world": True, "reason": "No world save selected and exact seed regeneration is disabled."}
     version = str(params.get("minecraft_version") or getattr(executor, "minecraft_version", "26.3 Snapshot 7"))
     seed = int(str(params.get("seed", 0)).strip())
     radius = max(0, int(params.get("radius", default_radius)))
@@ -301,6 +396,7 @@ def resolve_world_source(params: dict[str, Any], executor=None, *, default_radiu
             center_chunk=(int(params.get("cx", 0)), int(params.get("cz", 0))),
             radius_chunks=radius,
             dimension=str(params.get("dimension", "Overworld")),
+            java=str(params.get("java", "")).strip() or None,
             accept_eula=bool(params.get("accept_minecraft_eula", False)),
             max_chunks=max_chunks,
         )
@@ -312,7 +408,7 @@ def resolve_world_source(params: dict[str, Any], executor=None, *, default_radiu
             "version": version,
             "seed": seed,
             "requested_radius_chunks": radius,
-            "note": "Select an existing generated save instead, or enable exact seed regeneration and explicitly accept the Minecraft EULA.",
+            "next_step": "Select an existing generated save, or let F3+ use a compatible Minecraft Launcher Java runtime for exact seed regeneration.",
         }
     return str(world), {
         "source": "seed-regenerated vanilla chunks",
