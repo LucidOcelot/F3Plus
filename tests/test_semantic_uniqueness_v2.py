@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import unittest
+from types import SimpleNamespace
 
 from minescript.catalog_ids import SPECS
 from minescript.feature_executor import FeatureExecutor
@@ -43,6 +44,22 @@ class SemanticUniquenessV2Tests(unittest.TestCase):
         self.assertIn("tour_order", tour)
         self.assertIn("biome_order", biome)
         self.assertIn("survey_points", survey)
+
+    def test_waypoint_lookup_sort_and_route_are_not_aliases(self):
+        executor = FeatureExecutor("1.21.3")
+        executor.settings = SimpleNamespace(waypoints={
+            "Near": [10, 64, 0],
+            "North": [0, 70, -40],
+            "Far": [100, 64, 100],
+        })
+        nearest = executor.execute(("Navigation", "Waypoints", "Nearest Waypoint"), {"x1": 0, "y1": 64, "z1": 0}).data
+        sorted_rows = executor.execute(("Navigation", "Waypoints", "Sort Waypoints by Distance"), {"x1": 0, "y1": 64, "z1": 0}).data
+        route = executor.execute(("Navigation", "Waypoints", "Waypoint Route"), {"x1": 0, "y1": 64, "z1": 0}).data
+        self.assertEqual(nearest["nearest_waypoint"]["name"], "Near")
+        self.assertIn("waypoints_by_distance", sorted_rows)
+        self.assertIn("route_order", route)
+        self.assertIn("segments", route)
+        self.assertNotIn("route_order", sorted_rows)
 
     def test_chunk_and_region_navigation_is_not_alias_output(self):
         border = self.result("Chunk Border", "Navigation", "Coordinates")
