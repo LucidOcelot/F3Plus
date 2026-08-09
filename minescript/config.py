@@ -44,7 +44,7 @@ def _default_custom_palette() -> dict[str, str]:
 
 @dataclass
 class Settings:
-    minecraft_version: str = "26.3-snapshot-7"
+    minecraft_version: str = "26.3-snapshot-6"
     edition: str = "Java"
     dimension: str = "Overworld"
     seed: str = ""

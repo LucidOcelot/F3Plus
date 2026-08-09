@@ -1,5 +1,5 @@
 __version__ = "1.16.3"
-TARGET_MINECRAFT = "26.3 Snapshot 7"
+TARGET_MINECRAFT = "26.3 Snapshot 6"
 STABLE_MINECRAFT = "26.2"
 
 # Install concrete replacements for the legacy generic fallback families at package
@@ -20,3 +20,10 @@ from .catalog_direct import install as _install_catalog_direct
 
 _install_catalog_direct()
 del _install_catalog_direct
+
+# Allow terrain/block-state analyzers to consume exact vanilla chunks regenerated
+# from seed + selected Minecraft version when no generated save is supplied.
+from .seed_worldgen_patch import install as _install_seed_worldgen_patch
+
+_install_seed_worldgen_patch()
+del _install_seed_worldgen_patch
