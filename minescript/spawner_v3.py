@@ -63,6 +63,42 @@ def _mob_labels(entity_ids: list[str]) -> list[str]:
     return labels
 
 
+def _region_intersects(path: Path, cx0: int, cz0: int, radius: int) -> bool:
+    """Return whether an r.X.Z.mca file can contain a chunk in the square search area."""
+    try:
+        parts = path.name.split(".")
+        if len(parts) < 4 or parts[0] != "r":
+            return True
+        rx, rz = int(parts[1]), int(parts[2])
+    except (TypeError, ValueError):
+        return True
+    region_min_x, region_max_x = rx * 32, rx * 32 + 31
+    region_min_z, region_max_z = rz * 32, rz * 32 + 31
+    search_min_x, search_max_x = cx0 - radius, cx0 + radius
+    search_min_z, search_max_z = cz0 - radius, cz0 + radius
+    return not (
+        region_max_x < search_min_x
+        or region_min_x > search_max_x
+        or region_max_z < search_min_z
+        or region_min_z > search_max_z
+    )
+
+
+def _chunk_position(nbt: dict[str, Any]) -> tuple[int, int] | None:
+    """Read modern or legacy chunk coordinates when present so out-of-radius chunks can be skipped early."""
+    containers = [nbt]
+    level = nbt.get("Level") if isinstance(nbt, dict) else None
+    if isinstance(level, dict):
+        containers.append(level)
+    for container in containers:
+        if "xPos" in container and "zPos" in container:
+            try:
+                return int(container["xPos"]), int(container["zPos"])
+            except (TypeError, ValueError):
+                return None
+    return None
+
+
 def scan_spawners_detailed(world_path: str | Path, *, dimension: str = "overworld", center_chunk=(0, 0), radius_chunks=64):
     from .world_scan import _region_chunks, _region_dir, _walk
 
@@ -79,8 +115,15 @@ def scan_spawners_detailed(world_path: str | Path, *, dimension: str = "overworl
             "hits": [], "chunks_scanned": 0,
         }
     for rp in sorted(region.glob("r.*.*.mca")):
+        if not _region_intersects(rp, cx0, cz0, radius):
+            continue
         files += 1
         for _, nbt in _region_chunks(rp):
+            chunk_pos = _chunk_position(nbt)
+            if chunk_pos is not None and (
+                abs(chunk_pos[0] - cx0) > radius or abs(chunk_pos[1] - cz0) > radius
+            ):
+                continue
             chunks += 1
             for block_entity in _walk(nbt):
                 ident = str(block_entity.get("id", "")).lower()
