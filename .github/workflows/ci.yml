@@ -4,6 +4,7 @@ on:
   push:
     branches:
       - main
+      - stable
   pull_request:
   workflow_dispatch:
 
@@ -25,7 +26,7 @@ jobs:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest, macos-latest]
-        python-version: ['3.11', '3.13']
+        python-version: ['3.11', '3.12', '3.13']
     runs-on: ${{ matrix.os }}
     timeout-minutes: 20
     steps:
@@ -44,6 +45,14 @@ jobs:
         run: python -c "import PySide6, pynput, pyperclip; print('runtime imports ok')"
       - name: Compile Python sources
         run: python -m compileall -q launcher.py main.py updater.py minescript tests
+      - name: Parse Windows bootstrap
+        if: runner.os == 'Windows'
+        shell: powershell
+        run: |
+          $tokens = $null
+          $errors = $null
+          [void][System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path '.\WINDOWS_BOOTSTRAP.ps1'), [ref]$tokens, [ref]$errors)
+          if ($errors.Count -gt 0) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
       - name: Run regression tests
         env:
           F3PLUS_SKIP_UPDATE: '1'
