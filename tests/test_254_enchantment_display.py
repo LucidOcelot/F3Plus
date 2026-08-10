@@ -1,9 +1,15 @@
 from __future__ import annotations
 
+import os
 import random
 import unittest
 
+os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
+
+from PySide6.QtWidgets import QApplication
+
 from minescript.enchantment_catalog import grouped_summary, loot_enchanted_book_enchantments
+from minescript.enchantment_widgets import EnchantmentPossibilityPanel
 from minescript.minecraft_simulators import EnchantingEngine, LootTableEngine
 
 
@@ -63,6 +69,10 @@ class _EnchantData:
 
 
 class EnchantedBookDisplayTests(unittest.TestCase):
+    @classmethod
+    def setUpClass(cls):
+        cls.app = QApplication.instance() or QApplication([])
+
     def test_grouped_summary_explains_rarity_and_max_level(self):
         text = grouped_summary([
             {"name": "Mending", "rarity": "Very Rare", "max_level": 1},
@@ -73,6 +83,17 @@ class EnchantedBookDisplayTests(unittest.TestCase):
         self.assertIn("Common: Efficiency (max 5)", text)
         self.assertIn("Protection (max 4)", text)
         self.assertIn("Very Rare: Mending", text)
+
+    def test_scrollable_panel_keeps_every_enchantment_as_its_own_row(self):
+        rows = [
+            {"name": f"Enchant {index}", "rarity": "Common" if index < 12 else "Rare", "max_level": 5, "weight": 10 if index < 12 else 2}
+            for index in range(30)
+        ]
+        panel = EnchantmentPossibilityPanel(); panel.set_rows(rows)
+        self.assertEqual(panel.list.count(), 30)
+        self.assertEqual(panel.count.text(), "30 possible enchantments")
+        self.assertIn("Common", panel.list.item(0).text())
+        self.assertIn("Rare", panel.list.item(29).text())
 
     def test_plain_book_plus_enchant_function_is_detected_as_enchanted_book(self):
         rows = loot_enchanted_book_enchantments(_LootData(), "minecraft:test/book")
