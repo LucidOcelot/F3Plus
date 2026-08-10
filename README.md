@@ -1,10 +1,10 @@
-# F3+ 2.4.2
+# F3+ 2.5.3
 
 **A local technical Minecraft workstation for vanilla Java Edition.**
 
-F3+ combines technical Minecraft analysis, planning, simulation, navigation, generated-world inspection, and optional automation in one cross-platform desktop application. It is designed to work with an ordinary unmodified Minecraft Java client and to keep world, seed, coordinate, project, and planning data local whenever the selected workflow does not require an external component download.
+F3+ combines technical Minecraft analysis, planning, simulation, navigation, generated-world inspection, and optional automation in one cross-platform desktop application. It is designed for an ordinary unmodified Minecraft Java client and keeps user data local whenever the selected workflow does not require an external component download.
 
-**Release:** 2.4.2  
+**Release:** 2.5.3  
 **Default Minecraft target:** 26.3 Snapshot 7  
 **Python:** 3.11 through 3.13
 
@@ -12,101 +12,106 @@ F3+ combines technical Minecraft analysis, planning, simulation, navigation, gen
 
 - **Windows:** extract the ZIP and run `START_F3PLUS.bat`.
 - **macOS:** extract the ZIP and run `START_F3PLUS.command`. Automation may require Accessibility/Input Monitoring permission.
-- **Linux:** run `START_F3PLUS.sh`. Calculators and foreground workflows do not depend on background-input support.
+- **Linux:** run `START_F3PLUS.sh`. Calculators and foreground workflows do not require background-input support.
 
 The launcher prepares a project-local environment and required Python packages when needed. Installed copies continue to launch when update checks are unavailable.
 
-F3+ normally installs validated **Stable** updates before launch. Stable does not follow rolling development commits. Set `F3PLUS_UPDATE_CHANNEL=preview` to follow `main`, `F3PLUS_AUTO_UPDATE=0` for check-only behavior, or `F3PLUS_SKIP_UPDATE=1` to skip the network check entirely.
+F3+ normally installs validated **Stable** updates before launch. Stable does not follow rolling development commits. Set `F3PLUS_UPDATE_CHANNEL=preview` to follow `main`, `F3PLUS_AUTO_UPDATE=0` for check-only behavior, or `F3PLUS_SKIP_UPDATE=1` to skip the network check.
+
+## 2.5.3 desktop UI
+
+2.5.3 replaces the previous three-column catalog shell with a **professional desktop shell** built around task selection rather than catalog browsing. The permanent structure is now:
+
+- a compact top bar for Minecraft link/input/safety state;
+- a context bar for global search, dimension, version, world seed, and position capture;
+- a left workspace rail;
+- a responsive central grid of workbench cards;
+- a **contextual inspector** that explains the selected workbench before it opens;
+- a searchable `Ctrl+K` command palette for current workbenches and historical operation names.
+
+Every launch path uses the same canonical workbench owner. Home, search, favorites, double-click, menus, and Command Palette no longer send the same tool to different generic dialogs. Dedicated workbenches such as RNG & Enchanting, Loot, Mechanics, Villagers, Macro Studio, World Profiles, Recipes, Safety, History, and Diagnostics open their purpose-built UI directly.
+
+Field help is part of the normal interface rather than hidden documentation. Generic operation panels show what the operation does, which inputs it actually uses, inline explanations, examples/defaults, matching tooltips, and accessibility descriptions. Compatibility defaults used internally are not presented as fake user inputs.
 
 ## Workbenches
 
-F3+ does not present every historical command, preset, report, and compatibility ID as a separate application. Related operations live inside task-oriented workbenches:
+F3+ does not expose every historical command, preset, report, and compatibility ID as a separate application. Related operations live inside task-oriented workbenches:
 
-- **Automation** — continuous actions, travel, mining, farming, construction, parameterized routines, and Macro Studio for reusable sequences.
-- **Navigation** — live position, coordinate/travel math, persistent waypoints and groups, coordinate history, routes/surveys, and portal networks.
+- **Automation** — continuous actions, travel, mining, farming, construction, parameterized routines, and Macro Studio.
+- **Navigation** — live position, coordinate/travel math, waypoints, routes/surveys, and portal networks.
 - **World Explorer** — Structure, Spawner, Biome & Terrain, Slime, Nether, Local Area, World Analysis, **Ore & Cave Explorer**, and World Profiles/Local Saves.
-- **Build & Technical** — block-layer shape/build planning, redstone/timing, storage/logistics, farms, technical mechanics, resource use, speedrun/End utilities, and an installed-data Recipe & Material Explorer.
-- **Simulation & RNG** — Minecraft-style Enchanting Table and Anvil planning, RNG/recovery/probability tools, loot/drop exploration, generation RNG, brewing, dye/cauldron mechanics, and animal/horse breeding.
+- **Build & Technical** — block-layer shape/build planning, redstone/timing, storage/logistics, farms, technical mechanics, resources, speedrun/End tools, and Recipe & Material Explorer.
+- **Simulation & RNG** — Minecraft-style Enchanting Table and Anvil planning, RNG/recovery/probability, loot/drop exploration, generation RNG, brewing, dye/cauldron mechanics, and animal/horse breeding.
 - **Villagers** — a virtualized visual explorer for professions, levels, direction filters, all matching trades, comparison/favorites, planned uses/restocks, emerald flow, curing, breeding, workstations, and halls.
-- **Utilities & Safety** — Minecraft/data version status, profiles, bindings/calibration, component diagnostics, result history/export, and automation safety.
+- **Utilities & Safety** — Minecraft/data version status, profiles, bindings/calibration, diagnostics, result history/export, and automation safety.
 
-Historical feature IDs remain an internal compatibility namespace for saved favorites, recents, scripts, and settings. All 457 historical IDs resolve to the matching canonical workbench operation rather than appearing as hundreds of duplicate buttons.
+All 457 historical feature IDs remain compatibility aliases for saved favorites, recents, scripts, and settings. They resolve to the matching canonical workbench operation rather than reappearing as hundreds of duplicate buttons.
 
-## 2.4.2 interaction model
+## Search Center, world data, and exactness
 
-Search/world tools use one shared **Search Center** control where location actually affects the result. Choose **Current position**, **Block coordinates**, or **Center chunk**; F3+ converts that choice to the legacy coordinate fields required internally. Operations that are intentionally spawn-centered or location-independent do not show a fake center input.
+World/search tools use one shared **Search Center** where location actually affects the result. Choose **Current position**, **Block coordinates**, or **Center chunk**; F3+ converts that choice to the internal coordinate representation required by the calculation. Spawn-centered and location-independent operations do not display a fake center input.
 
-The public UI is an abstraction layer over Minecraft data. Player-facing simulators do not require raw NBT or JSON. Enchanting and Anvil use item/enchantment selectors; Brewing uses bottle/ingredient/output slots; leather dyeing uses color swatches; breeding exposes only traits that influence the model.
+Location-oriented finders use **Radius search** or **Search until found**. Search Until Found expands outward by a configurable step and normally stops at a selected maximum. Supported long-running searches remain responsive and check cooperative cancellation between safe expansion attempts.
 
-Long operations show a visible activity indicator and remain responsive. Generic world/search operations, installed-JAR indexing, Loot simulations, RNG/enchanting data loading, and Villager trade loading use background work with cooperative cancellation where the operation can safely stop.
+An advanced **Ignore maximum search / generation limit** option can continue beyond the configured maximum. Exact generation can consume substantial CPU, memory, disk, and time, so the UI states that cost explicitly.
 
-Minecraft artwork is recovered from the selected/local installed Java JAR when a matching texture exists. Missing semantic artwork falls back to original **recolorable F3+ SVGs** rather than reusing one generic glyph. No Mojang artwork is redistributed.
+F3+ keeps three version concepts separate: selected Minecraft version, actual calculation/world-generation version, and installed local-data version. Placement candidates are not mislabeled as confirmed generated structures, and generated-world observations are not mislabeled as seed-only predictions.
 
-## Workbench behavior
+Generated-terrain tools can inspect an existing Java save. Where supported, F3+ can create bounded reference chunks with Mojang's matching server JAR after explicit EULA acceptance. Bundled Cubiomes mappings remain explicitly bounded through Minecraft 1.21.3.
 
-Calculator/explorer workbenches are grouped by their real domain rather than keyword guesses. The selected operation explains what it calculates, shows only its user-facing inputs, describes each input beside the control, and states what type of result to expect before Run is pressed. Compatibility defaults required by older internal calculation code are kept internal and are not presented as fake user inputs.
+**World/structure-seed recovery is limited to the Nether Bedrock Cracker workflow.** Gameplay/player RNG recovery belongs to Simulation & RNG and is never presented as world-seed recovery.
 
-World Analysis no longer leaks one broad parameter form into unrelated operations. Ore/cave inspection, seed comparison, spawn analysis, chunk-loading simulation, and search-radius planning expose only the values their active handlers actually consume.
+## Ore & Cave Explorer
 
-**Live Position** returns captured coordinates, chunk, dimension, and source in the workbench. Continuous capture, distance announcement, and bearing monitoring remain dedicated live-state workflows instead of no-output calculator actions.
+Ore Distribution, Ore Exposure Estimate, Cave Exposure Estimate, and Ancient City Area Analysis are first-class World Explorer operations instead of being buried inside a broad World Analysis list.
 
-**Macro Studio** records or manually assembles tap/click/wait/hold/turn/slot sequences, shows a dry timeline, saves local macros, imports/exports JSON, and runs them through the same `MacroEngine` safety controls as built-in automation.
+Ore/exposure/cave operations request only the values their active handlers use. Observed ore/cave analysis requires generated block-state data or supported bounded Mojang reference generation; F3+ does not invent ore coordinates from a placement-only seed model.
 
-**World Profiles & Local Saves** discovers standard Java singleplayer saves and reads `level.dat` locally for world name, version, seed, spawn, and related context. Applying a profile reuses that context in F3+; the world is not modified.
+## Simulation & RNG
 
-**Recipe & Material Explorer** reads recipe definitions from an installed Minecraft client JAR. It can search recipes and expand a target into a recursive material bill. Alternative ingredients use the first listed choice for planning and unresolved tags remain explicitly marked instead of being guessed.
+The public simulator UI is an abstraction layer over Minecraft data rather than an NBT/JSON editor.
 
-**Result History** keeps recent calculations locally under the F3+ user-data folder and can export an individual result as JSON. **Diagnostics** reports input-backend state, installed Minecraft versions, component readiness, configuration paths, and saved-state counts.
+**Minecraft-style Enchanting Table** uses a visual item picker, bookshelf control, reproducibility seed, and three offer cards. Installed enchantment definitions/tags are preferred and treasure-only enchantments are excluded from normal table rolls.
 
-A **Command Palette** (`Ctrl+K`) searches canonical workbenches and historical operation names without restoring the old flat catalog UI.
+**Anvil** uses left item, sacrifice/book, result, visual enchantment editors, prior-work fields, rename option, and level-cost/prior-work/survival metrics. Users do not type enchantment JSON.
 
-## Results and explorers
+**Loot & Drop Workbench** indexes installed loot data in the background. Simulations run outside the UI thread, show a visible activity strip, retain their inputs, and expose cooperative cancellation. Source/version/context limitations remain visible.
 
-Configuration fields include visible contextual help and accessibility descriptions. Search-oriented dialogs explain Radius search, Search until found, maximum radius, exact generation, EULA acceptance, and the explicit ignore-limit override; controls that do not apply to the selected search mode are disabled.
+**Minecraft Mechanics Lab** presents brewing, leather dye/cauldron behavior, and animal/horse breeding through mechanic-specific controls rather than raw parent NBT.
 
-Structured results display status, source, purpose, limitations, and exactness context while hiding internal dispatch metadata. World-coordinate results can show an interactive X/Z map with zoom, pan, layer visibility, optional point labels, and copyable coordinates. Unordered candidates are rendered as points; route lines appear only for explicitly ordered paths.
+## Villager Explorer
 
-Shape/build results use a separate **block blueprint** renderer. Two-dimensional layouts show Minecraft block cells directly; 3D spheres, cylinders, domes, helices and related shapes expose selectable Y layers instead of flattening every layer into a misleading X/Z map.
+Villager Explorer is a virtualized explorer rather than a full `QTableWidget` rebuild. It paints only visible trade cards, retains every matching loaded trade, and makes a complete labeled reference dataset available immediately while installed-version trade data loads in the background.
 
-Declared statistical outputs can render labeled charts alongside structured tables. F3+ does not interpret arbitrary numeric arrays as maps or charts.
+The detail panel represents the actual wants → gives transaction with item artwork, profession/level/source, max uses, planned restocks, emerald flow, XP/details, favorites, and comparison state. Profession portraits and item textures are recovered from the installed client when possible.
 
-The **Villager Explorer** renders only visible trade cards instead of rebuilding a full widget table. A complete labeled reference dataset is available immediately; installed-version trade data is checked in the background and replaces the reference when available. Profession portraits and item textures are recovered from the installed client when possible.
+## Results and visualization
 
-The **Ore & Cave Explorer** exposes Ore Distribution, Ore Exposure Estimate, Cave Exposure Estimate, and Ancient City Area Analysis as first-class operations. Ore/exposure/cave results require generated block-state data or supported bounded Mojang reference generation; F3+ does not invent ore coordinates from a placement-only seed model.
+Structured results display status, source, purpose, limitations, and exactness context while hiding internal dispatch metadata. World-coordinate results can show an interactive X/Z map with zoom, pan, layers, optional labels, and copyable coordinates.
 
-## Search and exactness
+Unordered structure/slime/search candidates render as scatter points. Lines appear only for declared ordered routes. Statistical charts include category labels rather than unlabeled bars.
 
-Location-oriented finders use **Radius search** or **Search until found**. Search until found expands outward by a configurable step and normally stops at a user-selected maximum. Long-running expanding searches support cooperative cancellation between search attempts.
+Shape/build results use a separate **block blueprint** renderer. Two-dimensional layouts show Minecraft block cells directly; 3D spheres, cylinders, domes, helices, and related shapes expose selectable Y layers instead of flattening every layer into a misleading X/Z map.
 
-An advanced **Ignore maximum search / generation limit** option is available for supported searches. It can substantially increase CPU, memory, disk, and runtime use. Exact reference-world searches can also increase the generated-chunk budget as the radius grows; backend failures and an internal runaway-loop guard can still stop the process.
+## Minecraft artwork and themes
 
-F3+ keeps three version concepts separate:
+F3+ first attempts to recover suitable artwork from the selected/available installed Minecraft Java JAR. 2.5.3 adds a conservative semantic fallback search for cases where Mojang has moved or renamed a texture while retaining the same recognizable item/block concept.
 
-1. **Selected Minecraft version** — what the user is targeting.
-2. **Calculation/world-generation version** — the actual rules used by the active backend.
-3. **Local data version** — the installed client JAR used for data-driven definitions or artwork.
+When suitable installed artwork is unavailable, F3+ uses original **recolorable F3+ SVGs** rather than recycling one generic glyph. Minecraft client/server JARs and Mojang texture files are not redistributed.
 
-Bundled Cubiomes mappings are explicitly bounded through Minecraft 1.21.3. A newer selected version remains visible when a supported calculation fallback is used; F3+ does not label that fallback as snapshot-exact generation.
+The existing themes remain **Chorus, Light, Cyber, Vanilla, and Custom**. Chorus, Light, and Vanilla prefer locally recovered Minecraft art. Custom can choose recovered Minecraft assets or original recolorable art. Cyber retains its distinct non-Vanilla visual treatment.
 
-Generated-terrain tools can inspect an existing Java save. Where supported, F3+ can instead create bounded reference chunks with Mojang's matching server JAR after explicit EULA acceptance. Required Java versions and compatible runtimes are discovered before generation.
+## Automation and safety
 
-**World/structure-seed recovery is limited to the Nether Bedrock Cracker workflow.** Gameplay/player RNG recovery belongs to the RNG & Enchanting workbench and is never presented as world-seed recovery.
+Automation links to a detected Minecraft Java process rather than trusting only a window title. If the linked client disappears, managed automation stops and held input is released. Depending on the platform/backend, automation can use targeted background input, focus switching, or foreground-only input.
 
-## Minecraft linking and automation safety
+Runtime/action limits, delayed start, coordinate recovery attempts, hotbar restoration, stuck detection, focus-loss stop, configurable global hotkeys, Pause/Resume, and Emergency Stop are active controls. Safe Mode is a conservative multiplayer filter; it does not replace server rules.
 
-Automation links to a detected Minecraft Java process rather than trusting window-title text alone. When multiple clients are detected, F3+ asks which client to control. If the linked client disappears, managed automation is stopped, held input is released, and the stale targeted backend is discarded.
+## Validation
 
-Automation can use targeted background input, focus switching, or foreground-only input depending on the platform/backend. When F3+ temporarily switches focus for a macro, it can restore the previous application when the run ends.
+CI validates Windows, macOS, and Ubuntu on Python 3.11, 3.12, and 3.13. The native Cubiomes bridge compiles with strict warnings, Mojang exact-world integration is independently checked, and a full semantic audit verifies all 457 historical aliases, workbench launch ownership, public field explanations, theme availability, and artwork recovery contracts.
 
-Runtime/action limits, delayed start, coordinate recovery attempts, hotbar restoration, stuck detection, focus-loss stop, Emergency Stop, Pause/Resume, and configurable global hotkeys are active settings rather than informational descriptors. Safe Mode is a conservative multiplayer filter; it does not replace a server's rules.
-
-## Local data, network use, and assets
-
-Prepared calculations, settings, world profiles, result history, saved macros, installed-data browsing, and generated-save analysis run locally. Network access may be required for dependency/component acquisition, update checks, optional upstream helpers, or Mojang reference-world acquisition.
-
-F3+ does not bundle Minecraft client/server JARs or Mojang texture files. Minecraft artwork shown in the interface is read from the player's installed Java files at runtime when available.
-
-Themes available under Options are **Chorus, Light, Cyber, Vanilla, and Custom**. Custom can use the recolorable F3+ SVG artwork or recovered Minecraft assets where available.
+Windows CI also captures native screenshots for all five themes and the major workbench/result surfaces, including Search Center, Ore & Cave, Automation, Villagers, Enchanting, Anvil, RNG, Mechanics, Loot, structure scatter maps, labeled ore charts, and layered block blueprints.
 
 ## Documentation and security
 
