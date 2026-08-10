@@ -24,7 +24,7 @@ class CanonicalUiDepthTests(unittest.TestCase):
     def test_task_specific_icons_cover_major_workbench_families(self):
         cases = {
             "world.spawners": "spawner", "world.biomes": "biome", "world.ores": "ore",
-            "navigation.portals": "map", "build.planner": "building",
+            "navigation.portals": "portal", "build.planner": "building",
             "build.farming": "farm", "simulation.rng": "enchant",
             "simulation.loot": "loot", "simulation.mechanics": "brewing",
             "villagers.explorer": "villager",
