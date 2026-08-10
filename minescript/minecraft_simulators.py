@@ -2,14 +2,16 @@ from __future__ import annotations
 
 """Canonical data-driven Minecraft simulation engines.
 
-The mechanics implementation lives in :mod:`simulator_engine`; this module owns the
-current source/data normalization and correctness policy.  It replaces the former
-release-specific hardening layer, so direct callers and the desktop workbenches use the
-same behavior without import-time mutation.
+Minecraft JSON namespaces are decoded in one cached ZIP pass per installed-JAR
+fingerprint. This avoids reopening a large client JAR for every loot table/tag while
+keeping the canonical correctness policy shared by GUI and direct callers.
 """
 
+from functools import lru_cache
+import json
 import random
-from typing import Any
+from typing import Any, Iterable
+import zipfile
 
 from .simulator_engine import *  # noqa: F401,F403 - deliberate public compatibility surface
 from .simulator_engine import (
@@ -20,7 +22,36 @@ from .simulator_engine import (
 )
 
 
+@lru_cache(maxsize=48)
+def _namespace_cache(path_text: str, mtime_ns: int, size: int, prefixes: tuple[str, ...]) -> dict[str, Any]:
+    out: dict[str, Any] = {}
+    try:
+        with zipfile.ZipFile(path_text) as jar:
+            for member in jar.namelist():
+                prefix = next((p for p in prefixes if member.startswith(p) and member.endswith(".json")), None)
+                if prefix is None:
+                    continue
+                try:
+                    value = json.loads(jar.read(member).decode("utf-8"))
+                except (KeyError, UnicodeDecodeError, json.JSONDecodeError):
+                    continue
+                rel = member[len(prefix):-5]
+                out[f"minecraft:{rel}"] = value
+    except (OSError, zipfile.BadZipFile):
+        return {}
+    return out
+
+
 class MinecraftJarData(_BaseMinecraftJarData):
+    def json_namespace(self, prefixes: Iterable[str]) -> dict[str, Any]:
+        prefixes = tuple(str(prefix) for prefix in prefixes)
+        if not self.jar_path or self._stat is None:
+            return {}
+        return dict(_namespace_cache(
+            str(self.jar_path.resolve()), int(self._stat.st_mtime_ns), int(self._stat.st_size), prefixes
+        ))
+
+    @lru_cache(maxsize=1)
     def item_tags(self) -> dict[str, list[str]]:
         raw = self.json_namespace(("data/minecraft/tags/item/", "data/minecraft/tags/items/"))
         out: dict[str, list[str]] = {}
@@ -60,10 +91,7 @@ class LootTableEngine(_BaseLootTableEngine):
         self.data = data
         raw = data.json_namespace(("data/minecraft/loot_table/", "data/minecraft/loot_tables/"))
         self.using_baseline = not bool(raw)
-        self.tables = (
-            {key: value for key, value in raw.items() if isinstance(value, dict)}
-            if raw else dict(FALLBACK_LOOT_TABLES)
-        )
+        self.tables = {key: value for key, value in raw.items() if isinstance(value, dict)} if raw else dict(FALLBACK_LOOT_TABLES)
         self.tags = data.item_tags()
 
     @property
@@ -74,45 +102,34 @@ class LootTableEngine(_BaseLootTableEngine):
         return _resolve_item_tag(self.tags, tag_id, seen)
 
     def roll(self, table_id: str, *, rng=None, context=None, depth: int = 0):
-        rng = rng or random.Random()
-        context = dict(context or {})
-        if depth > 12:
-            return []
+        rng = rng or random.Random(); context = dict(context or {})
+        if depth > 12: return []
         table = self.tables.get(table_id)
-        if not isinstance(table, dict):
-            return []
+        if not isinstance(table, dict): return []
         stacks: list[LootStack] = []
         for pool in table.get("pools", []):
-            if not isinstance(pool, dict):
-                continue
-            if not all(self._condition_passes(condition, rng, context) for condition in pool.get("conditions", [])):
-                continue
+            if not isinstance(pool, dict): continue
+            if not all(self._condition_passes(condition, rng, context) for condition in pool.get("conditions", [])): continue
             rolls = max(0, int(round(_provider_value(pool.get("rolls", 1), rng))))
             for _ in range(rolls):
                 eligible, weights = [], []
                 for entry in pool.get("entries", []):
-                    if not isinstance(entry, dict):
-                        continue
-                    if not all(self._condition_passes(condition, rng, context) for condition in entry.get("conditions", [])):
-                        continue
+                    if not isinstance(entry, dict): continue
+                    if not all(self._condition_passes(condition, rng, context) for condition in entry.get("conditions", [])): continue
                     weight = max(0.0, float(entry.get("weight", 1) or 1))
-                    if weight > 0:
-                        eligible.append(entry); weights.append(weight)
-                if not eligible:
-                    continue
+                    if weight > 0: eligible.append(entry); weights.append(weight)
+                if not eligible: continue
                 chosen = dict(rng.choices(eligible, weights=weights, k=1)[0])
-                # Conditions determined entry eligibility above.  Removing them here is
-                # deliberate: a random_chance predicate must not be sampled twice.
+                # Entry conditions were evaluated for eligibility above; do not sample
+                # random-chance conditions a second time inside _entry_stacks.
                 chosen["conditions"] = []
                 stacks.extend(self._entry_stacks(chosen, rng, context, depth + 1))
             stacks = self._apply_functions(stacks, pool.get("functions"), rng)
         stacks = self._apply_functions(stacks, table.get("functions"), rng)
         grouped: dict[tuple[str, str], int] = {}
         for stack in stacks:
-            if stack.count <= 0:
-                continue
-            key = (stack.item, stack.detail)
-            grouped[key] = grouped.get(key, 0) + stack.count
+            if stack.count <= 0: continue
+            key = (stack.item, stack.detail); grouped[key] = grouped.get(key, 0) + stack.count
         return [LootStack(item, count, detail) for (item, detail), count in grouped.items()]
 
 
@@ -121,35 +138,21 @@ class EnchantingEngine(_BaseEnchantingEngine):
         self.data = data
         raw = data.json_namespace(("data/minecraft/enchantment/", "data/minecraft/enchantments/"))
         self.using_baseline = not bool(raw)
-        self.enchantments = (
-            {key: value for key, value in raw.items() if isinstance(value, dict)}
-            if raw else {f"minecraft:{key}": dict(value) for key, value in FALLBACK_ENCHANTMENTS.items()}
-        )
-        self.tags = data.item_tags()
-        self.treasure_enchantments: set[str] = set()
-        raw_tags = data.json_namespace(("data/minecraft/tags/enchantment/", "data/minecraft/tags/enchantments/"))
-        treasure = raw_tags.get("minecraft:treasure", {})
+        self.enchantments = {key: value for key, value in raw.items() if isinstance(value, dict)} if raw else {f"minecraft:{key}": dict(value) for key, value in FALLBACK_ENCHANTMENTS.items()}
+        self.tags = data.item_tags(); self.treasure_enchantments: set[str] = set()
+        raw_tags = data.json_namespace(("data/minecraft/tags/enchantment/", "data/minecraft/tags/enchantments/")); treasure = raw_tags.get("minecraft:treasure", {})
         if isinstance(treasure, dict):
             for member in treasure.get("values", []):
-                value = member.get("id", "") if isinstance(member, dict) else member
-                value = str(value)
-                if value and not value.startswith("#"):
-                    self.treasure_enchantments.add(value if ":" in value else "minecraft:" + value)
+                value = member.get("id", "") if isinstance(member, dict) else member; value = str(value)
+                if value and not value.startswith("#"): self.treasure_enchantments.add(value if ":" in value else "minecraft:" + value)
         if self.using_baseline:
-            self.treasure_enchantments.update(
-                enchant_id for enchant_id, definition in self.enchantments.items()
-                if isinstance(definition, dict) and definition.get("treasure_only")
-            )
+            self.treasure_enchantments.update(enchant_id for enchant_id, definition in self.enchantments.items() if isinstance(definition, dict) and definition.get("treasure_only"))
 
     def roll_offers(self, item_id: str, bookshelves: int = 15, seed: int = 0, enchantability: int | None = None):
         offers = super().roll_offers(item_id, bookshelves, seed, enchantability)
         for offer in offers:
-            offer["enchantments"] = [
-                row for row in offer.get("enchantments", [])
-                if row.get("id") not in self.treasure_enchantments
-            ]
-            if self.using_baseline:
-                offer["source"] = "Bundled enchanting baseline"
+            offer["enchantments"] = [row for row in offer.get("enchantments", []) if row.get("id") not in self.treasure_enchantments]
+            if self.using_baseline: offer["source"] = "Bundled enchanting baseline"
         return offers
 
 
