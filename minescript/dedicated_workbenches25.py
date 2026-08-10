@@ -2,12 +2,19 @@ from __future__ import annotations
 
 """2.5 UX wrappers for dedicated workbenches.
 
-The underlying dedicated workbenches already provide the correct Minecraft-oriented
-controls. These wrappers make compact controls self-explanatory and correct cramped
-layouts without changing simulation logic.
+The underlying dedicated workbenches provide the mechanic engines. These wrappers make
+compact controls self-explanatory and correct layout problems without changing
+simulation logic.
 """
 
+from PySide6.QtCore import Qt
+from PySide6.QtWidgets import (
+    QCheckBox, QFrame, QHBoxLayout, QLabel, QPushButton, QScrollArea, QSpinBox,
+    QVBoxLayout, QWidget,
+)
+
 from .async_loot_workbench import LootWorkbenchDialog
+from .minecraft_widgets import EnchantmentEditor, ExplanationCard, ItemPicker, MetricCard
 from .simulation_workbenches import (
     MechanicsLabDialog as _MechanicsLabDialog,
     RngEnchantingDialog as _RngEnchantingDialog,
@@ -22,33 +29,57 @@ def _help(widget, text: str) -> None:
 
 
 def _polish_enchantment_editor(editor) -> None:
-    """Give anvil enchantment controls enough room to render labels at Windows DPI."""
-    editor.setMinimumHeight(205)
+    editor.setMinimumHeight(178)
     editor.choice.setMinimumWidth(170)
     editor.level.setMinimumWidth(72)
-    editor.list.setMinimumHeight(88)
-    editor.list.setMaximumHeight(112)
-
-
-def _polish_anvil_grid(left_editor) -> None:
-    """Reserve distinct rows for enchantments and prior-work controls."""
-    slots = left_editor.parentWidget()
-    if slots is None: return
-    slots.setMinimumHeight(390)
-    layout = slots.layout()
-    if layout is None: return
-    try:
-        layout.setRowMinimumHeight(2, 210)
-        layout.setRowMinimumHeight(3, 42)
-        layout.setVerticalSpacing(10)
-    except Exception:
-        pass
+    editor.list.setMinimumHeight(72)
+    editor.list.setMaximumHeight(96)
 
 
 class RngEnchantingDialog(_RngEnchantingDialog):
+    def _build_anvil_tab(self):
+        """Minecraft-style anvil planner with independent vertical sections."""
+        page = QWidget(); outer = QVBoxLayout(page); outer.setContentsMargins(0, 0, 0, 0)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame); outer.addWidget(scroll)
+        body = QWidget(); root = QVBoxLayout(body); root.setContentsMargins(12, 12, 12, 12); root.setSpacing(10); scroll.setWidget(body)
+
+        root.addWidget(ExplanationCard(
+            "What this planner models",
+            "Build an enchantment combination visually: choose the item and sacrifice/book, add their existing enchantments, set prior anvil uses, then compare level cost and prior-work penalty. Durability repair/material consumption is deliberately not invented by this planner."
+        ))
+
+        transaction = QFrame(); transaction.setObjectName("ToolConfigCard"); tv = QVBoxLayout(transaction); tv.setContentsMargins(10, 9, 10, 9); tv.setSpacing(7)
+        labels = QHBoxLayout(); left_label = QLabel("LEFT ITEM"); left_label.setObjectName("DeckLabel"); sacrifice_label = QLabel("SACRIFICE / BOOK"); sacrifice_label.setObjectName("DeckLabel"); result_label = QLabel("RESULT"); result_label.setObjectName("DeckLabel")
+        labels.addWidget(left_label, 5); labels.addWidget(QLabel(""), 1); labels.addWidget(sacrifice_label, 5); labels.addWidget(QLabel(""), 1); labels.addWidget(result_label, 1); tv.addLayout(labels)
+        items = QHBoxLayout(); self.anvil_item = ItemPicker(self.assets, "minecraft:diamond_pickaxe"); self.sacrifice_item = ItemPicker(self.assets, "minecraft:enchanted_book")
+        plus = QLabel("+"); plus.setObjectName("TradeOperator"); plus.setAlignment(Qt.AlignCenter); plus.setFixedWidth(28)
+        arrow = QLabel("→"); arrow.setObjectName("TradeArrow"); arrow.setAlignment(Qt.AlignCenter); arrow.setFixedWidth(34)
+        self.anvil_result_icon = QLabel(); self.anvil_result_icon.setFixedSize(48, 48); self.anvil_result_icon.setAlignment(Qt.AlignCenter)
+        items.addWidget(self.anvil_item, 5); items.addWidget(plus); items.addWidget(self.sacrifice_item, 5); items.addWidget(arrow); items.addWidget(self.anvil_result_icon); tv.addLayout(items); root.addWidget(transaction)
+
+        enchantments = QFrame(); enchantments.setObjectName("ToolConfigCard"); ev = QVBoxLayout(enchantments); ev.setContentsMargins(10, 9, 10, 9); ev.setSpacing(7)
+        enchant_title = QLabel("ENCHANTMENTS ON EACH SIDE"); enchant_title.setObjectName("DeckLabel"); ev.addWidget(enchant_title)
+        editors = QHBoxLayout(); editors.setSpacing(12)
+        left_box = QVBoxLayout(); left_hint = QLabel("Existing on left item"); left_hint.setObjectName("Muted"); left_box.addWidget(left_hint)
+        self.left_enchants = EnchantmentEditor(self.enchanting.enchantments); self.left_enchants.set_values({"minecraft:efficiency": 4}); _polish_enchantment_editor(self.left_enchants); left_box.addWidget(self.left_enchants)
+        right_box = QVBoxLayout(); right_hint = QLabel("Supplied by sacrifice / book"); right_hint.setObjectName("Muted"); right_box.addWidget(right_hint)
+        self.right_enchants = EnchantmentEditor(self.enchanting.enchantments); self.right_enchants.set_values({"minecraft:efficiency": 4, "minecraft:unbreaking": 3}); _polish_enchantment_editor(self.right_enchants); right_box.addWidget(self.right_enchants)
+        editors.addLayout(left_box, 1); editors.addLayout(right_box, 1); ev.addLayout(editors); root.addWidget(enchantments)
+
+        prior = QFrame(); prior.setObjectName("ToolConfigCard"); pv = QHBoxLayout(prior); pv.setContentsMargins(10, 8, 10, 8); pv.setSpacing(8)
+        prior_title = QLabel("PRIOR WORK"); prior_title.setObjectName("DeckLabel"); pv.addWidget(prior_title); pv.addSpacing(8)
+        pv.addWidget(QLabel("Left prior anvil uses")); self.left_ops = QSpinBox(); self.left_ops.setRange(0, 20); self.left_ops.setMinimumWidth(74); pv.addWidget(self.left_ops)
+        pv.addSpacing(12); pv.addWidget(QLabel("Sacrifice prior anvil uses")); self.right_ops = QSpinBox(); self.right_ops.setRange(0, 20); self.right_ops.setMinimumWidth(74); pv.addWidget(self.right_ops)
+        pv.addSpacing(12); self.rename = QCheckBox("Rename result (+1 level)"); pv.addWidget(self.rename); pv.addStretch(); root.addWidget(prior)
+
+        combine = QPushButton("Combine in anvil"); combine.setObjectName("PrimaryButton"); combine.setMinimumHeight(38); combine.clicked.connect(self._combine); root.addWidget(combine)
+        metrics = QHBoxLayout(); self.cost_metric = MetricCard("Level cost"); self.penalty_metric = MetricCard("New prior-work penalty"); self.expensive_metric = MetricCard("Survival status")
+        metrics.addWidget(self.cost_metric); metrics.addWidget(self.penalty_metric); metrics.addWidget(self.expensive_metric); root.addLayout(metrics)
+        self.anvil_summary = ExplanationCard("Result", "Configure the two sides and press Combine in anvil."); root.addWidget(self.anvil_summary)
+        root.addStretch(); self.tabs.addTab(page, "Anvil"); self._combine()
+
     def _engines_ready(self, payload):
         super()._engines_ready(payload)
-        _polish_enchantment_editor(self.left_enchants); _polish_enchantment_editor(self.right_enchants); _polish_anvil_grid(self.left_enchants)
         _help(self.enchant_item, "Item placed into the enchanting table. The simulator filters offers to enchantments compatible with this item.")
         _help(self.shelves, "Number of valid bookshelves powering the table, from 0 to the Java Edition maximum of 15. This changes displayed enchantment levels and available offers.")
         _help(self.seed, "Reproducibility seed for the enchanting simulation only. It is not the Minecraft world seed and does not recover one.")
