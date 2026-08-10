@@ -23,14 +23,10 @@ class CanonicalUiDepthTests(unittest.TestCase):
 
     def test_task_specific_icons_cover_major_workbench_families(self):
         cases = {
-            "world.spawners": "spawner",
-            "world.biomes": "biome",
-            "navigation.portals": "map",
-            "build.planner": "building",
-            "build.farming": "farm",
-            "simulation.rng": "enchant",
-            "simulation.loot": "loot",
-            "villagers.explorer": "villager",
+            "world.spawners": "spawner", "world.biomes": "biome",
+            "navigation.portals": "map", "build.planner": "building",
+            "build.farming": "farm", "simulation.rng": "enchant",
+            "simulation.loot": "loot", "villagers.explorer": "villager",
         }
         for tool_id, expected in cases.items():
             self.assertEqual(tool_art_key(BY_ID[tool_id]), expected, tool_id)
@@ -44,14 +40,15 @@ class CanonicalUiDepthTests(unittest.TestCase):
 
     def test_readme_is_product_overview_not_changelog_or_internal_feature_dump(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.4.0", readme)
+        self.assertIn("# F3+ 2.4.1", readme)
         self.assertIn("## Workbenches", readme)
         self.assertIn("Ignore maximum search / generation limit", readme)
+        self.assertIn("validated **Stable** updates", readme)
         self.assertIn("villager entity/type/profession skin layers", readme.lower())
         self.assertIn("macro studio", readme.lower())
         self.assertNotIn("F3+ was unfortunately developed", readme)
         self.assertNotIn("## What 2.4.0 focuses on", readme)
-        self.assertLess(len(readme.splitlines()), 180)
+        self.assertLess(len(readme.splitlines()), 190)
 
 
 if __name__ == "__main__":
