@@ -9,7 +9,7 @@ from PySide6.QtWidgets import (
     QHBoxLayout, QListWidget, QListWidgetItem, QPushButton, QSplitter, QVBoxLayout,
 )
 
-from .visual_data import extract_coordinate_layers
+from .map_contracts import extract_coordinate_layers
 
 
 class ZoomView(QGraphicsView):
