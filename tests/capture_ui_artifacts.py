@@ -24,7 +24,8 @@ os.environ.setdefault("F3PLUS_SKIP_UPDATE", "1")
 
 from PySide6.QtWidgets import QApplication
 
-from minescript.app import F3Plus, OptionsDialog
+from minescript.app import OptionsDialog
+from minescript.app25 import F3Plus25 as F3Plus
 from minescript.automation_controller import AutomationControllerDialog
 from minescript.result_view import ResultView
 from minescript.tool_registry import BY_ID
@@ -99,7 +100,6 @@ if rng.tabs.count() >= 3:
 rng.close(); rng.deleteLater()
 
 mechanics = MechanicsLabDialog(window); capture(mechanics, "workbench-mechanics-brewing", 1120, 800)
-# The Mechanics tabs are the first QTabWidget child and are built synchronously.
 mechanics_tabs = mechanics.findChild(__import__("PySide6.QtWidgets", fromlist=["QTabWidget"]).QTabWidget)
 if mechanics_tabs is not None and mechanics_tabs.count() >= 3:
     mechanics_tabs.setCurrentIndex(1); settle(3); capture(mechanics, "workbench-mechanics-dye", 1120, 800)
