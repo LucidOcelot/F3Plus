@@ -55,7 +55,12 @@ def wait_until(predicate, timeout: float = 8.0):
 
 
 def capture(widget, name: str, width: int, height: int):
-    widget.resize(width, height); widget.show(); settle(8, .01)
+    # On native Windows the first show can apply the QMainWindow's saved/default
+    # geometry after a pre-show resize. Show once, then enforce the review size and let
+    # layout negotiation settle before grabbing the image.
+    widget.show(); settle(4, .01); widget.resize(width, height); settle(8, .01)
+    if widget.width() < width - 8 or widget.height() < height - 8:
+        widget.resize(width, height); settle(4, .01)
     pixmap = widget.grab()
     if pixmap.isNull() or pixmap.width() < 400 or pixmap.height() < 300:
         raise RuntimeError(f"UI capture failed for {name}: {pixmap.width()}x{pixmap.height()}")
@@ -106,7 +111,12 @@ if mechanics_tabs is not None and mechanics_tabs.count() >= 3:
     mechanics_tabs.setCurrentIndex(2); settle(3); capture(mechanics, "workbench-mechanics-breeding", 1120, 800)
 mechanics.close(); mechanics.deleteLater()
 
-loot = LootWorkbenchDialog(window, "Loot Table Simulator"); loot.show(); capture(loot, "workbench-loot-loading-or-ready", 1460, 890); wait_until(lambda: getattr(loot, "engine", None) is not None, 10.0); capture(loot, "workbench-loot-explorer", 1460, 890); loot.close(); loot.deleteLater()
+loot = LootWorkbenchDialog(window, "Loot Table Simulator"); loot.show(); capture(loot, "workbench-loot-loading-or-ready", 1460, 890)
+if wait_until(lambda: getattr(loot, "engine", None) is not None and getattr(loot, "tables", None) is not None and loot.tables.count() > 0, 10.0):
+    # Exercise the actual simulation result surface; an empty table is not a sufficient
+    # visual regression check for the complaint that simulations appeared to do nothing.
+    loot.run_sim(100); wait_until(lambda: loot.stats.rowCount() > 0 or "failed" in loot.summary.text().lower(), 10.0)
+capture(loot, "workbench-loot-explorer", 1460, 890); loot.close(); loot.deleteLater()
 
 # Result visualizations ----------------------------------------------------------
 village_spec = BY_NAME["Village"][0]
