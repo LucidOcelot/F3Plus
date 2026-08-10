@@ -21,7 +21,7 @@ function Write-Status([string]$Text = '') {
 
 function Reset-Log {
     @(
-        'F3+ 2.4.1 startup log',
+        'F3+ 2.4.2 startup log',
         ('Started: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
         ('Folder: ' + $Root),
         ''
@@ -158,7 +158,7 @@ function Install-ManagedPython {
 
 try {
     Reset-Log
-    Write-Host 'F3+ 2.4.1 - LucidOcelot'
+    Write-Host 'F3+ 2.4.2 - LucidOcelot'
     Write-Host '==================================='; Write-Host ''; Write-Status 'Checking installation...'
     foreach ($required in @('launcher.py','main.py','requirements.txt','minescript\app.py')) { if (-not (Test-Path (Join-Path $Root $required))) { throw 'F3+ is not fully extracted. Extract the complete ZIP first, then run START_F3PLUS.bat from the extracted F3+ folder.' } }
     $python = Find-Python; if ($null -eq $python) { $python = Install-ManagedPython }
