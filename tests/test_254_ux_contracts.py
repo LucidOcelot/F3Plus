@@ -85,7 +85,7 @@ class PublicUx254Contracts(unittest.TestCase):
         source = __import__("pathlib").Path(__file__).resolve().parents[1].joinpath("minescript", "operation_dialog25.py").read_text(encoding="utf-8")
         self.assertNotIn("will not pretend", source.lower())
         self.assertNotIn("active calculation input", source.lower())
-        self.assertNotIn("expected output", source.lower())
+        self.assertIn('label.setText("RESULT")', source)
 
     def test_simulator_source_restricts_breeding_ui_to_horse_stats(self):
         source = __import__("pathlib").Path(__file__).resolve().parents[1].joinpath("minescript", "dedicated_workbenches25.py").read_text(encoding="utf-8")
