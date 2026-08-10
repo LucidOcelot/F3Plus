@@ -52,7 +52,7 @@ _DOMAIN_PURPOSE = {
 
 
 _EXPLANATION_OVERRIDES = {
-    "Arch": "Generates a symmetric block arch plan from the entered shape dimensions. Use it to choose the span/height before building; the result is a geometric planning layout rather than an in-world scan.",
+    "Arch": "Generates the upper half of a hollow block circle from one radius. The finished arch is approximately 2×radius + 1 blocks wide and rises about radius blocks; the output is a discrete block blueprint rather than an in-world scan.",
     "Rounded Rectangle": "Generates a rounded rectangular footprint from a primary radius/size and secondary width value for build planning.",
     "Diamond": "Generates a diamond-shaped block outline from the selected radius/size.",
     "Pyramid": "Generates stacked square layers for a pyramid-style build from the selected radius and height.",
@@ -340,6 +340,6 @@ class OperationDialog(QDialog):
             self.result_view.set_result(legacy, result, self.settings.theme, self.settings.custom_palette)
             self._show_page(1)
         except Exception as exc:
-            box = QMessageBox(QMessageBox.Warning, name, str(exc), parent=self); box.setDetailedText(repr(exc)); box.exec()
+            QMessageBox.warning(self, legacy.name, str(exc))
         finally:
             self.run_btn.setEnabled(True); self.run_btn.setText("Run")
