@@ -95,10 +95,12 @@ class FullRelease253Audit(unittest.TestCase):
 
     def test_contextual_operation_dialog_explains_defaults_and_operation_role(self):
         source = (ROOT / "minescript" / "operation_dialog25.py").read_text(encoding="utf-8")
-        self.assertIn("Example/default", source)
-        self.assertIn("not an ignored legacy placeholder", source)
+        self.assertIn("Default:", source)
+        self.assertIn("active calculation input", source)
         self.assertIn("setToolTip", source)
         self.assertIn("setAccessibleDescription", source)
+        self.assertIn('"Ore Distribution"', source)
+        self.assertIn("Search Center", source)
 
     def test_no_new_runtime_monkeypatch_layer(self):
         for relative in ("minescript/app25.py", "minescript/operation_dialog25.py", "minescript/minecraft_art25.py", "minescript/launch_contract.py"):
