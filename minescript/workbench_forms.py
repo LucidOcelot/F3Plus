@@ -53,11 +53,10 @@ def _operation_description(mode: ToolMode) -> str:
 
 
 class OperationDialog(QDialog):
-    """Searchable full-workspace UI for canonical workbench operations.
+    """Searchable full-workspace UI for calculator/explorer-style operations.
 
-    Historical operations remain compatibility modes, but they no longer appear as a
-    single flat combo followed by a transient parameter form.  The workbench owns its
-    configuration, explanations and structured/visual result surface.
+    Automation workbenches are deliberately routed to AutomationControllerDialog;
+    action-oriented macro control does not belong in this result-oriented surface.
     """
 
     def __init__(self, tool: ToolSpec, executor: FeatureExecutor, settings, parent=None, preferred_mode: str = ""):
@@ -75,7 +74,7 @@ class OperationDialog(QDialog):
         split = QSplitter(Qt.Horizontal); split.setChildrenCollapsible(False); root.addWidget(split, 1)
         left = QFrame(); left.setObjectName("ExplorerRail"); lv = QVBoxLayout(left); lv.setContentsMargins(8, 8, 8, 8)
         kicker = QLabel("OPERATIONS"); kicker.setObjectName("DeckLabel"); lv.addWidget(kicker)
-        self.operation_search = QLineEdit(); self.operation_search.setClearButtonEnabled(True); self.operation_search.setPlaceholderText("Find an operation, e.g. ore distribution…"); lv.addWidget(self.operation_search)
+        self.operation_search = QLineEdit(); self.operation_search.setClearButtonEnabled(True); self.operation_search.setPlaceholderText(f"Search {tool.name.lower()} operations…"); lv.addWidget(self.operation_search)
         self.mode_list = QListWidget(); self.mode_list.setObjectName("ProfessionList"); lv.addWidget(self.mode_list, 1)
         count = QLabel(f"{len(self._modes)} operations"); count.setObjectName("Muted"); lv.addWidget(count); split.addWidget(left)
 
@@ -85,7 +84,6 @@ class OperationDialog(QDialog):
         self.configure_btn = QPushButton("Configure"); self.configure_btn.setCheckable(True); self.configure_btn.setChecked(True)
         self.results_btn = QPushButton("Results"); self.results_btn.setCheckable(True); top.addWidget(self.configure_btn); top.addWidget(self.results_btn); rv.addLayout(top)
 
-        # Compatibility handle for callers that previously manipulated the flat combo.
         self.mode_combo = QComboBox(); self.mode_combo.addItems([mode.name for mode in self._modes]); self.mode_combo.hide(); rv.addWidget(self.mode_combo)
 
         self.pages = QStackedWidget(); rv.addWidget(self.pages, 1)
@@ -109,13 +107,21 @@ class OperationDialog(QDialog):
         self._refresh_mode_list(); self._select_mode_index(wanted_index); self._rebuild()
 
     def exec(self):
+        owner = self.parent()
+        if self.tool.id == "automation.macro_studio":
+            if owner is None: return QDialog.Rejected
+            from .automation_workbench import MacroStudioDialog
+            MacroStudioDialog(owner).exec(); return QDialog.Rejected
+        if self.tool.workspace == "Automation":
+            if owner is None: return QDialog.Rejected
+            from .automation_controller import AutomationControllerDialog
+            preferred = self.mode.key if self.mode is not None else ""
+            AutomationControllerDialog(owner, self.tool, self.executor, self.settings, preferred).exec()
+            return QDialog.Rejected
         if self._modes:
             return super().exec()
-        owner = self.parent()
         if owner is None: return QDialog.Rejected
-        if self.tool.id == "automation.macro_studio":
-            from .automation_workbench import MacroStudioDialog; MacroStudioDialog(owner).exec()
-        elif self.tool.id == "world.profiles":
+        if self.tool.id == "world.profiles":
             from .state_workbenches import WorldProfilesDialog; WorldProfilesDialog(owner).exec()
         elif self.tool.id == "build.recipes":
             from .recipe_workbench import RecipeExplorerDialog; RecipeExplorerDialog(owner).exec()
@@ -190,7 +196,7 @@ class OperationDialog(QDialog):
             default = self._live_default(str(key), default); widget = make_widget(kind, default); tip = field_help(str(key), str(label))
             if tip: widget.setToolTip(tip); widget.setAccessibleDescription(tip)
             self.inputs[str(key)] = widget; self.form.addRow(label, widget)
-        self.note.setText("These are the parameters used by this operation." if fields else "This operation does not require manual parameters.")
+        self.note.setText("Review the values above before running." if fields else "This operation does not require manual values.")
         mode = self.inputs.get("search_mode"); ignore = self.inputs.get("ignore_max_generation_limit")
         if isinstance(mode, QComboBox): mode.currentTextChanged.connect(lambda *_: self._sync_search())
         if isinstance(ignore, QCheckBox): ignore.setText("Continue beyond the configured maximum"); ignore.toggled.connect(lambda *_: self._sync_search())
@@ -221,8 +227,6 @@ class OperationDialog(QDialog):
     def _run(self):
         if self.mode is None or self.mode.legacy is None: return
         legacy = self.mode.legacy; owner = self.parent(); values = self.values(); name = legacy.name
-        # Stateful/control modes must retain their real application behavior rather
-        # than being reduced to a descriptor returned by the compatibility executor.
         if owner is not None:
             try:
                 from .state_workbenches import stateful_operation
@@ -232,10 +236,10 @@ class OperationDialog(QDialog):
             if name in MACRO_NAMES or name in _CONTROL_DELEGATES:
                 if hasattr(owner, "run_mode"): owner.run_mode(self.mode, values)
                 return
-        self.run_btn.setEnabled(False); self.run_btn.setText("Running…"); QApplication = None
+        self.run_btn.setEnabled(False); self.run_btn.setText("Running…")
         try:
-            from PySide6.QtWidgets import QApplication as _QApplication
-            QApplication = _QApplication; QApplication.processEvents()
+            from PySide6.QtWidgets import QApplication
+            QApplication.processEvents()
             result = self.executor.execute(legacy, values)
             self.result_view.set_result(legacy, result, self.settings.theme, self.settings.custom_palette)
             self._show_page(1)
