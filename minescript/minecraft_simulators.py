@@ -86,6 +86,22 @@ def _resolve_item_tag(tags: dict[str, list[str]], tag_id: str, seen: set[str] | 
     return list(dict.fromkeys(out))
 
 
+def _has_book_enchant_function(functions: Any) -> bool:
+    if not isinstance(functions, list):
+        return False
+    for fn in functions:
+        if not isinstance(fn, dict):
+            continue
+        name = str(fn.get("function", fn.get("type", ""))).removeprefix("minecraft:")
+        if name in {"enchant_randomly", "enchant_with_levels", "set_enchantments"}:
+            return True
+        if name == "set_components":
+            components = fn.get("components")
+            if isinstance(components, dict) and any(str(key).endswith("stored_enchantments") for key in components):
+                return True
+    return False
+
+
 class LootTableEngine(_BaseLootTableEngine):
     def __init__(self, data: MinecraftJarData):
         self.data = data
@@ -100,6 +116,35 @@ class LootTableEngine(_BaseLootTableEngine):
 
     def _resolve_tag(self, tag_id: str, seen: set[str] | None = None) -> list[str]:
         return _resolve_item_tag(self.tags, tag_id, seen)
+
+    def _apply_functions(self, stacks, functions, rng):
+        out = super()._apply_functions(stacks, functions, rng)
+        if _has_book_enchant_function(functions):
+            for stack in out:
+                if stack.item in {"book", "minecraft:book"}:
+                    stack.item = "minecraft:enchanted_book"
+        return out
+
+    def possible_items(self, table_id: str):
+        rows = super().possible_items(table_id)
+        # Entry-local enchant functions are visible in the base possible-item report.
+        # Convert those book rows to the item players actually receive. Pool/table-level
+        # rules are still described by the dedicated enchanted-book possibility panel.
+        merged: dict[str, dict[str, Any]] = {}
+        for original in rows:
+            row = dict(original); functions = str(row.get("functions", "")).lower()
+            if row.get("item") in {"book", "minecraft:book"} and ("enchant randomly" in functions or "enchant with levels" in functions or "set enchantments" in functions):
+                row["item"] = "minecraft:enchanted_book"
+            key = str(row.get("item", ""))
+            if key not in merged:
+                merged[key] = row; continue
+            current = merged[key]
+            try: current["weight"] = float(current.get("weight", 0)) + float(row.get("weight", 0))
+            except (TypeError, ValueError): pass
+            for field in ("pools", "conditions", "functions"):
+                parts = [part.strip() for source in (current.get(field, ""), row.get(field, "")) for part in str(source).split(";") if part.strip()]
+                current[field] = "; ".join(dict.fromkeys(parts))
+        return sorted(merged.values(), key=lambda row: (-float(row.get("weight", 0) or 0), str(row.get("item", ""))))
 
     def roll(self, table_id: str, *, rng=None, context=None, depth: int = 0):
         rng = rng or random.Random(); context = dict(context or {})
