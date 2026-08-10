@@ -4,10 +4,8 @@ import unittest
 from pathlib import Path
 
 from minescript.minecraft_art import _TEXTURES
-from minescript.semantic_icons_extra import SVG_KEYS as EXTRA_SVG_KEYS
 from minescript.tool_guides import make_guide, tool_art_key
 from minescript.tool_registry import BY_ID, LEGACY_TO_CANONICAL, TOOLS
-from minescript.vector_icons import SVG_KEYS as BASE_SVG_KEYS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -24,10 +22,9 @@ class CanonicalUiDepthTests(unittest.TestCase):
         ):
             self.assertIn(required, BY_ID)
 
-    def test_every_canonical_workbench_has_semantic_art_with_recovery_or_svg_fallback(self):
+    def test_every_canonical_workbench_has_distinct_minecraft_recovery_identity(self):
         keys = {tool.id: tool_art_key(tool) for tool in TOOLS}
-        supported = set(_TEXTURES) | set(EXTRA_SVG_KEYS) | set(BASE_SVG_KEYS)
-        missing = {tool_id: key for tool_id, key in keys.items() if key not in supported}
+        missing = {tool_id: key for tool_id, key in keys.items() if key not in _TEXTURES}
         self.assertFalse(missing, missing)
         # The canonical list must not collapse back to a handful of repeated family glyphs.
         self.assertGreaterEqual(len(set(keys.values())), 24)
