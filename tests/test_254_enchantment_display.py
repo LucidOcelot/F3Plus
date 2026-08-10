@@ -4,7 +4,7 @@ import random
 import unittest
 
 from minescript.enchantment_catalog import grouped_summary, loot_enchanted_book_enchantments
-from minescript.minecraft_simulators import LootTableEngine
+from minescript.minecraft_simulators import EnchantingEngine, LootTableEngine
 
 
 class _LootData:
@@ -36,6 +36,32 @@ class _LootData:
         }
 
 
+class _EnchantData:
+    source = "installed fixture"
+    jar_path = "fixture.jar"
+
+    def json_namespace(self, prefixes):
+        prefixes = tuple(prefixes)
+        if any("tags/enchantment" in prefix or "tags/enchantments" in prefix for prefix in prefixes): return {}
+        if any("/enchantment/" in prefix or "/enchantments/" in prefix for prefix in prefixes):
+            return {
+                "minecraft:efficiency": {
+                    "weight": 10,
+                    "max_level": 5,
+                    "min_cost": {"base": 1, "per_level_above_first": 10},
+                    "max_cost": {"base": 51, "per_level_above_first": 10},
+                    "supported_items": "#minecraft:enchantable/mining",
+                }
+            }
+        return {}
+
+    def item_tags(self):
+        return {
+            "minecraft:enchantable/mining": ["#minecraft:tools/pickaxes"],
+            "minecraft:tools/pickaxes": ["minecraft:diamond_pickaxe"],
+        }
+
+
 class EnchantedBookDisplayTests(unittest.TestCase):
     def test_grouped_summary_explains_rarity_and_max_level(self):
         text = grouped_summary([
@@ -58,6 +84,12 @@ class EnchantedBookDisplayTests(unittest.TestCase):
         self.assertEqual([row["item"] for row in possible], ["minecraft:enchanted_book"])
         rolled = engine.roll("minecraft:test/book", rng=random.Random(1))
         self.assertEqual([stack.item for stack in rolled], ["minecraft:enchanted_book"])
+
+    def test_enchanting_resolves_nested_item_tags_for_supported_items(self):
+        engine = EnchantingEngine(_EnchantData())
+        offers = engine.roll_offers("minecraft:diamond_pickaxe", 15, 12345)
+        self.assertTrue(any(offer["enchantments"] for offer in offers), offers)
+        self.assertTrue(any(row["id"] == "minecraft:efficiency" for offer in offers for row in offer["enchantments"]))
 
 
 if __name__ == "__main__":
