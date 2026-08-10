@@ -35,6 +35,17 @@ class OperationDialog(_OperationDialog):
     def _rebuild(self):
         super()._rebuild()
         self.location_panel = None
+
+        # The historical base description called Arch a span/height tool even though
+        # its actual geometry consumes one radius. Keep the public UI tied to the real
+        # engine contract rather than compatibility-era copy.
+        if self.mode is not None and self.mode.name == "Arch":
+            self.mode_help.setText(
+                "Generates the upper half of a hollow block circle from one radius. "
+                "The finished arch is about 2×radius + 1 blocks wide and rises about radius blocks; "
+                "the result is a discrete construction blueprint, not an in-world scan."
+            )
+
         if self.mode is None or self.mode.legacy is None or not location_applies(self.mode.legacy):
             return
 
