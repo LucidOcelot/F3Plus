@@ -73,6 +73,19 @@ jobs:
           if-no-files-found: error
           retention-days: 14
 
+  c-bridge-audit:
+    name: Cubiomes bridge compiler audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Compile F3+ Cubiomes ABI with strict warnings
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
+            -I third_party/cubiomes \
+            minescript/seed/cubiomes_bridge.c
+
   release-audit:
     name: F3+ release consistency audit
     runs-on: ubuntu-latest
