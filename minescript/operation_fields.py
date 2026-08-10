@@ -23,6 +23,15 @@ _TARGET_FIELDS = [
     ("z2", "Target Z", 100.0, "float"),
 ]
 
+_WORLD_SEED = ("seed", "Known Java world seed", 123456789, "text")
+_CENTER_CHUNK = [
+    ("cx", "Center chunk X", 0, "int"),
+    ("cz", "Center chunk Z", 0, "int"),
+]
+_WORLD_RADIUS = ("radius", "Analysis radius (chunks)", 64, "int")
+_DIMENSION = ("dimension", "Dimension", ["Overworld", "Nether", "End"], "choice")
+_WORLD_PATH = ("world_path", "Generated Java world/save folder", "", "text")
+
 
 def _route_stops(label: str = "Stops"):
     return (
@@ -111,6 +120,38 @@ def fields_for(spec):
             return [
                 ("points", "Path points (x,y,z; ...)", "0,64,0;20,64,0;20,64,20;0,64,20;1,64,1", "text"),
                 ("epsilon", "Revisit tolerance (blocks)", 4.0, "float"),
+            ]
+
+    # World Analysis historically exposed one broad form to every operation. Keep
+    # compatibility defaults internal and show only values actually read by each model.
+    if top == "Seed Tools" and sub == "World Analysis":
+        if name in {
+            "Ore Distribution", "Ore Exposure Estimate", "Cave Exposure Estimate",
+            "Technical World Score", "Resource Score",
+        }:
+            return [_WORLD_SEED, _DIMENSION, *_CENTER_CHUNK, _WORLD_RADIUS, _WORLD_PATH]
+        if name == "Ancient City Area Analysis":
+            return [_WORLD_SEED, *_CENTER_CHUNK, _WORLD_RADIUS]
+        if name == "Seed Comparison":
+            return [
+                _WORLD_SEED,
+                ("second_seed", "Comparison world seed", 987654321, "text"),
+                *_CENTER_CHUNK,
+                _WORLD_RADIUS,
+            ]
+        if name == "Spawn Analysis":
+            return [
+                _WORLD_SEED,
+                ("radius", "Spawn-area analysis radius (chunks)", 64, "int"),
+            ]
+        if name == "Spawn Chunk Optimizer":
+            return [_WORLD_SEED, *_CENTER_CHUNK, _WORLD_RADIUS]
+        if name == "Chunk Loading Simulator":
+            return [("simulation_distance", "Simulation distance (chunks)", 10, "int")]
+        if name == "Search Radius Optimizer":
+            return [
+                ("radius", "Minimum radius to cover (chunks)", 64, "int"),
+                ("target_candidates", "Target candidate count", 8, "int"),
             ]
 
     if top == "Calculators" and sub == "Shapes":

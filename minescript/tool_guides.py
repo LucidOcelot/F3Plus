@@ -17,58 +17,40 @@ NAV_SECTIONS = [
 ]
 
 
-def display_name(spec: ToolSpec) -> str:
-    return spec.name
+def display_name(spec: ToolSpec) -> str: return spec.name
 
+def nav_section(spec: ToolSpec) -> str: return spec.workspace
 
-def nav_section(spec: ToolSpec) -> str:
-    return spec.workspace
+def submenu_label(spec: ToolSpec) -> str: return spec.group
 
-
-def submenu_label(spec: ToolSpec) -> str:
-    return spec.group
-
-
-def workspace_group(spec: ToolSpec) -> str:
-    return spec.group
+def workspace_group(spec: ToolSpec) -> str: return spec.group
 
 
 def group_order(section: str, groups=()) -> list[str]:
     ordered = []
     for tool in TOOLS:
-        if tool.workspace == section and tool.group not in ordered:
-            ordered.append(tool.group)
+        if tool.workspace == section and tool.group not in ordered: ordered.append(tool.group)
     for group in groups:
-        if group not in ordered:
-            ordered.append(group)
-    if section == "Home":
-        return ["Favorites", "Recent", "Suggested"]
+        if group not in ordered: ordered.append(group)
+    if section == "Home": return ["Favorites", "Recent", "Suggested"]
     return ordered
 
 
 def _canonical_id(value: str) -> str | None:
-    if value in BY_ID:
-        return value
+    if value in BY_ID: return value
     return LEGACY_TO_CANONICAL.get(value)
 
 
 def specs_for_section(section: str, favorites=(), recent=()):
-    if section != "Home":
-        return [tool for tool in TOOLS if tool.workspace == section]
-
-    out: list[ToolSpec] = []
-    seen: set[str] = set()
+    if section != "Home": return [tool for tool in TOOLS if tool.workspace == section]
+    out: list[ToolSpec] = []; seen: set[str] = set()
     for raw in list(favorites) + list(recent):
         tool_id = _canonical_id(str(raw))
         if tool_id and tool_id not in seen:
             out.append(BY_ID[tool_id]); seen.add(tool_id)
-    if out:
-        return out
-
-    # First-run Home is deliberately small: one useful entry point from each major
-    # workflow rather than a random sample of the historical catalog.
+    if out: return out
     for wanted in (
-        "navigation.coordinates", "world.structures", "build.planner",
+        "navigation.coordinates", "world.structures", "world.ores", "build.planner",
         "simulation.rng", "villagers.explorer", "utilities.version",
     ):
         if wanted in BY_ID:
@@ -120,70 +102,60 @@ _LIMITS = {
 
 
 def make_guide(spec: ToolSpec, description=None, input_labels=None, output_keys=None, status="tool") -> ToolGuide:
-    modes = modes_for(spec)
-    mode_names = [mode.name for mode in modes]
-    preview = ", ".join(mode_names[:6])
-    if len(mode_names) > 6:
-        preview += f", and {len(mode_names) - 6} more"
-    inputs = (
-        "Choose an operation first. F3+ then shows only the fields required by that operation. "
-        + (f"Available operations include {preview}." if preview else "This workbench opens its dedicated interactive surface.")
-    )
-    how = (
-        "1. Open the workbench. 2. Choose the operation you actually need. "
-        "3. Enter only the operation-specific values. 4. Run it and inspect the result/source notice. "
-        "Historical favorites open the matching operation automatically."
-    )
+    modes = modes_for(spec); mode_names = [mode.name for mode in modes]; preview = ", ".join(mode_names[:6])
+    if len(mode_names) > 6: preview += f", and {len(mode_names) - 6} more"
+    inputs = "Choose an operation first. F3+ then shows only the fields required by that operation. " + (f"Available operations include {preview}." if preview else "This workbench opens its dedicated interactive surface.")
+    how = "1. Open the workbench. 2. Choose the operation you actually need. 3. Enter only the operation-specific values. 4. Run it and inspect the result/source notice. Historical favorites open the matching operation automatically."
     tags = (spec.workspace, spec.group, f"{len(modes)} modes" if modes else "interactive")
-    return ToolGuide(
-        title=spec.name,
-        summary=spec.summary,
-        when=_WHEN.get(spec.workspace, spec.summary),
-        how=how,
-        inputs=inputs,
-        output=_OUTPUT.get(spec.workspace, "Returns the selected operation result."),
-        limitations=spec.limitations or _LIMITS.get(spec.workspace, "Version and backend limits are shown with the result."),
-        tags=tags,
-    )
+    return ToolGuide(title=spec.name, summary=spec.summary, when=_WHEN.get(spec.workspace, spec.summary), how=how, inputs=inputs, output=_OUTPUT.get(spec.workspace, "Returns the selected operation result."), limitations=spec.limitations or _LIMITS.get(spec.workspace, "Version and backend limits are shown with the result."), tags=tags)
 
 
 def search_text(spec: ToolSpec, guide: ToolGuide) -> str:
     operations = " ".join(mode.name for mode in modes_for(spec))
-    return " ".join((
-        spec.id, spec.name, spec.workspace, spec.group, spec.summary,
-        guide.when, guide.inputs, guide.output, operations,
-    )).lower()
+    return " ".join((spec.id, spec.name, spec.workspace, spec.group, spec.summary, guide.when, guide.inputs, guide.output, operations)).lower()
+
+
+_ART_KEYS = {
+    "automation.actions": "actions",
+    "automation.travel": "travel",
+    "automation.mining": "mining",
+    "automation.farming": "farm",
+    "automation.construction": "construction",
+    "automation.sequences": "macro",
+    "automation.macro_studio": "macro",
+    "navigation.position": "position",
+    "navigation.coordinates": "coordinates",
+    "navigation.routes": "route",
+    "navigation.portals": "portal",
+    "world.seed_recovery": "seed_recovery",
+    "world.slime": "slime",
+    "world.structures": "structure",
+    "world.spawners": "spawner",
+    "world.biomes": "biome",
+    "world.area": "local_area",
+    "world.ores": "ore",
+    "world.analysis": "world_analysis",
+    "world.nether": "portal",
+    "world.profiles": "profiles",
+    "build.planner": "building",
+    "build.redstone": "redstone",
+    "build.storage": "storage",
+    "build.farming": "farm",
+    "build.technical": "technical",
+    "build.resources": "resources",
+    "build.recipes": "recipes",
+    "simulation.rng": "enchant",
+    "simulation.loot": "loot",
+    "simulation.generation": "generation",
+    "simulation.mechanics": "brewing",
+    "villagers.explorer": "villager",
+    "utilities.version": "version",
+    "utilities.settings": "settings",
+    "utilities.safety": "safety",
+    "utilities.results": "history",
+    "utilities.diagnostics": "diagnostics",
+}
 
 
 def tool_art_key(spec: ToolSpec) -> str:
-    if spec.id.startswith("automation."):
-        return "automation"
-    if spec.id.startswith("navigation."):
-        return "route" if spec.id == "navigation.routes" else "map"
-    if spec.id.startswith("world."):
-        if spec.id == "world.spawners":
-            return "spawner"
-        if spec.id == "world.biomes":
-            return "biome"
-        return "seed"
-    if spec.id.startswith("build."):
-        if spec.id == "build.redstone":
-            return "redstone"
-        if spec.id == "build.storage":
-            return "storage"
-        if spec.id == "build.farming":
-            return "farm"
-        return "building"
-    if spec.id.startswith("simulation."):
-        if spec.id == "simulation.loot":
-            return "loot"
-        if spec.id == "simulation.rng":
-            return "enchant"
-        if spec.id == "simulation.mechanics":
-            return "brewing"
-        return "rng"
-    if spec.id.startswith("villagers."):
-        return "villager"
-    if spec.id == "utilities.safety":
-        return "safety"
-    return "utilities"
+    return _ART_KEYS.get(spec.id, "utilities")

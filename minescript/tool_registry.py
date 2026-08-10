@@ -74,8 +74,11 @@ TOOLS: tuple[ToolSpec, ...] = (
              "Biome lookup, nearest/intersection searches, region sizing, terrain forms, islands, peaks, valleys, cliffs, rivers, and diversity analysis.", "Seed Tools", "Biomes"),
     ToolSpec("world.area", "World Explorer", "Analysis", "Local Area Analyzer",
              "Biome composition, structure counts, slime distribution, highlights, and technical/build/exploration reports for one bounded area.", "Seed Tools", "Local Area"),
+    ToolSpec("world.ores", "World Explorer", "Resources & Caves", "Ore & Cave Explorer",
+             "Inspect ore distribution, exposed ore, cave exposure, and Ancient City area data from generated worlds or exact bounded reference generation.", "Seed Tools", "World Analysis",
+             "Ore/cave results require generated block-state data; F3+ does not invent ore positions from a placement-only seed model."),
     ToolSpec("world.analysis", "World Explorer", "Analysis", "World Analysis",
-             "Spawn, resource, ore, cave, loading, search-radius, comparison, and world-suitability analysis from one workbench.", "Seed Tools", "World Analysis"),
+             "Spawn, resource, loading, search-radius, comparison, and world-suitability analysis without burying ore/cave inspection inside a generic list.", "Seed Tools", "World Analysis"),
     ToolSpec("world.nether", "World Explorer", "Nether", "Nether Explorer",
              "Known-seed Nether biome and fortress/bastion searching plus generation-specific reports that are not merely portal coordinate math.", "Seed Tools", "Nether"),
     ToolSpec("world.profiles", "World Explorer", "Projects", "World Profiles & Local Saves",
@@ -180,11 +183,18 @@ _ROUTE: dict[tuple[str, str], str] = {
     ("Safety", "Controls"): "utilities.safety",
 }
 
+_NAME_ROUTE = {
+    "Ore Distribution": "world.ores",
+    "Ore Exposure Estimate": "world.ores",
+    "Cave Exposure Estimate": "world.ores",
+    "Ancient City Area Analysis": "world.ores",
+}
+
 LEGACY_TO_CANONICAL: dict[str, str] = {}
 _MODES: dict[str, list[ToolMode]] = {tool.id: [] for tool in TOOLS}
 _unmapped: list[str] = []
 for spec in LEGACY_SPECS:
-    tool_id = _ROUTE.get((spec.top, spec.submenu))
+    tool_id = _NAME_ROUTE.get(spec.name, _ROUTE.get((spec.top, spec.submenu)))
     if tool_id is None:
         _unmapped.append(f"{spec.top} / {spec.submenu} / {spec.name}")
         continue

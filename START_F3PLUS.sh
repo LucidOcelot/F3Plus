@@ -8,7 +8,7 @@ UV_DIR="$RUNTIME/uv"
 UV="$UV_DIR/uv"
 UV_VERSION='0.12.0'
 
-echo 'F3+ 2.4.1 - LucidOcelot'
+echo 'F3+ 2.4.2 - LucidOcelot'
 echo '=================================='
 echo
 echo 'Checking installation...'
