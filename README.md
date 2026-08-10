@@ -1,10 +1,10 @@
-# F3+ 2.4.0
+# F3+ 2.4.1
 
 **A local technical Minecraft workstation for vanilla Java Edition.**
 
 F3+ combines technical Minecraft analysis, planning, simulation, navigation, generated-world inspection, and optional automation in one cross-platform desktop application. It is designed to work with an ordinary unmodified Minecraft Java client and to keep world, seed, coordinate, project, and planning data local whenever the selected workflow does not require an external component download.
 
-**Release:** 2.4.0  
+**Release:** 2.4.1  
 **Default Minecraft target:** 26.3 Snapshot 7  
 **Python:** 3.11 through 3.13
 
@@ -14,7 +14,9 @@ F3+ combines technical Minecraft analysis, planning, simulation, navigation, gen
 - **macOS:** extract the ZIP and run `START_F3PLUS.command`. Automation may require Accessibility/Input Monitoring permission.
 - **Linux:** run `START_F3PLUS.sh`. Calculators and foreground workflows do not depend on background-input support.
 
-The launcher prepares a project-local environment and required Python packages when needed. Installed copies continue to launch when update checks are unavailable. Launch-time updates are check-only by default; installation requires explicit opt-in.
+The launcher prepares a project-local environment and required Python packages when needed. Installed copies continue to launch when update checks are unavailable.
+
+F3+ normally installs validated **Stable** updates before launch. Stable does not follow rolling development commits. Set `F3PLUS_UPDATE_CHANNEL=preview` to follow `main`, `F3PLUS_AUTO_UPDATE=0` for check-only behavior, or `F3PLUS_SKIP_UPDATE=1` to skip the network check entirely.
 
 ## Workbenches
 
@@ -30,7 +32,11 @@ F3+ does not present every historical command, preset, report, and compatibility
 
 Historical feature IDs remain an internal compatibility namespace for saved favorites, recents, scripts, and settings. All 457 historical IDs resolve to the matching canonical workbench operation rather than appearing as hundreds of duplicate buttons.
 
-## Project workbenches
+## Workbench behavior
+
+Generic calculator/explorer workbenches are grouped by their real domain rather than keyword guesses. The selected operation explains what it calculates, shows only its user-facing inputs, describes each input beside the control, and states what type of result to expect before Run is pressed. Compatibility defaults required by older internal calculation code are kept internal and are not presented as fake user inputs.
+
+Spatial and statistical visuals use explicit operation contracts. F3+ does not interpret arbitrary pairs of numbers as coordinates or arbitrary numeric dictionaries as charts. A map or graph is displayed only when the selected operation declares a meaningful visual result.
 
 **Macro Studio** records or manually assembles tap/click/wait/hold/turn/slot sequences, shows a dry timeline, saves local macros, imports/exports JSON, and runs them through the same `MacroEngine` safety controls as built-in automation.
 
@@ -44,17 +50,17 @@ A **Command Palette** (`Ctrl+K`) searches canonical workbenches and historical o
 
 ## Results and explorers
 
-Configuration fields include contextual help and accessibility descriptions. Search-oriented dialogs explain Radius search, Search until found, maximum radius, exact generation, EULA acceptance, and the explicit ignore-limit override; controls that do not apply to the selected search mode are disabled.
+Configuration fields include visible contextual help and accessibility descriptions. Search-oriented dialogs explain Radius search, Search until found, maximum radius, exact generation, EULA acceptance, and the explicit ignore-limit override; controls that do not apply to the selected search mode are disabled.
 
-Structured results display status, source and exactness context while hiding internal dispatch metadata. Coordinate-bearing world, route, structure, and planning results can open an interactive X/Z view with wheel zoom, drag panning, fit-to-data, layer visibility, optional point labels, and copyable visible coordinates.
+Structured results display status, source, purpose, limitations, and exactness context while hiding internal dispatch metadata. Operations that explicitly return meaningful spatial data can show an interactive X/Z map with wheel zoom, drag panning, layer visibility, optional point labels, and copyable coordinates. Declared statistical outputs can render charts alongside the structured tables.
 
-The Villager Explorer uses villager entity/type/profession skin layers and item textures recovered from an installed Java client when available. Trade data and artwork are independent: installed trade definitions are preferred, while a clearly labeled planning baseline keeps the explorer usable when exact local trade data is unavailable.
+The Villager Explorer uses villager entity/type/profession skin layers and item textures recovered from an installed Java client when available. Trade data and artwork are independent: installed trade definitions are preferred, while a clearly labeled planning reference keeps the explorer usable when exact local trade data is unavailable.
 
 Simulation workbenches read installed loot tables, enchantment definitions, tags, recipes, and textures where Minecraft exposes them. Fallback datasets are labeled as baseline/reference data rather than being presented as exact selected-version results.
 
 ## Search and exactness
 
-Location-oriented finders use **Radius search** or **Search until found**. Search until found expands outward by a configurable step and normally stops at a user-selected maximum.
+Location-oriented finders use **Radius search** or **Search until found**. Search until found expands outward by a configurable step and normally stops at a user-selected maximum. Long-running expanding searches support cooperative cancellation between search attempts.
 
 An advanced **Ignore maximum search / generation limit** option is available for supported searches. It can substantially increase CPU, memory, disk, and runtime use. Exact reference-world searches can also increase the generated-chunk budget as the radius grows; backend failures and an internal runaway-loop guard can still stop the process.
 
