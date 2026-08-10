@@ -15,6 +15,7 @@ from minescript.seed_text import DEFAULT_SEED_TEXT, java_string_hash, seed_numbe
 GUI_IMPORT_ERROR = None
 try:
     from PySide6.QtWidgets import QApplication, QComboBox
+    from minescript.enchantment_widgets import EnchantmentPossibilityPanel
     from minescript.minecraft_simulators import MinecraftJarData
     from minescript.minecraft_widgets import AssetProvider, ItemPicker, SeedEdit
     from minescript.operation_dialog25 import OperationDialog
@@ -22,7 +23,7 @@ try:
     from minescript.tool_registry import BY_ID
 except ImportError as exc:
     GUI_IMPORT_ERROR = exc
-    QApplication = QComboBox = MinecraftJarData = AssetProvider = ItemPicker = SeedEdit = OperationDialog = ResultView = BY_ID = None
+    QApplication = QComboBox = EnchantmentPossibilityPanel = MinecraftJarData = AssetProvider = ItemPicker = SeedEdit = OperationDialog = ResultView = BY_ID = None
 
 
 class SeedAndRarityContracts(unittest.TestCase):
@@ -64,6 +65,18 @@ class PublicUx254Contracts(unittest.TestCase):
         self.assertNotIn("minecraft:", picker.combo.currentText())
         self.assertEqual(picker.value(), "minecraft:diamond_pickaxe")
         self.assertFalse(picker.combo.isEditable())
+
+    def test_enchantment_panel_keeps_every_possible_enchantment(self):
+        rows = [
+            {"name": f"Enchant {index}", "rarity": "Common" if index < 12 else "Rare", "max_level": 5, "weight": 10 if index < 12 else 2}
+            for index in range(30)
+        ]
+        panel = EnchantmentPossibilityPanel(); panel.set_rows(rows)
+        self.assertEqual(panel.list.count(), 30)
+        self.assertEqual(panel.count.text(), "30 possible enchantments")
+        self.assertIn("Common", panel.list.item(0).text())
+        self.assertIn("Rare", panel.list.item(29).text())
+        panel.deleteLater()
 
     def test_seed_edit_is_text_capable_and_defaults_to_f3plus(self):
         widget = SeedEdit("")
