@@ -16,6 +16,7 @@ from .feature_engine import (
 )
 from .version import TARGET_MINECRAFT
 from . import executor_policy, operation_fields, search_policy, seed_generation
+from .seed_text import normalize_seed_params
 
 
 class FeatureExecutor(_BaseFeatureExecutor):
@@ -36,7 +37,7 @@ class FeatureExecutor(_BaseFeatureExecutor):
         # knows which legacy operation is running. Keep those defaults internal so the
         # user-facing schema can expose only values that actually affect the operation.
         values = self._base_defaults(feature)
-        values.update(params or {})
+        values.update(normalize_seed_params(params))
         return super().execute(feature, values, dry_run)
 
     def input_fields(self, feature):
@@ -56,7 +57,7 @@ class FeatureExecutor(_BaseFeatureExecutor):
         return executor_policy.dry_run(self, self.spec(feature))
 
     def execute(self, feature, params=None, dry_run=False):
-        return executor_policy.execute(self, self.spec(feature), params, dry_run)
+        return executor_policy.execute(self, self.spec(feature), normalize_seed_params(params), dry_run)
 
 
 __all__ = ["FeatureExecutor", "FeatureResult", "MACRO_NAMES", "COMMON_FIELDS"]
