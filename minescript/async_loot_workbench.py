@@ -62,12 +62,9 @@ class LootWorkbenchDialog(_LootWorkbenchDialog):
         if self.engine is None or self.data is None: return
         item = self.tables.currentItem()
         if item is None: self.book_enchants.hide(); return
-        table_id = item.data(Qt.UserRole); possible = self.engine.possible_items(table_id)
-        has_book = any(str(row.get("item", "")).endswith("enchanted_book") for row in possible)
-        self.book_enchants.setVisible(has_book)
-        if has_book:
-            rows = loot_enchanted_book_enchantments(self.data, table_id)
-            self.book_enchants.set_text(grouped_summary(rows, 14))
+        table_id = item.data(Qt.UserRole); rows = loot_enchanted_book_enchantments(self.data, table_id)
+        self.book_enchants.setVisible(bool(rows))
+        if rows: self.book_enchants.set_text(grouped_summary(rows, 14))
 
     def _simulate_cancellable(self, table_id: str, pulls: int, seed: int, seed_label: str, context: dict):
         pulls = max(1, min(1_000_000, int(pulls))); rng = random.Random(int(seed)); hits = Counter(); totals = Counter(); examples = []
