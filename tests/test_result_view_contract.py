@@ -7,13 +7,19 @@ from types import SimpleNamespace
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
-from PySide6.QtWidgets import QApplication
+GUI_IMPORT_ERROR = None
+try:
+    from PySide6.QtWidgets import QApplication
+    from minescript.result_view import ResultView, _spatial_series
+    from minescript.ui_theme import stylesheet
+except ImportError as exc:
+    GUI_IMPORT_ERROR = exc
+    QApplication = ResultView = _spatial_series = stylesheet = None
 
 from minescript.catalog_ids import BY_NAME
-from minescript.result_view import ResultView, _spatial_series
-from minescript.ui_theme import stylesheet
 
 
+@unittest.skipIf(GUI_IMPORT_ERROR is not None, f"Qt GUI runtime unavailable: {GUI_IMPORT_ERROR}")
 class ResultViewContractTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
