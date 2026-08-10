@@ -2,53 +2,61 @@ from __future__ import annotations
 
 """Minecraft-oriented location input shared by world/search workbenches.
 
-The UI exposes three user concepts instead of leaking every historical coordinate key:
-current player position, block coordinates, or a center chunk. The returned dictionary
-contains compatibility aliases so older handlers can keep consuming their existing
-parameter names while the user interacts with one coherent location control.
+The UI exposes three user concepts instead of leaking historical coordinate keys:
+current player position, block coordinates, or a center chunk. Returned values include
+compatibility aliases so old handlers keep working behind one coherent player-facing
+control.
 """
 
 import math
 
 from PySide6.QtWidgets import (
     QComboBox, QDoubleSpinBox, QFormLayout, QFrame, QHBoxLayout, QLabel,
-    QPushButton, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
+    QPushButton, QSizePolicy, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
 )
 
 from .location_contract import LOCATION_KEYS, applies_to
 
 
 class LocationInput(QFrame):
-    """One location panel that can feed legacy block/chunk center parameters."""
+    """Compact three-source location selector for world/search operations."""
 
     def __init__(self, owner=None, parent=None):
         super().__init__(parent)
         self.owner = owner
         self.setObjectName("ToolConfigCard")
-        root = QVBoxLayout(self); root.setContentsMargins(10, 9, 10, 9); root.setSpacing(7)
+        self.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum)
+        root = QVBoxLayout(self); root.setContentsMargins(10, 8, 10, 8); root.setSpacing(5)
 
         head = QHBoxLayout(); title = QLabel("SEARCH CENTER"); title.setObjectName("DeckLabel"); head.addWidget(title)
-        head.addStretch(); self.source = QComboBox(); self.source.addItems(["Current position", "Block coordinates", "Center chunk"]); head.addWidget(self.source); root.addLayout(head)
-        help_label = QLabel("Choose where the search/analysis is centered. F3+ converts the value to the block/chunk form required by the selected operation.")
+        head.addStretch(); self.source = QComboBox(); self.source.addItems(["Current position", "Block coordinates", "Center chunk"]); self.source.setMinimumWidth(170)
+        self.source.setToolTip("Choose how to provide the center of this search: the last captured player position, exact block coordinates, or a chunk coordinate.")
+        head.addWidget(self.source); root.addLayout(head)
+        help_label = QLabel("Choose one center source. F3+ converts it to both block and chunk coordinates for the selected operation.")
         help_label.setWordWrap(True); help_label.setObjectName("Muted"); root.addWidget(help_label)
 
-        self.pages = QStackedWidget(); root.addWidget(self.pages)
+        self.pages = QStackedWidget(); self.pages.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum); root.addWidget(self.pages)
 
-        live = QWidget(); ll = QVBoxLayout(live); ll.setContentsMargins(0, 0, 0, 0)
-        self.live_text = QLabel("No position captured yet."); self.live_text.setWordWrap(True); ll.addWidget(self.live_text)
-        self.capture = QPushButton("Capture F3+C now"); self.capture.clicked.connect(self._capture); ll.addWidget(self.capture); ll.addStretch(); self.pages.addWidget(live)
+        live = QWidget(); live.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum); ll = QHBoxLayout(live); ll.setContentsMargins(0, 0, 0, 0); ll.setSpacing(8)
+        self.live_text = QLabel("No position captured yet."); self.live_text.setWordWrap(True); ll.addWidget(self.live_text, 1)
+        self.capture = QPushButton("Capture F3+C"); self.capture.setToolTip("Ask Minecraft for the current debug-copy position and use it as this search center."); self.capture.clicked.connect(self._capture); ll.addWidget(self.capture); self.pages.addWidget(live)
 
-        block = QWidget(); bf = QFormLayout(block); bf.setContentsMargins(0, 0, 0, 0)
-        self.x = QDoubleSpinBox(); self.x.setRange(-30_000_000, 30_000_000); self.x.setDecimals(3)
-        self.y = QDoubleSpinBox(); self.y.setRange(-2048, 4096); self.y.setDecimals(3); self.y.setValue(64)
-        self.z = QDoubleSpinBox(); self.z.setRange(-30_000_000, 30_000_000); self.z.setDecimals(3)
-        bf.addRow("X", self.x); bf.addRow("Y", self.y); bf.addRow("Z", self.z); self.pages.addWidget(block)
+        block = QWidget(); block.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum); bf = QHBoxLayout(block); bf.setContentsMargins(0, 0, 0, 0); bf.setSpacing(8)
+        self.x = QDoubleSpinBox(); self.x.setRange(-30_000_000, 30_000_000); self.x.setDecimals(3); self.x.setPrefix("X ")
+        self.y = QDoubleSpinBox(); self.y.setRange(-2048, 4096); self.y.setDecimals(3); self.y.setValue(64); self.y.setPrefix("Y ")
+        self.z = QDoubleSpinBox(); self.z.setRange(-30_000_000, 30_000_000); self.z.setDecimals(3); self.z.setPrefix("Z ")
+        self.x.setToolTip("Block X coordinate of the search center. Positive is east; negative is west.")
+        self.y.setToolTip("Block Y coordinate of the search center when the selected operation uses height.")
+        self.z.setToolTip("Block Z coordinate of the search center. Positive is south; negative is north.")
+        bf.addWidget(self.x, 1); bf.addWidget(self.y, 1); bf.addWidget(self.z, 1); self.pages.addWidget(block)
 
-        chunk = QWidget(); cf = QFormLayout(chunk); cf.setContentsMargins(0, 0, 0, 0)
-        self.chunk_x = QSpinBox(); self.chunk_x.setRange(-1_875_000, 1_875_000)
-        self.chunk_z = QSpinBox(); self.chunk_z.setRange(-1_875_000, 1_875_000)
-        cf.addRow("Chunk X", self.chunk_x); cf.addRow("Chunk Z", self.chunk_z)
-        note = QLabel("The block center is the middle of this 16×16 chunk (chunk×16 + 8)."); note.setWordWrap(True); note.setObjectName("Muted"); cf.addRow("", note); self.pages.addWidget(chunk)
+        chunk = QWidget(); chunk.setSizePolicy(QSizePolicy.Expanding, QSizePolicy.Maximum); cf = QHBoxLayout(chunk); cf.setContentsMargins(0, 0, 0, 0); cf.setSpacing(8)
+        self.chunk_x = QSpinBox(); self.chunk_x.setRange(-1_875_000, 1_875_000); self.chunk_x.setPrefix("Chunk X ")
+        self.chunk_z = QSpinBox(); self.chunk_z.setRange(-1_875_000, 1_875_000); self.chunk_z.setPrefix("Chunk Z ")
+        note = QLabel("Block center = chunk×16 + 8"); note.setObjectName("Muted")
+        self.chunk_x.setToolTip("Chunk X used as the center. F3+ converts it to the middle block of that 16×16 chunk.")
+        self.chunk_z.setToolTip("Chunk Z used as the center. F3+ converts it to the middle block of that 16×16 chunk.")
+        cf.addWidget(self.chunk_x, 1); cf.addWidget(self.chunk_z, 1); cf.addWidget(note); self.pages.addWidget(chunk)
 
         self.source.currentIndexChanged.connect(self.pages.setCurrentIndex)
         self._sync_live()
@@ -59,9 +67,9 @@ class LocationInput(QFrame):
     def _sync_live(self):
         pos = self._current()
         if pos is None:
-            self.live_text.setText("No player position is cached. Capture F3+C or switch to block/chunk entry.")
+            self.live_text.setText("No cached player position. Capture F3+C or choose coordinates/chunk entry.")
             return
-        self.live_text.setText(f"Current player position: X {pos.x:g}  Y {pos.y:g}  Z {pos.z:g}")
+        self.live_text.setText(f"X {pos.x:g}   Y {pos.y:g}   Z {pos.z:g}")
         self.x.setValue(float(pos.x)); self.y.setValue(float(pos.y)); self.z.setValue(float(pos.z))
         self.chunk_x.setValue(math.floor(float(pos.x) / 16)); self.chunk_z.setValue(math.floor(float(pos.z) / 16))
 
