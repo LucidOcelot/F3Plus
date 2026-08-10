@@ -17,7 +17,27 @@ FIELD_HELP = {
     "x": "Block X coordinate.",
     "y": "Block Y coordinate.",
     "z": "Block Z coordinate.",
-    "radius": "Initial or bounded search radius. The field label states whether this is measured in blocks or chunks.",
+    "x1": "X coordinate of the starting/current position.",
+    "y1": "Y coordinate of the starting/current position.",
+    "z1": "Z coordinate of the starting/current position.",
+    "x2": "X coordinate of the target/second position.",
+    "y2": "Y coordinate of the target/second position.",
+    "z2": "Z coordinate of the target/second position.",
+    "dx": "Signed X offset added to the starting coordinate.",
+    "dy": "Signed Y offset added to the starting coordinate.",
+    "dz": "Signed Z offset added to the starting coordinate.",
+    "radius": "Radius used by this operation. The field label states whether this is measured in blocks or chunks.",
+    "width": "Horizontal build width in blocks.",
+    "length": "Horizontal build length/span in blocks.",
+    "height": "Vertical build height in blocks unless the field label states a mechanic-specific meaning.",
+    "spacing": "Spacing between repeated elements, samples, supports, or steps. Read the field label for the specific unit used by this operation.",
+    "sag": "Vertical drop from the endpoints toward the center of the catenary planning curve.",
+    "secondary": "Second shape dimension or count. The field label identifies its exact role for the selected shape.",
+    "stops": "Semicolon-separated destinations. Each stop is x,y,z,label. Example: 80,64,0,Mine;120,70,50,Village.",
+    "points": "Semicolon-separated recorded path points. Coordinates are x,y,z, with an optional fourth label when the selected operation supports labels.",
+    "sample_interval": "Time between recorded position samples. Used to estimate recording duration; it does not change the coordinates themselves.",
+    "epsilon": "Maximum distance between non-adjacent path points that counts as revisiting the same place for loop detection.",
+    "return_to_start": "Add a final route leg back to the starting point.",
     "search_mode": "Radius search evaluates one bounded area. Search until found expands outward until a match or stopping condition.",
     "radius_step": "Amount added to the search radius after an unsuccessful Search until found attempt.",
     "max_search_radius": "Normal stopping radius for Search until found.",
@@ -32,7 +52,7 @@ FIELD_HELP = {
 
 
 def field_help(key: str, label: str = "") -> str:
-    return FIELD_HELP.get(str(key), f"Input used by this operation: {label}" if label else "")
+    return FIELD_HELP.get(str(key), f"Value used by this operation: {label}." if label else "")
 
 
 def make_widget(kind: str, default: Any):
@@ -72,7 +92,7 @@ class ParameterDialog(QDialog):
             note = QLabel(subtitle); note.setWordWrap(True); note.setObjectName("Muted"); root.addWidget(note)
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame)
-        host = QWidget(); form = QFormLayout(host); form.setHorizontalSpacing(18); form.setVerticalSpacing(10)
+        host = QWidget(); form = QFormLayout(host); form.setHorizontalSpacing(18); form.setVerticalSpacing(12); form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
         scroll.setWidget(host); root.addWidget(scroll, 1)
         for key, label, default, kind in fields:
             widget = make_widget(kind, default)
@@ -80,7 +100,10 @@ class ParameterDialog(QDialog):
             if tip:
                 widget.setToolTip(tip); widget.setAccessibleDescription(tip)
             self.inputs[str(key)] = widget
-            form.addRow(str(label), widget)
+            column = QWidget(); column_layout = QVBoxLayout(column); column_layout.setContentsMargins(0, 0, 0, 0); column_layout.setSpacing(3); column_layout.addWidget(widget)
+            if tip:
+                hint = QLabel(tip); hint.setWordWrap(True); hint.setObjectName("Muted"); column_layout.addWidget(hint)
+            form.addRow(str(label), column)
 
         self.search_card = QFrame(); self.search_card.setObjectName("WarningBanner")
         card = QVBoxLayout(self.search_card); card.setContentsMargins(10, 8, 10, 8)
