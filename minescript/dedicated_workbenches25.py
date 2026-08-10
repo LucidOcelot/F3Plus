@@ -2,6 +2,8 @@ from __future__ import annotations
 
 """Focused UX wrappers for dedicated Minecraft workbenches."""
 
+from PySide6.QtWidgets import QLabel, QListWidgetItem, QTabWidget
+
 from .async_loot_workbench import LootWorkbenchDialog
 from .enchantment_catalog import grouped_summary, librarian_enchantments
 from .minecraft_widgets import ExplanationCard, SeedEdit
@@ -24,6 +26,11 @@ def _replace_with_seed_edit(owner, attr: str) -> SeedEdit | None:
     replacement = SeedEdit("F3Plus", parent)
     if layout is not None: layout.replaceWidget(old, replacement)
     old.hide(); old.deleteLater(); setattr(owner, attr, replacement); return replacement
+
+
+def _metric_label(card, text: str) -> None:
+    for label in card.findChildren(QLabel):
+        if label.objectName() == "MetricLabel": label.setText(text); return
 
 
 def _polish_enchantment_editor(editor) -> None:
@@ -66,15 +73,19 @@ class RngEnchantingDialog(_RngEnchantingDialog):
 class MechanicsLabDialog(_MechanicsLabDialog):
     def __init__(self, owner):
         super().__init__(owner)
-        self.species.blockSignals(True); self.species.clear(); self.species.addItems(["Horse", "Donkey"]); self.species.blockSignals(False); self.species.setCurrentIndex(0); self._configure_species()
-        _replace_with_seed_edit(self, "breed_seed"); self._breed()
+        self.species.blockSignals(True); self.species.clear(); self.species.addItem("Horse"); self.species.blockSignals(False); self.species.setCurrentIndex(0); self._configure_species()
+        _replace_with_seed_edit(self, "breed_seed")
+        tabs = self.findChild(QTabWidget)
+        if tabs is not None and tabs.count() >= 3: tabs.setTabText(2, "Horse Breeding")
+        _metric_label(self.child_metric, "Sample size"); _metric_label(self.unique_metric, "Average health"); _metric_label(self.food_metric, "Average speed")
         _help(self.potion, "Potion currently in the brewing-stand bottle slot.")
         _help(self.ingredient, "Ingredient placed in the brewing stand.")
         _help(self.existing, "Optional existing leather RGB color, e.g. #A06540.")
         _help(self.water, "Current cauldron water level, 0–3.")
-        _help(self.species, "Horse or donkey. These are simulated because health, movement speed, and jump strength are inherited through breeding.")
-        _help(self.children, "Number of offspring rolls used for the displayed stat distribution.")
-        _help(self.breed_seed, "Reproducibility seed for this breeding simulation. Number or text; blank uses F3Plus.")
+        _help(self.species, "Horse breeding is simulated because max health, movement speed, and jump strength are inherited stats.")
+        _help(self.children, "Number of offspring rolls used for the stat distribution.")
+        _help(self.breed_seed, "Reproducibility seed. Number or text; blank uses F3Plus.")
+        self._breed()
 
     def _configure_species(self):
         super()._configure_species()
@@ -83,6 +94,22 @@ class MechanicsLabDialog(_MechanicsLabDialog):
                 label = str(key).replace("_", " ")
                 units = "health points" if key == "max_health" else ("base movement-speed attribute" if key == "movement_speed" else ("jump-strength attribute" if key == "jump_strength" else "appearance index"))
                 _help(widget, f"{editor_name} {label}: {units}.")
+        self.breed_profile.setText("Inherited stats: max health, movement speed, jump strength. Coat and markings are shown only as parent inputs; the stat summary below is the primary result.")
+
+    def _breed(self):
+        if not hasattr(self, "breed_seed"): return
+        try:
+            result = self.animals.horses.simulate(self.parent_a.values(), self.parent_b.values(), self.children.value(), self.breed_seed.value())
+        except Exception as exc:
+            from PySide6.QtWidgets import QMessageBox
+            return QMessageBox.warning(self, "Horse Breeding", str(exc))
+        stats = result.get("stats", {}); health = stats.get("max_health", {}); speed = stats.get("movement_speed", {}); jump = stats.get("jump_strength", {})
+        self.child_metric.set_value(result.get("children", "—")); self.unique_metric.set_value(f"{health.get('mean', 0):.2f}"); self.food_metric.set_value(f"{speed.get('mean', 0):.4f}")
+        self.outcomes.clear()
+        labels = (("Max health", health, "HP"), ("Movement speed", speed, "attribute"), ("Jump strength", jump, "attribute"))
+        for name, row, unit in labels:
+            self.outcomes.addItem(QListWidgetItem(f"{name}: min {row.get('minimum', 0):.4g}  •  average {row.get('mean', 0):.4g}  •  max {row.get('maximum', 0):.4g}  ({unit})"))
+        self.breed_note.set_text("These ranges come from the selected parent stats across the requested simulated offspring. A single foal can land anywhere inside the modeled distribution.")
 
 
 class VillagerExplorerDialog(_VillagerExplorerDialog):
