@@ -3,8 +3,8 @@ from __future__ import annotations
 """2.5 UX wrappers for dedicated workbenches.
 
 The underlying dedicated workbenches already provide the correct Minecraft-oriented
-controls. These wrappers make the remaining compact controls self-explanatory through
-matching tooltips/accessibility descriptions without changing their simulation logic.
+controls. These wrappers make compact controls self-explanatory and correct cramped
+layouts without changing simulation logic.
 """
 
 from .async_loot_workbench import LootWorkbenchDialog
@@ -21,9 +21,19 @@ def _help(widget, text: str) -> None:
     widget.setAccessibleDescription(text)
 
 
+def _polish_enchantment_editor(editor) -> None:
+    """Give anvil enchantment controls enough room to render real labels on Windows."""
+    editor.setMinimumHeight(178)
+    editor.choice.setMinimumWidth(170)
+    editor.level.setMinimumWidth(72)
+    editor.list.setMinimumHeight(72)
+    editor.list.setMaximumHeight(96)
+
+
 class RngEnchantingDialog(_RngEnchantingDialog):
     def _engines_ready(self, payload):
         super()._engines_ready(payload)
+        _polish_enchantment_editor(self.left_enchants); _polish_enchantment_editor(self.right_enchants)
         _help(self.enchant_item, "Item placed into the enchanting table. The simulator filters offers to enchantments compatible with this item.")
         _help(self.shelves, "Number of valid bookshelves powering the table, from 0 to the Java Edition maximum of 15. This changes displayed enchantment levels and available offers.")
         _help(self.seed, "Reproducibility seed for the enchanting simulation only. It is not the Minecraft world seed and does not recover one.")
