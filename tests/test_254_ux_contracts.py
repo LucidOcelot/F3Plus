@@ -84,14 +84,16 @@ class PublicUx254Contracts(unittest.TestCase):
         self.assertIsInstance(dialog.world_source_mode, QComboBox)
         self.assertEqual([dialog.world_source_mode.itemText(i) for i in range(dialog.world_source_mode.count())], ["Seed", "World save"])
         self.assertEqual(dialog.world_source_mode.currentText(), "Seed")
-        seed_widget = dialog.inputs.get("seed")
+        seed_widget = dialog.inputs.get("seed"); world_widget = dialog.inputs.get("world_path")
         self.assertEqual(seed_widget.text(), "F3Plus")
+        self.assertTrue(world_widget.parentWidget().isHidden())
+        self.assertFalse(seed_widget.parentWidget().isHidden())
         values = dialog.values()
-        self.assertTrue(values["regenerate_from_seed"])
-        self.assertEqual(values["world_path"], "")
+        self.assertTrue(values["regenerate_from_seed"]); self.assertEqual(values["world_path"], "")
         dialog.world_source_mode.setCurrentText("World save")
-        values = dialog.values()
-        self.assertFalse(values["regenerate_from_seed"])
+        self.assertFalse(world_widget.parentWidget().isHidden())
+        self.assertTrue(seed_widget.parentWidget().isHidden())
+        values = dialog.values(); self.assertFalse(values["regenerate_from_seed"])
         dialog.close()
 
     def test_operation_copy_does_not_restore_redundant_ai_style_boilerplate(self):
@@ -103,10 +105,11 @@ class PublicUx254Contracts(unittest.TestCase):
     def test_simulator_source_restricts_breeding_ui_to_horse_stats(self):
         source = __import__("pathlib").Path(__file__).resolve().parents[1].joinpath("minescript", "dedicated_workbenches25.py").read_text(encoding="utf-8")
         self.assertIn('self.species.addItem("Horse")', source)
+        self.assertIn("self.species.hide()", source)
+        self.assertIn("Set both parent horses' health, movement speed, and jump strength", source)
         for excluded in ("Cat", "Ocelot", "Fox", "Panda", "Bee", "Goat", "Hoglin", "Strider"):
             self.assertNotIn(f'self.species.addItem("{excluded}")', source)
-        self.assertIn("Average health", source)
-        self.assertIn("Average speed", source)
+        self.assertIn("Average health", source); self.assertIn("Average speed", source); self.assertIn("Jump strength", source)
 
 
 if __name__ == "__main__":
