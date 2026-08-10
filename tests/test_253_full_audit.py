@@ -17,13 +17,13 @@ from minescript.ui_theme import PALETTES
 from minescript.version import VERSION
 
 
-class FullRelease253Audit(unittest.TestCase):
+class FullRelease254Audit(unittest.TestCase):
     def test_release_identity(self):
-        self.assertEqual(VERSION, "2.5.3")
+        self.assertEqual(VERSION, "2.5.4")
         main = (ROOT / "main.py").read_text(encoding="utf-8")
         self.assertIn("from minescript.app25 import run", main)
         pyproject = (ROOT / "pyproject.toml").read_text(encoding="utf-8")
-        self.assertIn('version = "2.5.3"', pyproject)
+        self.assertIn('version = "2.5.4"', pyproject)
 
     def test_all_457_historical_ids_still_resolve(self):
         self.assertEqual(len(LEGACY_SPECS), 457)
@@ -93,14 +93,15 @@ class FullRelease253Audit(unittest.TestCase):
         self.assertNotIn("QInputDialog.getItem", source)
         self.assertNotIn("from PySide6.QtWidgets import QInputDialog", source)
 
-    def test_contextual_operation_dialog_explains_defaults_and_operation_role(self):
+    def test_contextual_operation_dialog_is_concise_but_keeps_tooltips(self):
         source = (ROOT / "minescript" / "operation_dialog25.py").read_text(encoding="utf-8")
-        self.assertIn("Default:", source)
-        self.assertIn("active calculation input", source)
         self.assertIn("setToolTip", source)
         self.assertIn("setAccessibleDescription", source)
         self.assertIn('"Ore Distribution"', source)
-        self.assertIn("Search Center", source)
+        self.assertIn('"Data source"', source)
+        self.assertIn('"Seed", "World save"', source)
+        self.assertNotIn("active calculation input", source)
+        self.assertNotIn("EXPECTED OUTPUT", source)
 
     def test_no_new_runtime_monkeypatch_layer(self):
         for relative in ("minescript/app25.py", "minescript/operation_dialog25.py", "minescript/minecraft_art25.py", "minescript/launch_contract.py"):
