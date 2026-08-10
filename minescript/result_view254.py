@@ -7,7 +7,7 @@ from typing import Any
 from PySide6.QtWidgets import QGroupBox, QLabel, QVBoxLayout
 
 from .minecraft_widgets import ExplanationCard
-from .result_view import ResultView as _ResultView, _friendly_key, _make_table, _scalar, _text
+from .result_view import InteractiveMap, ResultView as _ResultView, _friendly_key, _make_table, _scalar, _text
 from .structured_results import _presentation_data
 from .visual_contracts import map_series
 
@@ -108,6 +108,14 @@ class ResultView(_ResultView):
             if center is not None: map_note += f" Ring = search center ({center[0]:g}, {center[1]:g})."
             read = (read + " " if read else "") + map_note
         if read: self.layout.insertWidget(1, ExplanationCard("Read this result", read))
+
+        for map_widget in self.findChildren(InteractiveMap):
+            orientation = "North −Z  •  South +Z\nWest −X  •  East +X"
+            if map_widget.center is not None:
+                orientation += f"\nSearch center: X {map_widget.center[0]:g}, Z {map_widget.center[1]:g} (ring)"
+            current = map_widget.bounds.text().strip()
+            map_widget.bounds.setText((current + "\n" if current else "") + orientation)
+            map_widget.bounds.setToolTip("Minecraft horizontal coordinates. X runs west/east; Z runs north/south. Grid spacing is shown in blocks.")
 
     def _render_value(self, title: str, value: Any, depth: int):
         if depth > 4: return
