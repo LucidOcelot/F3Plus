@@ -1,10 +1,12 @@
 from __future__ import annotations
 
-"""Dependency-free update checker/installer for F3+.
+"""Dependency-free updater for F3+.
 
-Launch-time behavior is check-only by default. Updates are installed only when the user
-explicitly enables automatic installation (`F3PLUS_AUTO_UPDATE=1`) or calls
-:func:`apply_update`. Update/network failures never block offline launch.
+Normal launcher/direct-start behavior checks GitHub and installs a safe update before
+loading the application. Set ``F3PLUS_AUTO_UPDATE=0`` (or
+``F3PLUS_CHECK_ONLY_UPDATE=1``) for check-only behavior, or
+``F3PLUS_SKIP_UPDATE=1`` to disable the network check entirely. Update/network failures
+never block offline launch.
 """
 
 import io
@@ -28,6 +30,7 @@ USER_AGENT = f"F3Plus-Updater/{VERSION}"
 MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
 EXCLUDED_TOP_LEVEL = {".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log", "__pycache__", "build", "dist"}
 REQUIRED_UPDATE_FILES = ("launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml", "minescript/__init__.py", "minescript/app.py")
+_FALSE_VALUES = {"0", "false", "no", "off", "disabled"}
 
 
 def _request(url: str, timeout: int = 6):
@@ -63,7 +66,7 @@ def _git_update(root: Path, apply: bool) -> tuple[bool, str] | None:
     if local and local == remote:
         return False, "F3+ is current."
     if not apply:
-        return False, f"F3+ update available: {remote[:12]}. Automatic installation is off."
+        return False, f"F3+ update available: {remote[:12]}. Check-only mode is enabled."
     merge = _git(root, "merge", "--ff-only", f"origin/{BRANCH}", timeout=45)
     if merge.returncode != 0:
         return False, "A newer build exists but the checkout could not fast-forward; continuing without modifying files."
@@ -193,7 +196,7 @@ def _archive_update(root: Path, apply: bool) -> tuple[bool, str]:
     if state.get("sha") == remote:
         return False, "F3+ is current."
     if not apply:
-        return False, f"F3+ update available: {remote[:12]}. Automatic installation is off."
+        return False, f"F3+ update available: {remote[:12]}. Check-only mode is enabled."
     url = f"https://github.com/{REPOSITORY}/archive/{remote}.zip"; data = _download_archive(url)
     with tempfile.TemporaryDirectory(prefix="f3plus-update-") as temp_text:
         unpacked = Path(temp_text) / "unpacked"; source, files = _safe_unpack_archive(data, unpacked); _validate_source(source); _remove_deleted_files(root, list(state.get("files", [])), set(files)); _overlay_tree(source, root)
@@ -211,11 +214,20 @@ def _run(root: Path, apply: bool) -> tuple[bool, str]:
         return False, f"Update check unavailable ({exc}). Continuing with the installed build."
 
 
+def _automatic_install_enabled() -> bool:
+    if os.environ.get("F3PLUS_CHECK_ONLY_UPDATE") == "1":
+        return False
+    raw = os.environ.get("F3PLUS_AUTO_UPDATE")
+    if raw is None:
+        return True
+    return raw.strip().lower() not in _FALSE_VALUES
+
+
 def auto_update(root: Path) -> tuple[bool, str]:
-    """Check for updates; install only when F3PLUS_AUTO_UPDATE=1 is explicitly set."""
+    """Check for and normally install the current main build before launch."""
     if os.environ.get("F3PLUS_SKIP_UPDATE") == "1":
         return False, "Update check skipped by F3PLUS_SKIP_UPDATE."
-    return _run(root, apply=os.environ.get("F3PLUS_AUTO_UPDATE") == "1")
+    return _run(root, apply=_automatic_install_enabled())
 
 
 def apply_update(root: Path) -> tuple[bool, str]:
