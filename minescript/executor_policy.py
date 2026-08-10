@@ -12,6 +12,7 @@ from . import full_catalog as catalog_models
 from . import operation_semantics as semantics
 from . import qa_features as qa_models
 from . import result_quality as quality
+from . import rng_compat
 from . import search_policy, seed_generation, spawners, supplemental_operations
 from . import waypoint_semantics as waypoints
 
@@ -149,7 +150,7 @@ def _legacy_model_result(executor, spec, values):
     if spec.top == "Navigation":
         return qa_models.navigation(spec.name, values)
     if spec.top == "RNG Tools":
-        return qa_models.rng_tool(spec.name, values, executor)
+        return rng_compat.rng_tool(spec.name, values, executor)
     if spec.top == "Seed Tools":
         return qa_models.world_seed_tool(spec.name, spec.submenu, values, executor)
     if spec.top == "Villager Explorer":
@@ -202,7 +203,8 @@ def _seed_values_for_base(executor, spec, values):
         return values, None
     normalized = dict(values)
     try:
-        normalized["mc"] = qa_models._selected_mc(executor, normalized)
+        from .world.versioning import resolve_cubiomes_mc
+        normalized["mc"] = resolve_cubiomes_mc(str(getattr(executor, "minecraft_version", "")))
     except ValueError as exc:
         return normalized, executor._result(spec, "unavailable", {"available": False, "version_error": str(exc)})
     return normalized, None
@@ -227,7 +229,8 @@ def execute_once(executor, spec, values, dry_run=False):
         world, source = resolve_world_source(values, executor)
         if world is None:
             return executor._result(spec, "unavailable", {"operation": spec.name, **source})
-        generated = dict(values); generated["world_path"] = world
+        generated = dict(values)
+        generated["world_path"] = world
         generated_semantic = semantic_result(executor, spec, generated)
         if generated_semantic is not None:
             if isinstance(getattr(generated_semantic, "data", None), dict):
@@ -254,7 +257,8 @@ def execute_once(executor, spec, values, dry_run=False):
 
 
 def execute(executor, spec, params: dict[str, Any] | None = None, dry_run=False):
-    values = executor.defaults(spec); values.update(params or {})
+    values = executor.defaults(spec)
+    values.update(params or {})
     if dry_run and spec.name in seed_generation.SEED_REGENERATABLE:
         values["regenerate_from_seed"] = False
         values["accept_minecraft_eula"] = False
