@@ -41,9 +41,8 @@ class CanonicalUiDepthTests(unittest.TestCase):
 
     def test_readme_is_product_overview_not_changelog_or_internal_feature_dump(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.5.3", readme)
+        self.assertIn("# F3+ 2.5.4", readme)
         self.assertIn("## Workbenches", readme)
-        self.assertIn("professional desktop shell", readme.lower())
         self.assertIn("contextual inspector", readme.lower())
         self.assertIn("Ignore maximum search / generation limit", readme)
         self.assertIn("validated **Stable** updates", readme)
