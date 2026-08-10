@@ -33,9 +33,6 @@ class FeatureExecutor(_BaseFeatureExecutor):
         return values
 
     def _base_execute(self, feature, params=None, dry_run=False):
-        # The compatibility engine historically reads broad category fields before it
-        # knows which legacy operation is running. Keep those defaults internal so the
-        # user-facing schema can expose only values that actually affect the operation.
         values = self._base_defaults(feature)
         values.update(normalize_seed_params(params))
         return super().execute(feature, values, dry_run)
@@ -45,13 +42,16 @@ class FeatureExecutor(_BaseFeatureExecutor):
         explicit = operation_fields.fields_for(spec)
         if explicit is not None:
             fields = list(explicit)
-            # Explicit schemas describe operation inputs; shared world-generation and
-            # expanding-search policy is composed afterward so specializing a form can
-            # never accidentally remove exact Mojang generation or Search Until Found.
-            if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
-                fields = seed_generation.add_fields(fields)
-            return search_policy.add_fields(spec, fields)
-        return executor_policy.input_fields(self, spec)
+        else:
+            # executor_policy also composes these shared policies for compatibility
+            # callers. Reapplying them below is intentionally idempotent and keeps the
+            # public executor contract obvious: every generated-world analyzer gets the
+            # same save-or-seed controls regardless of which schema provider won.
+            fields = list(executor_policy.input_fields(self, spec))
+
+        if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
+            fields = seed_generation.add_fields(fields)
+        return search_policy.add_fields(spec, fields)
 
     def dry_run(self, feature):
         return executor_policy.dry_run(self, self.spec(feature))
