@@ -102,7 +102,7 @@ def _bootstrap_if_needed(exc: ModuleNotFoundError) -> int | None:
 def main() -> int:
     _update_direct_launch(); _prepare_minecraft_java()
     try:
-        from minescript.app import run
+        from minescript.app25 import run
     except ModuleNotFoundError as exc:
         handled = _bootstrap_if_needed(exc)
         if handled is not None:
