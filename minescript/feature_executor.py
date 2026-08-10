@@ -25,8 +25,19 @@ class FeatureExecutor(_BaseFeatureExecutor):
     def _base_input_fields(self, feature):
         return super().input_fields(feature)
 
+    def _base_defaults(self, feature):
+        values = {}
+        for key, _label, default, kind in self._base_input_fields(feature):
+            values[key] = default[0] if kind == "choice" and isinstance(default, list) and default else default
+        return values
+
     def _base_execute(self, feature, params=None, dry_run=False):
-        return super().execute(feature, params, dry_run)
+        # The compatibility engine historically reads broad category fields before it
+        # knows which legacy operation is running. Keep those defaults internal so the
+        # user-facing schema can expose only values that actually affect the operation.
+        values = self._base_defaults(feature)
+        values.update(params or {})
+        return super().execute(feature, values, dry_run)
 
     def input_fields(self, feature):
         spec = self.spec(feature)
