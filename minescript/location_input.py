@@ -3,7 +3,7 @@ from __future__ import annotations
 """Minecraft-oriented location input shared by world/search workbenches.
 
 The UI exposes three user concepts instead of leaking every historical coordinate key:
-current player position, block coordinates, or a center chunk.  The returned dictionary
+current player position, block coordinates, or a center chunk. The returned dictionary
 contains compatibility aliases so older handlers can keep consuming their existing
 parameter names while the user interacts with one coherent location control.
 """
@@ -15,25 +15,7 @@ from PySide6.QtWidgets import (
     QPushButton, QSpinBox, QStackedWidget, QVBoxLayout, QWidget,
 )
 
-
-LOCATION_KEYS = {
-    "x", "y", "z", "cx", "cz", "chunk_x", "chunk_z", "center_chunk_x",
-    "center_chunk_z", "center_x", "center_z", "origin_x", "origin_z",
-}
-
-
-def applies_to(spec) -> bool:
-    if getattr(spec, "top", "") != "Seed Tools":
-        return False
-    if getattr(spec, "submenu", "") in {"World Seed Recovery", "Cubiomes"}:
-        return False
-    name = str(getattr(spec, "name", ""))
-    if name.endswith("Status") or name in {"Compatibility Report"}:
-        return False
-    return getattr(spec, "submenu", "") in {
-        "Slime", "Structures", "Spawners", "Biomes", "Local Area",
-        "World Analysis", "Nether",
-    }
+from .location_contract import LOCATION_KEYS, applies_to
 
 
 class LocationInput(QFrame):
