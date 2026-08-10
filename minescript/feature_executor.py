@@ -2,8 +2,10 @@ from __future__ import annotations
 
 """Canonical historical-operation executor.
 
-The 457 historical IDs remain callable for compatibility, but execution is composed
-through explicit policy/services rather than import-time class mutation.
+The historical IDs remain callable for compatibility, but execution is composed
+through explicit policy/services rather than import-time class mutation. Parameter
+schemas prefer operation-specific definitions so a broad category fallback never leaks
+irrelevant fields into a canonical workbench.
 """
 
 from .feature_engine import (
@@ -13,7 +15,7 @@ from .feature_engine import (
     FeatureResult,
 )
 from .version import TARGET_MINECRAFT
-from . import executor_policy
+from . import executor_policy, operation_fields
 
 
 class FeatureExecutor(_BaseFeatureExecutor):
@@ -27,7 +29,11 @@ class FeatureExecutor(_BaseFeatureExecutor):
         return super().execute(feature, params, dry_run)
 
     def input_fields(self, feature):
-        return executor_policy.input_fields(self, self.spec(feature))
+        spec = self.spec(feature)
+        explicit = operation_fields.fields_for(spec)
+        if explicit is not None:
+            return list(explicit)
+        return executor_policy.input_fields(self, spec)
 
     def dry_run(self, feature):
         return executor_policy.dry_run(self, self.spec(feature))
