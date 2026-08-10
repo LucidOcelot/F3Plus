@@ -77,7 +77,12 @@ def add_fields(spec, fields):
 def terminal_unavailable(result) -> bool:
     if str(getattr(result, "status", "")).lower() == "unavailable": return True
     data = getattr(result, "data", {}) or {}
-    return isinstance(data, dict) and data.get("available") is False
+    if not isinstance(data, dict): return False
+    return bool(
+        data.get("available") is False
+        or data.get("requires_generated_world")
+        or data.get("requires_seed_worldgen")
+    )
 
 
 def _nonempty(value: Any) -> bool:
@@ -165,7 +170,7 @@ def run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[i
     }
     if limit_reason: summary["limit_note"] = limit_reason
     if backend_unavailable:
-        summary["stop_reason"] = "Search did not start because the required backend/data source is unavailable. Fix the reported prerequisite and run again."
+        summary["stop_reason"] = "Search did not start because the required backend/data source or generated-world prerequisite is unavailable. Fix the reported prerequisite and run again."
     elif safety_stop:
         summary["process_safety_stop"] = f"Stopped after {PROCESS_SAFETY_ATTEMPTS:,} expansion attempts to prevent a non-terminating process."
     elif found_radius is None:
