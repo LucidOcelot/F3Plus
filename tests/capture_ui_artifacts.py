@@ -28,12 +28,12 @@ from PySide6.QtWidgets import QApplication
 from minescript.app import OptionsDialog
 from minescript.app25 import F3Plus25 as F3Plus
 from minescript.automation_controller import AutomationControllerDialog
+from minescript.catalog_ids import BY_NAME
+from minescript.enchantment_catalog import loot_enchanted_book_enchantments
 from minescript.result_view254 import ResultView
 from minescript.tool_registry import BY_ID
 from minescript.ui_theme import stylesheet
-from minescript.villager_workbench import TradeModel
 from minescript.workbenches import LootWorkbenchDialog, MechanicsLabDialog, OperationDialog, RngEnchantingDialog, VillagerExplorerDialog
-from minescript.catalog_ids import BY_NAME
 
 
 OUT = Path(os.environ.get("F3PLUS_UI_ARTIFACT_DIR", "ui-artifacts"))
@@ -83,7 +83,6 @@ for theme, label in THEMES:
 
 window.settings.theme = "chorus"; app.setStyleSheet(stylesheet("chorus", window.settings.custom_palette)); window.apply_theme()
 
-# Generic explorer/form surfaces -------------------------------------------------
 build = OperationDialog(BY_ID["build.planner"], window.executor, window.settings, window, preferred_mode="Arch"); select_mode(build, "Arch"); capture(build, "workbench-build-shapes-arch", 1220, 820); build.close(); build.deleteLater()
 
 structures = OperationDialog(BY_ID["world.structures"], window.executor, window.settings, window, preferred_mode="Structure Finder"); select_mode(structures, "Structure Finder"); capture(structures, "workbench-structure-search-center", 1280, 840); structures.close(); structures.deleteLater()
@@ -95,7 +94,6 @@ ores.close(); ores.deleteLater()
 
 automation = AutomationControllerDialog(window, BY_ID["automation.actions"], window.executor, window.settings, preferred_mode="Resource Guard"); capture(automation, "workbench-automation-resource-guard", 1120, 740); automation.close(); automation.deleteLater()
 
-# Dedicated player-abstraction surfaces ----------------------------------------
 villagers = VillagerExplorerDialog(window, profession="librarian", mode="Librarian Browser"); villagers.show(); wait_until(lambda: getattr(villagers, "_load_job", None) is None, 10.0)
 for row, trade in enumerate(getattr(villagers, "rows", [])):
     if "enchanted_book" in str(getattr(trade, "gives", "")).lower():
@@ -121,18 +119,15 @@ if wait_until(lambda: getattr(loot, "engine", None) is not None and getattr(loot
     enchanted_row = None
     for row in range(loot.tables.count()):
         table_id = loot.tables.item(row).data(Qt.UserRole)
-        try:
-            possible = loot.engine.possible_items(table_id)
-        except Exception:
-            continue
-        if any(str(entry.get("item", "")).endswith("enchanted_book") for entry in possible if isinstance(entry, dict)):
+        try: book_rows = loot_enchanted_book_enchantments(loot.data, table_id)
+        except Exception: continue
+        if book_rows:
             enchanted_row = row; break
     if enchanted_row is not None:
         loot.tables.setCurrentRow(enchanted_row); loot.load_current(); settle(4); capture(loot, "workbench-loot-enchanted-book", 1460, 890)
     loot.run_sim(100); wait_until(lambda: loot.stats.rowCount() > 0 or "failed" in loot.summary.text().lower(), 10.0)
 capture(loot, "workbench-loot-explorer", 1460, 890); loot.close(); loot.deleteLater()
 
-# Result visualizations ----------------------------------------------------------
 village_spec = BY_NAME["Village"][0]
 map_result = SimpleNamespace(status="ok", note="Candidate fixture used only for native UI review.", data={"purpose": "Unordered structure placement candidates", "source": "CI fixture", "candidate_chunks": [[1, 2], [4, -3], [7, 5]], "count": 3})
 result_map = ResultView(); result_map.set_result(village_spec, map_result, "chorus", window.settings.custom_palette); capture(result_map, "result-structure-scatter-map-explained", 1120, 780); result_map.deleteLater()
@@ -142,8 +137,7 @@ chart_result = SimpleNamespace(status="ok", note="Generated-world fixture used o
 result_chart = ResultView(); result_chart.set_result(ore_spec, chart_result, "chorus", window.settings.custom_palette); capture(result_chart, "result-ore-chart-explained", 1120, 720); result_chart.deleteLater()
 
 sphere_spec = BY_NAME["Sphere"][0]
-points = []
-r = 5
+points = []; r = 5
 for y in range(-r, r + 1):
     for z in range(-r, r + 1):
         for x in range(-r, r + 1):
