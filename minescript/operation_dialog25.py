@@ -58,18 +58,12 @@ class OperationDialog(_AsyncOperationDialog):
         return widget, column
 
     def _rebuild(self):
+        # The async parent now inserts Search Center in its final spanning form-row
+        # position. Do not remove/reinsert the owned widget here: native Qt on macOS can
+        # dereference the removed row during later dialog construction.
         super()._rebuild()
         if self.mode is None or self.mode.legacy is None:
             return
-
-        # Search Center is one public input, not two hidden compatibility-coordinate
-        # rows. Span it across the form so operation-specific fields remain visible.
-        if self.location_panel is not None:
-            try:
-                self.form.takeRow(self.location_panel)
-                self.form.insertRow(0, self.location_panel)
-            except Exception:
-                pass
 
         description = _operation_description(self.mode).strip()
         fields = self.executor.input_fields(self.mode.legacy)
