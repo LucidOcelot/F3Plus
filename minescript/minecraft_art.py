@@ -1,10 +1,10 @@
 from __future__ import annotations
 
-"""Read a small set of UI textures from the player's installed Minecraft client.
+"""Recover semantic UI artwork from the player's installed Minecraft Java client.
 
-F3+ never redistributes these Mojang assets.  When a compatible local Java
-version JAR is available, the UI reads selected PNGs directly from that JAR at
-runtime.  Original F3+ theme-aware pixel art remains the fallback.
+F3+ never redistributes Mojang assets.  Workbench art is resolved at runtime from the
+selected/local Java JAR; original F3+ vector/pixel art remains the fallback when a
+suitable installed texture is unavailable.
 """
 
 from functools import lru_cache
@@ -13,78 +13,44 @@ import zipfile
 
 from .villagers import installed_versions
 
-# Semantic F3+ art keys -> possible texture paths in an installed Java client.
-# Multiple candidates keep this useful across Mojang resource-layout changes.
+
+# Semantic UI keys -> ordered installed-JAR texture candidates.  The list deliberately
+# contains both modern and older resource names where Mojang has moved animated items.
 _TEXTURES = {
-    "home": (
-        "assets/minecraft/textures/block/chorus_flower.png",
-        "assets/minecraft/textures/block/chorus_flower_dead.png",
-    ),
-    "chorus_flower": (
-        "assets/minecraft/textures/block/chorus_flower.png",
-        "assets/minecraft/textures/block/chorus_flower_dead.png",
-    ),
-    "seed": ("assets/minecraft/textures/item/chorus_fruit.png",),
+    "home": ("assets/minecraft/textures/block/chorus_flower.png", "assets/minecraft/textures/block/chorus_flower_dead.png"),
+    "chorus_flower": ("assets/minecraft/textures/block/chorus_flower.png", "assets/minecraft/textures/block/chorus_flower_dead.png"),
+    "seed": ("assets/minecraft/textures/item/chorus_fruit.png", "assets/minecraft/textures/item/wheat_seeds.png"),
     "chorus_fruit": ("assets/minecraft/textures/item/chorus_fruit.png",),
-    "automation": (
-        "assets/minecraft/textures/item/redstone.png",
-        "assets/minecraft/textures/block/redstone_torch.png",
-    ),
-    "shulker": (
-        "assets/minecraft/textures/item/shulker_shell.png",
-        "assets/minecraft/textures/item/purple_dye.png",
-    ),
-    "navigation": (
-        "assets/minecraft/textures/item/compass_00.png",
-        "assets/minecraft/textures/item/compass.png",
-        "assets/minecraft/textures/item/recovery_compass_00.png",
-    ),
-    "structure": (
-        "assets/minecraft/textures/item/ender_eye.png",
-        "assets/minecraft/textures/item/map.png",
-    ),
-    "shulker_seed": (
-        "assets/minecraft/textures/item/ender_eye.png",
-        "assets/minecraft/textures/item/shulker_shell.png",
-    ),
-    "calculator": (
-        "assets/minecraft/textures/item/redstone.png",
-        "assets/minecraft/textures/item/clock_00.png",
-        "assets/minecraft/textures/item/clock.png",
-    ),
-    "chorus_calc": (
-        "assets/minecraft/textures/item/redstone.png",
-        "assets/minecraft/textures/item/clock_00.png",
-    ),
-    "building": (
-        "assets/minecraft/textures/item/iron_pickaxe.png",
-        "assets/minecraft/textures/item/brick.png",
-    ),
-    "rng": (
-        "assets/minecraft/textures/item/ender_pearl.png",
-        "assets/minecraft/textures/item/ender_eye.png",
-    ),
-    "villager": (
-        "assets/minecraft/textures/item/emerald.png",
-        "assets/minecraft/textures/item/emerald_block.png",
-    ),
-    "guided": (
-        "assets/minecraft/textures/item/book.png",
-        "assets/minecraft/textures/item/writable_book.png",
-    ),
-    "utilities": (
-        "assets/minecraft/textures/item/recovery_compass_00.png",
-        "assets/minecraft/textures/item/compass_00.png",
-        "assets/minecraft/textures/item/redstone.png",
-    ),
-    "safety": (
-        "assets/minecraft/textures/item/totem_of_undying.png",
-        "assets/minecraft/textures/item/golden_apple.png",
-    ),
-    "app": (
-        "assets/minecraft/textures/block/chorus_flower.png",
-        "assets/minecraft/textures/item/chorus_fruit.png",
-    ),
+    "automation": ("assets/minecraft/textures/item/redstone.png", "assets/minecraft/textures/block/redstone_torch.png"),
+    "shulker": ("assets/minecraft/textures/item/shulker_shell.png", "assets/minecraft/textures/item/purple_dye.png"),
+    "navigation": ("assets/minecraft/textures/item/compass_00.png", "assets/minecraft/textures/item/compass.png", "assets/minecraft/textures/item/recovery_compass_00.png"),
+    "map": ("assets/minecraft/textures/item/map.png", "assets/minecraft/textures/item/filled_map.png", "assets/minecraft/textures/item/compass.png"),
+    "route": ("assets/minecraft/textures/item/recovery_compass.png", "assets/minecraft/textures/item/recovery_compass_00.png", "assets/minecraft/textures/item/compass.png", "assets/minecraft/textures/item/map.png"),
+    "portal": ("assets/minecraft/textures/item/obsidian.png", "assets/minecraft/textures/block/obsidian.png", "assets/minecraft/textures/item/crying_obsidian.png"),
+    "structure": ("assets/minecraft/textures/item/ender_eye.png", "assets/minecraft/textures/item/map.png"),
+    "shulker_seed": ("assets/minecraft/textures/item/ender_eye.png", "assets/minecraft/textures/item/shulker_shell.png"),
+    "spawner": ("assets/minecraft/textures/item/trial_key.png", "assets/minecraft/textures/item/ominous_trial_key.png", "assets/minecraft/textures/block/spawner.png"),
+    "biome": ("assets/minecraft/textures/block/grass_block_side.png", "assets/minecraft/textures/block/moss_block.png", "assets/minecraft/textures/item/map.png"),
+    "ore": ("assets/minecraft/textures/item/raw_iron.png", "assets/minecraft/textures/item/diamond.png", "assets/minecraft/textures/block/diamond_ore.png"),
+    "calculator": ("assets/minecraft/textures/item/redstone.png", "assets/minecraft/textures/item/clock_00.png", "assets/minecraft/textures/item/clock.png"),
+    "chorus_calc": ("assets/minecraft/textures/item/redstone.png", "assets/minecraft/textures/item/clock_00.png"),
+    "building": ("assets/minecraft/textures/item/iron_pickaxe.png", "assets/minecraft/textures/item/bricks.png", "assets/minecraft/textures/item/brick.png"),
+    "shape": ("assets/minecraft/textures/item/stonecutter.png", "assets/minecraft/textures/item/bricks.png", "assets/minecraft/textures/block/stone_bricks.png"),
+    "farm": ("assets/minecraft/textures/item/wheat.png", "assets/minecraft/textures/item/wheat_seeds.png", "assets/minecraft/textures/item/iron_hoe.png"),
+    "redstone": ("assets/minecraft/textures/item/redstone.png", "assets/minecraft/textures/item/repeater.png", "assets/minecraft/textures/item/comparator.png"),
+    "storage": ("assets/minecraft/textures/item/chest.png", "assets/minecraft/textures/item/shulker_box.png", "assets/minecraft/textures/item/bundle.png"),
+    "rng": ("assets/minecraft/textures/item/ender_pearl.png", "assets/minecraft/textures/item/ender_eye.png"),
+    "enchant": ("assets/minecraft/textures/item/enchanted_book.png", "assets/minecraft/textures/item/lapis_lazuli.png", "assets/minecraft/textures/item/book.png"),
+    "anvil": ("assets/minecraft/textures/item/anvil.png", "assets/minecraft/textures/block/anvil.png", "assets/minecraft/textures/item/enchanted_book.png"),
+    "loot": ("assets/minecraft/textures/item/chest.png", "assets/minecraft/textures/item/bundle.png", "assets/minecraft/textures/item/golden_apple.png"),
+    "brewing": ("assets/minecraft/textures/item/brewing_stand.png", "assets/minecraft/textures/item/potion.png", "assets/minecraft/textures/item/blaze_powder.png"),
+    "horse": ("assets/minecraft/textures/item/saddle.png", "assets/minecraft/textures/item/golden_horse_armor.png"),
+    "villager": ("assets/minecraft/textures/item/emerald.png", "assets/minecraft/textures/block/emerald_block.png"),
+    "trade": ("assets/minecraft/textures/item/emerald.png", "assets/minecraft/textures/item/book.png"),
+    "guided": ("assets/minecraft/textures/item/book.png", "assets/minecraft/textures/item/writable_book.png"),
+    "utilities": ("assets/minecraft/textures/item/recovery_compass_00.png", "assets/minecraft/textures/item/compass_00.png", "assets/minecraft/textures/item/redstone.png"),
+    "safety": ("assets/minecraft/textures/item/totem_of_undying.png", "assets/minecraft/textures/item/golden_apple.png"),
+    "app": ("assets/minecraft/textures/block/chorus_flower.png", "assets/minecraft/textures/item/chorus_fruit.png"),
 }
 
 
@@ -97,14 +63,14 @@ def _version_order(version_hint: str | None) -> list[tuple[str, Path]]:
     if not versions:
         return []
     hint = _normalized(version_hint)
-    # Prefer the selected version, then related snapshot/version names, then
-    # locally installed versions ordered by JAR modification time and name.
     items = list(versions.items())
+
     def modified(item):
         try:
             return int(item[1].stat().st_mtime_ns)
         except OSError:
             return 0
+
     items.sort(key=lambda item: (modified(item), item[0].lower()), reverse=True)
     exact, related, rest = [], [], []
     for item in items:
@@ -118,7 +84,7 @@ def _version_order(version_hint: str | None) -> list[tuple[str, Path]]:
     return exact + related + rest
 
 
-@lru_cache(maxsize=96)
+@lru_cache(maxsize=192)
 def _read_from_jar(jar_text: str, mtime_ns: int, size: int, kind: str) -> tuple[bytes | None, str | None]:
     paths = _TEXTURES.get(kind, ())
     if not paths:
