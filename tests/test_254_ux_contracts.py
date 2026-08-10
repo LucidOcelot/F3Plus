@@ -6,13 +6,14 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
+from minescript.catalog_ids import SPECS as LEGACY_SPECS
 from minescript.enchantment_catalog import rarity_from_weight
+from minescript.feature_executor import FeatureExecutor
 from minescript.seed_text import DEFAULT_SEED_TEXT, java_string_hash, seed_number
 
 GUI_IMPORT_ERROR = None
 try:
     from PySide6.QtWidgets import QApplication, QComboBox
-    from minescript.feature_executor import FeatureExecutor
     from minescript.minecraft_simulators import MinecraftJarData
     from minescript.minecraft_widgets import AssetProvider, ItemPicker, SeedEdit
     from minescript.operation_dialog25 import OperationDialog
@@ -20,7 +21,7 @@ try:
     from minescript.tool_registry import BY_ID
 except ImportError as exc:
     GUI_IMPORT_ERROR = exc
-    QApplication = QComboBox = FeatureExecutor = MinecraftJarData = AssetProvider = ItemPicker = SeedEdit = OperationDialog = ResultView = BY_ID = None
+    QApplication = QComboBox = MinecraftJarData = AssetProvider = ItemPicker = SeedEdit = OperationDialog = ResultView = BY_ID = None
 
 
 class SeedAndRarityContracts(unittest.TestCase):
@@ -38,6 +39,15 @@ class SeedAndRarityContracts(unittest.TestCase):
         self.assertEqual(rarity_from_weight(5), "Uncommon")
         self.assertEqual(rarity_from_weight(2), "Rare")
         self.assertEqual(rarity_from_weight(1), "Very Rare")
+
+    def test_seed_tools_that_accept_a_world_save_also_accept_seed_generation(self):
+        executor = FeatureExecutor(); world_only = []
+        for spec in LEGACY_SPECS:
+            if spec.top != "Seed Tools": continue
+            keys = {field[0] for field in executor.input_fields(spec)}
+            if "world_path" in keys and not {"seed", "regenerate_from_seed", "accept_minecraft_eula"}.issubset(keys):
+                world_only.append(spec.name)
+        self.assertFalse(world_only, f"World-save-only analyzers remain: {world_only}")
 
 
 @unittest.skipIf(GUI_IMPORT_ERROR is not None, f"Qt GUI runtime unavailable: {GUI_IMPORT_ERROR}")
