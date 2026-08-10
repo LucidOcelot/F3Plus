@@ -47,21 +47,24 @@ class RestoredWorkbenchRegressionTests(TestCase):
 
     def test_ore_distribution_is_a_first_class_ore_explorer_mode(self):
         ore_modes = modes_for(BY_ID["world.ores"]); mode = next(mode for mode in ore_modes if mode.name == "Ore Distribution")
-        self.assertEqual(mode.legacy.submenu, "World Analysis")  # historical compatibility namespace remains unchanged
+        self.assertEqual(mode.legacy.submenu, "World Analysis")
         self.assertEqual(tool_art_key(BY_ID["world.ores"]), "ore")
         self.assertNotIn("Ore Distribution", {mode.name for mode in modes_for(BY_ID["world.analysis"])})
         self.assertEqual({mode.name for mode in ore_modes}, {"Ore Distribution", "Ore Exposure Estimate", "Cave Exposure Estimate", "Ancient City Area Analysis"})
 
-    def test_public_workbench_routes_loot_to_responsive_rich_explorer(self):
+    def test_public_workbench_routes_loot_to_explained_async_rich_explorer(self):
         try:
             from minescript.workbenches import LootWorkbenchDialog
         except ImportError as exc:
             if "libEGL" in str(exc):
-                source = (Path(__file__).resolve().parents[1] / "minescript" / "workbenches.py").read_text(encoding="utf-8"); self.assertIn("from .async_loot_workbench import LootWorkbenchDialog", source); return
+                source = (Path(__file__).resolve().parents[1] / "minescript" / "workbenches.py").read_text(encoding="utf-8")
+                self.assertIn("from .dedicated_workbenches25 import", source); return
             raise
-        self.assertEqual(LootWorkbenchDialog.__module__, "minescript.async_loot_workbench")
+        from minescript.async_loot_workbench import LootWorkbenchDialog as AsyncBase
         from minescript.loot_workbench import LootWorkbenchDialog as RichBase
+        self.assertTrue(issubclass(LootWorkbenchDialog, AsyncBase))
         self.assertTrue(issubclass(LootWorkbenchDialog, RichBase))
+        self.assertEqual(LootWorkbenchDialog.__module__, "minescript.dedicated_workbenches25")
 
     def test_namespace_cache_decodes_a_namespace_in_one_cached_pass(self):
         from minescript.minecraft_simulators import _namespace_cache
