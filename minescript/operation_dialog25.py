@@ -102,10 +102,8 @@ class OperationDialog(_AsyncOperationDialog):
             configured = getattr(self.settings, "seed", None)
             seed.setText(str(configured) if configured not in (None, "") else DEFAULT_SEED_TEXT)
 
-        # Exact generated-world analyzers expose one clear source choice. The legacy
-        # regenerate boolean remains an internal compatibility input.
         if "world_path" in self.inputs and "regenerate_from_seed" in self.inputs:
-            source = QComboBox(); source.addItems(["Seed", "World save"]); source.setToolTip("Seed generates only the required reference chunks. World save reads an existing Java save.")
+            source = QComboBox(); source.addItems(["Seed", "World save"]); source.setToolTip("Seed generates the required reference area. World save reads an existing Java save.")
             self.world_source_mode = source; self.form.insertRow(0, "Data source", source)
             regen = self.inputs.get("regenerate_from_seed")
             if regen is not None:
@@ -124,10 +122,8 @@ class OperationDialog(_AsyncOperationDialog):
             if widget is not None: widget.setEnabled(use_seed)
         world = self.inputs.get("world_path")
         if world is not None: world.setEnabled(not use_seed)
-        if use_seed:
-            self.note.setText("Seed source: F3+ generates the bounded reference area locally, then runs the same world-data scan.")
-        else:
-            self.note.setText("World save source: F3+ reads the selected Java save locally.")
+        self.note.setText("Seed: generate the bounded reference area locally, then scan it." if use_seed else "World save: read the selected Java save locally.")
+        self._sync_search()
 
     def _sync_search(self):
         mode = self.inputs.get("search_mode")
@@ -139,7 +135,8 @@ class OperationDialog(_AsyncOperationDialog):
         maximum = self.inputs.get("max_search_radius")
         if maximum is not None and until: maximum.setEnabled(not unlimited)
         budget = self.inputs.get("worldgen_max_chunks")
-        if budget is not None and budget.isEnabled(): budget.setEnabled(not (until and unlimited))
+        use_seed = self.world_source_mode is None or self.world_source_mode.currentText() == "Seed"
+        if budget is not None: budget.setEnabled(use_seed and not (until and unlimited))
         if not until: text = "Searches once inside the selected radius."
         elif unlimited: text = "Expands until a match or a real backend/prerequisite failure stops the search."
         else: text = "Expands by the selected step until a match or the maximum radius is reached."
