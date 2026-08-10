@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Single source of truth for F3+ release and target-version metadata."""
 
-VERSION = "2.5.3"
+VERSION = "2.5.4"
 TARGET_MINECRAFT = "26.3 Snapshot 7"
 TARGET_MINECRAFT_ID = "26.3-snapshot-7"
 STABLE_MINECRAFT = "26.2"
