@@ -10,13 +10,28 @@ os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 GUI_IMPORT_ERROR = None
 try:
     from PySide6.QtWidgets import QApplication
-    from minescript.result_view import ResultView, _spatial_series
+    from minescript.result_view import ResultView
     from minescript.ui_theme import stylesheet
 except ImportError as exc:
     GUI_IMPORT_ERROR = exc
-    QApplication = ResultView = _spatial_series = stylesheet = None
+    QApplication = ResultView = stylesheet = None
 
 from minescript.catalog_ids import BY_NAME
+from minescript.visual_contracts import map_series
+
+
+class ExplicitResultVisualContractTests(unittest.TestCase):
+    def test_structure_result_produces_declared_spatial_series(self):
+        spec = BY_NAME["Village"][0]
+        series, _center = map_series(spec, {"candidate_chunks": [[1, 2], [3, 4]]})
+        self.assertTrue(series)
+        self.assertEqual(series[0][0], "Candidate Chunks")
+
+    def test_nonspatial_pairs_are_not_guessed_as_coordinates(self):
+        spec = BY_NAME["Village"][0]
+        series, center = map_series(spec, {"minimum": [64, 128], "maximum": [256, 512]})
+        self.assertEqual(series, [])
+        self.assertIsNone(center)
 
 
 @unittest.skipIf(GUI_IMPORT_ERROR is not None, f"Qt GUI runtime unavailable: {GUI_IMPORT_ERROR}")
@@ -25,11 +40,6 @@ class ResultViewContractTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
         cls.app.setStyleSheet(stylesheet("chorus"))
-
-    def test_structure_result_produces_spatial_series(self):
-        spec = BY_NAME["Village"][0]
-        series, _center = _spatial_series(spec, {"candidate_chunks": [[1, 2], [3, 4]]})
-        self.assertTrue(series)
 
     def test_result_view_renders_structured_data_without_plaintext_only_contract(self):
         spec = BY_NAME["Village"][0]

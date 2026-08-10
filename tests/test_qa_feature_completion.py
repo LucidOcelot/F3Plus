@@ -46,7 +46,10 @@ class QAFeatureCompletionTests(unittest.TestCase):
     def test_world_analysis_names_fail_closed_without_world_save(self):
         result = world_seed_tool("Ore Distribution", "World Analysis", {"world_path": "", "cx": 0, "cz": 0, "radius": 16})
         self.assertTrue(result["requires_generated_world"])
-        self.assertIn("no longer substitutes", result["reason"])
+        reason = result["reason"].lower()
+        self.assertIn("generated java world save", reason)
+        self.assertIn("does not substitute", reason)
+        self.assertIn("terrain/resource analysis", reason)
 
     def test_construction_patterns_are_semantically_distinct(self):
         filled = serpentine_steps(4, 1.0, 0.25, True)
@@ -59,7 +62,6 @@ class QAFeatureCompletionTests(unittest.TestCase):
         self.assertTrue(any(step.get("place") is False for step in alternating if step.get("type") == "move"))
 
     def test_packed_block_state_decoder(self):
-        # 4 bits/value, 16 values per long. Palette indices 0..15 in one long.
         value = 0
         for i in range(16):
             value |= i << (i * 4)

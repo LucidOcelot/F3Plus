@@ -11,6 +11,7 @@ import updater
 from minescript.catalog_ids import BY_NAME
 from minescript.feature_executor import FeatureExecutor
 from minescript.search_policy import run_until_found
+from minescript.tool_registry import BY_ID, modes_for
 from minescript.villager_reference import complete_reference
 from minescript.villagers import baseline_trades
 
@@ -64,21 +65,31 @@ class RestoredWorkbenchRegressionTests(TestCase):
         self.assertIn((5, "diamond_helmet"), armorer)
         self.assertIn((5, "diamond_chestplate"), armorer)
 
-    def test_ore_distribution_is_grouped_as_analysis_not_buried_other(self):
+    def test_ore_distribution_uses_world_analysis_domain_not_keyword_guessing(self):
+        mode = next(mode for mode in modes_for(BY_ID["world.analysis"]) if mode.name == "Ore Distribution")
+        self.assertEqual(mode.legacy.submenu, "World Analysis")
         try:
-            from minescript.workbench_forms import _operation_family
+            from minescript.workbench_forms import _operation_group
         except ImportError as exc:
-            if "libEGL" in str(exc): self.skipTest(f"Qt GUI runtime unavailable: {exc}")
+            if "libEGL" in str(exc):
+                source = (Path(__file__).resolve().parents[1] / "minescript" / "workbench_forms.py").read_text(encoding="utf-8")
+                self.assertIn('"World Analysis": "World Analysis"', source)
+                return
             raise
-        self.assertEqual(_operation_family("Ore Distribution"), "Analysis & Distribution")
+        self.assertEqual(_operation_group(mode), "World Analysis")
 
-    def test_public_workbench_routes_loot_to_rich_canonical_explorer(self):
+    def test_public_workbench_routes_loot_to_responsive_rich_explorer(self):
         try:
             from minescript.workbenches import LootWorkbenchDialog
         except ImportError as exc:
-            if "libEGL" in str(exc): self.skipTest(f"Qt GUI runtime unavailable: {exc}")
+            if "libEGL" in str(exc):
+                source = (Path(__file__).resolve().parents[1] / "minescript" / "workbenches.py").read_text(encoding="utf-8")
+                self.assertIn("from .async_loot_workbench import LootWorkbenchDialog", source)
+                return
             raise
-        self.assertEqual(LootWorkbenchDialog.__module__, "minescript.loot_workbench")
+        self.assertEqual(LootWorkbenchDialog.__module__, "minescript.async_loot_workbench")
+        from minescript.loot_workbench import LootWorkbenchDialog as RichBase
+        self.assertTrue(issubclass(LootWorkbenchDialog, RichBase))
 
     def test_namespace_cache_decodes_a_namespace_in_one_cached_pass(self):
         from minescript.minecraft_simulators import _namespace_cache
