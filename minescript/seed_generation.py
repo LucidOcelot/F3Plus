@@ -24,6 +24,7 @@ def add_fields(fields):
         if field[0] == "radius": out[index] = (field[0], field[1], 8, field[3])
     present = {field[0] for field in out}
     additions = [
+        ("seed", "World seed", "", "text"),
         ("regenerate_from_seed", "Generate vanilla chunks from seed when no save is selected", True, "bool"),
         ("accept_minecraft_eula", "I accept the Minecraft EULA for this local server generation", False, "bool"),
         ("worldgen_max_chunks", "Maximum exact chunks to generate", 4096, "int"),
