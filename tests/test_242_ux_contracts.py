@@ -6,6 +6,7 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parents[1]
 
 from minescript.catalog_ids import BY_NAME
+from minescript.feature_executor import FeatureExecutor
 from minescript.field_semantics import field_help
 from minescript.location_contract import LOCATION_KEYS, applies_to
 from minescript.minecraft_art import _TEXTURES
@@ -15,11 +16,36 @@ from minescript.visual_contracts import map_series
 
 class MinecraftNativeUxContracts(unittest.TestCase):
     def test_search_families_use_shared_location_abstraction(self):
-        for tool_id in ("world.structures", "world.spawners", "world.biomes", "world.area", "world.analysis", "world.nether", "world.slime"):
+        for tool_id in ("world.structures", "world.spawners", "world.biomes", "world.area", "world.analysis", "world.nether", "world.slime", "world.ores"):
             tool = BY_ID[tool_id]
             modes = [mode.legacy for mode in modes_for(tool) if mode.legacy is not None]
             self.assertTrue(any(applies_to(spec) for spec in modes), tool_id)
         self.assertTrue({"x", "z", "cx", "cz", "center_x", "center_z"}.issubset(LOCATION_KEYS))
+        self.assertFalse(applies_to(BY_NAME["Spawn Analysis"][0]))
+        self.assertFalse(applies_to(BY_NAME["Chunk Loading Simulator"][0]))
+        self.assertFalse(applies_to(BY_NAME["Search Radius Optimizer"][0]))
+        self.assertTrue(applies_to(BY_NAME["Ore Distribution"][0]))
+        self.assertTrue(applies_to(BY_NAME["Ancient City Area Analysis"][0]))
+
+    def test_world_analysis_schemas_do_not_leak_unrelated_category_fields(self):
+        executor = FeatureExecutor()
+        ore = BY_NAME["Ore Distribution"][0]
+        ore_keys = [row[0] for row in executor.input_fields(ore)]
+        self.assertTrue({
+            "seed", "dimension", "cx", "cz", "radius", "world_path",
+            "regenerate_from_seed", "accept_minecraft_eula", "worldgen_max_chunks",
+        }.issubset(ore_keys))
+        self.assertNotIn("second_seed", ore_keys)
+        self.assertNotIn("simulation_distance", ore_keys)
+
+        spawn_keys = [row[0] for row in executor.input_fields(BY_NAME["Spawn Analysis"][0])]
+        self.assertEqual(spawn_keys, ["seed", "radius"])
+
+        loading_keys = [row[0] for row in executor.input_fields(BY_NAME["Chunk Loading Simulator"][0])]
+        self.assertEqual(loading_keys, ["simulation_distance"])
+
+        compare_keys = [row[0] for row in executor.input_fields(BY_NAME["Seed Comparison"][0])]
+        self.assertEqual(compare_keys, ["seed", "second_seed", "cx", "cz", "radius"])
 
     def test_seed_help_distinguishes_world_and_simulation_seed(self):
         world = field_help("seed", "Known Java world seed")
@@ -57,11 +83,13 @@ class MinecraftNativeUxContracts(unittest.TestCase):
         source = (ROOT / "minescript" / "villager_workbench.py").read_text(encoding="utf-8")
         self.assertIn("QAbstractListModel", source); self.assertIn("QListView", source); self.assertIn("setUniformItemSizes", source)
         self.assertNotIn("QTableWidget(", source); self.assertNotIn("trades[:25]", source)
+        self.assertIn("checking installed-version trade data in the background", source.lower())
 
     def test_long_running_workbenches_have_activity_indicators(self):
         generic = (ROOT / "minescript" / "async_workbench.py").read_text(encoding="utf-8")
         loot = (ROOT / "minescript" / "async_loot_workbench.py").read_text(encoding="utf-8")
-        for source in (generic, loot):
+        villagers = (ROOT / "minescript" / "villager_workbench.py").read_text(encoding="utf-8")
+        for source in (generic, loot, villagers):
             self.assertIn("QProgressBar", source); self.assertIn("setRange(0, 0)", source)
         self.assertIn("Cancel", generic); self.assertIn("Cancel simulation", loot)
 
