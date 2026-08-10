@@ -1,7 +1,7 @@
 @echo off
 setlocal EnableExtensions DisableDelayedExpansion
 cd /d "%~dp0"
-title F3+ 2.4.1 - LucidOcelot
+title F3+ 2.4.2 - LucidOcelot
 
 if not exist "%~dp0WINDOWS_BOOTSTRAP.ps1" (
   echo ERROR: WINDOWS_BOOTSTRAP.ps1 is missing.
