@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from typing import Any
 
-from .seed_worldgen import resolve_world_source
+from .seed_worldgen_reuse import resolve_world_source
 
 SEED_REGENERATABLE = {
     "Dungeon/Pig Spawner Locator", "Double Spawner Locator", "Triple Spawner Locator",

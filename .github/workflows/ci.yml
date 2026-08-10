@@ -57,6 +57,34 @@ jobs:
         env:
           F3PLUS_SKIP_UPDATE: '1'
         run: python -m unittest discover -s tests -v
+      - name: Capture Windows UI review screenshots
+        if: runner.os == 'Windows' && matrix.python-version == '3.13'
+        env:
+          F3PLUS_SKIP_UPDATE: '1'
+          F3PLUS_UI_ARTIFACT_DIR: ui-artifacts
+          QT_QPA_PLATFORM: windows
+        run: python tests/capture_ui_artifacts.py
+      - name: Upload Windows UI review screenshots
+        if: runner.os == 'Windows' && matrix.python-version == '3.13'
+        uses: actions/upload-artifact@v4
+        with:
+          name: f3plus-ui-review-windows-py313
+          path: ui-artifacts/*.png
+          if-no-files-found: error
+          retention-days: 14
+
+  c-bridge-audit:
+    name: Cubiomes bridge compiler audit
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+      - name: Compile F3+ Cubiomes ABI with strict warnings
+        run: |
+          gcc -std=c11 -Wall -Wextra -Werror -fsyntax-only \
+            -I third_party/cubiomes \
+            minescript/seed/cubiomes_bridge.c
 
   release-audit:
     name: F3+ release consistency audit
