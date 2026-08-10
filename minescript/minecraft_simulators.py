@@ -127,9 +127,6 @@ class LootTableEngine(_BaseLootTableEngine):
 
     def possible_items(self, table_id: str):
         rows = super().possible_items(table_id)
-        # Entry-local enchant functions are visible in the base possible-item report.
-        # Convert those book rows to the item players actually receive. Pool/table-level
-        # rules are still described by the dedicated enchanted-book possibility panel.
         merged: dict[str, dict[str, Any]] = {}
         for original in rows:
             row = dict(original); functions = str(row.get("functions", "")).lower()
@@ -165,8 +162,6 @@ class LootTableEngine(_BaseLootTableEngine):
                     if weight > 0: eligible.append(entry); weights.append(weight)
                 if not eligible: continue
                 chosen = dict(rng.choices(eligible, weights=weights, k=1)[0])
-                # Entry conditions were evaluated for eligibility above; do not sample
-                # random-chance conditions a second time inside _entry_stacks.
                 chosen["conditions"] = []
                 stacks.extend(self._entry_stacks(chosen, rng, context, depth + 1))
             stacks = self._apply_functions(stacks, pool.get("functions"), rng)
@@ -192,6 +187,37 @@ class EnchantingEngine(_BaseEnchantingEngine):
                 if value and not value.startswith("#"): self.treasure_enchantments.add(value if ":" in value else "minecraft:" + value)
         if self.using_baseline:
             self.treasure_enchantments.update(enchant_id for enchant_id, definition in self.enchantments.items() if isinstance(definition, dict) and definition.get("treasure_only"))
+
+    @staticmethod
+    def _supported_values(value: Any) -> list[str]:
+        if isinstance(value, str): return [value]
+        if isinstance(value, (list, tuple, set)):
+            out = []
+            for child in value: out.extend(EnchantingEngine._supported_values(child))
+            return out
+        if isinstance(value, dict):
+            if "id" in value: return EnchantingEngine._supported_values(value.get("id"))
+            if "tag" in value: return ["#" + str(value.get("tag", "")).removeprefix("#")]
+            if "values" in value: return EnchantingEngine._supported_values(value.get("values"))
+        return []
+
+    def _supported(self, definition: dict[str, Any], item_id: str) -> bool:
+        supported = definition.get("supported_items", definition.get("primary_items"))
+        if supported is None: return True
+        item = str(item_id); item = item if ":" in item else "minecraft:" + item
+        values = self._supported_values(supported)
+        saw_tag = False
+        for value in values:
+            if value.startswith("#"):
+                saw_tag = True
+                if item in _resolve_item_tag(self.tags, value): return True
+            else:
+                normalized = value if ":" in value else "minecraft:" + value
+                if normalized == item: return True
+        # Missing local item-tag data should not turn every installed enchantment into
+        # an empty offer. This matches the baseline engine's conservative fallback.
+        if saw_tag and not self.tags: return True
+        return False
 
     def roll_offers(self, item_id: str, bookshelves: int = 15, seed: int = 0, enchantability: int | None = None):
         offers = super().roll_offers(item_id, bookshelves, seed, enchantability)
