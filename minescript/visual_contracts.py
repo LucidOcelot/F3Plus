@@ -4,7 +4,8 @@ from __future__ import annotations
 
 Visuals are selected from the operation identity and named result fields. F3+ never
 interprets arbitrary two-number arrays as coordinates or arbitrary numeric dictionaries
-as distributions.
+as distributions. Map series also declare whether points form an ordered path; candidate
+sets are never connected merely because they contain multiple coordinates.
 """
 
 import math
@@ -66,47 +67,45 @@ def _dedupe(points):
     return out
 
 
-def _add(series, label, points):
+def _add(series, label, points, *, ordered=False):
     clean = _dedupe(points)
     if clean:
-        series.append((str(label), clean))
-
-
-def _named_points(data: dict, names: tuple[str, ...], *, chunk=False):
-    series = []
-    for key in names:
-        if key in data:
-            _add(series, key.replace("_", " ").title(), _points(data[key], chunk=chunk))
-    return series
+        series.append((str(label), clean, bool(ordered)))
 
 
 def map_series(spec, data: Any):
-    """Return ``(series, center)`` only for operations with a declared spatial meaning."""
+    """Return ``(series, center)`` only for operations with a declared spatial meaning.
+
+    Each series is ``(label, points, ordered)``. ``ordered=True`` means connecting the
+    points is meaningful (route/path/footprint); candidate/search sets remain dots.
+    """
     if not isinstance(data, dict):
         return [], None
     top = str(getattr(spec, "top", "")); sub = str(getattr(spec, "submenu", "")); name = str(getattr(spec, "name", "")); series = []; center = None
 
     if sub == "Shapes":
         for key in ("points", "vertices", "strand_a", "strand_b"):
-            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]))
+            if key in data:
+                ordered = name in {"Spiral", "Helix", "Double Helix"} or key in {"strand_a", "strand_b"}
+                _add(series, key.replace("_", " ").title(), _points(data[key]), ordered=ordered)
         if not series and name == "Rounded Rectangle":
             width, length = _number(data.get("width")), _number(data.get("length"))
-            if width and length: _add(series, "Footprint", [(0, 0), (width, 0), (width, length), (0, length), (0, 0)])
+            if width and length: _add(series, "Footprint", [(0, 0), (width, 0), (width, length), (0, length), (0, 0)], ordered=True)
         return series, None
 
     if top == "Calculators" and sub == "Build":
         for key in ("points", "positions", "corners"):
-            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]))
+            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]), ordered=key == "corners")
         width = _number(data.get("width_blocks", data.get("width"))); length = _number(data.get("length_blocks", data.get("length")))
         if not series and width and length and name in {"Area", "Perimeter", "Foundation Planner", "Road Planner", "Crop Layout", "Chunk Grid Builder"}:
-            _add(series, "Footprint", [(0, 0), (width, 0), (width, length), (0, length), (0, 0)])
+            _add(series, "Footprint", [(0, 0), (width, 0), (width, length), (0, length), (0, 0)], ordered=True)
         return series, None
 
     if top == "Navigation" and sub in {"Routes", "Waypoints"}:
         for key in ("route_order", "resource_order", "tour_order", "biome_order", "survey_points", "points", "route"):
-            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]))
+            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]), ordered=True)
         start = _point(data.get("start")); target = _point(data.get("target"))
-        if start is not None and target is not None: _add(series, "Route", [start, target])
+        if start is not None and target is not None: _add(series, "Route", [start, target], ordered=True)
         elif start is not None: center = start
         return series, center
 
@@ -114,7 +113,7 @@ def map_series(spec, data: Any):
         nodes = data.get("nodes")
         if isinstance(nodes, (list, tuple)): _add(series, "Portals", _points(nodes))
         for key in ("portals", "nether_gates", "route_order", "samples", "ranked"):
-            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]))
+            if key in data: _add(series, key.replace("_", " ").title(), _points(data[key]), ordered=key == "route_order")
         center = _point(data.get("center")) or _point(data.get("ideal_nether"))
         return series, center
 
