@@ -22,8 +22,7 @@ def _replace_with_seed_edit(owner, attr: str) -> SeedEdit | None:
     if old is None: return None
     parent = old.parentWidget(); layout = parent.layout() if parent is not None else None
     replacement = SeedEdit("F3Plus", parent)
-    if layout is not None:
-        layout.replaceWidget(old, replacement)
+    if layout is not None: layout.replaceWidget(old, replacement)
     old.hide(); old.deleteLater(); setattr(owner, attr, replacement); return replacement
 
 
@@ -42,7 +41,6 @@ def _polish_anvil_grid(left_editor) -> None:
 
 
 def _reflow_anvil(dialog) -> None:
-    """Keep the native anvil grid from overlapping at Windows/high-DPI sizes."""
     left = getattr(dialog, "left_enchants", None); right = getattr(dialog, "right_enchants", None)
     if left is None or right is None: return
     _polish_enchantment_editor(left); _polish_enchantment_editor(right); _polish_anvil_grid(left)
@@ -50,7 +48,7 @@ def _reflow_anvil(dialog) -> None:
 
 class RngEnchantingDialog(_RngEnchantingDialog):
     def _engines_ready(self, payload):
-        super()._engines_ready(payload); _reflow_anvil(self); _replace_with_seed_edit(self, "seed")
+        super()._engines_ready(payload); _reflow_anvil(self); _replace_with_seed_edit(self, "seed"); self._roll()
         self.loading_label.setText("Enchantments loaded from " + self.data.source + ("." if self.data.exact_local_data else " (fallback local data)."))
         _help(self.enchant_item, "Choose the item placed in the enchanting table.")
         _help(self.shelves, "Valid bookshelves powering the table, 0–15.")
@@ -68,10 +66,8 @@ class RngEnchantingDialog(_RngEnchantingDialog):
 class MechanicsLabDialog(_MechanicsLabDialog):
     def __init__(self, owner):
         super().__init__(owner)
-        # Only horse-family entries with inherited numerical attributes belong in the
-        # breeding simulator. Cosmetic/variant-only breeding does not need Monte Carlo UI.
         self.species.blockSignals(True); self.species.clear(); self.species.addItems(["Horse", "Donkey"]); self.species.blockSignals(False); self.species.setCurrentIndex(0); self._configure_species()
-        _replace_with_seed_edit(self, "breed_seed")
+        _replace_with_seed_edit(self, "breed_seed"); self._breed()
         _help(self.potion, "Potion currently in the brewing-stand bottle slot.")
         _help(self.ingredient, "Ingredient placed in the brewing stand.")
         _help(self.existing, "Optional existing leather RGB color, e.g. #A06540.")
@@ -85,7 +81,7 @@ class MechanicsLabDialog(_MechanicsLabDialog):
         for editor_name, editor in (("Parent A", self.parent_a), ("Parent B", self.parent_b)):
             for key, widget in editor.fields.items():
                 label = str(key).replace("_", " ")
-                units = "health points" if key == "max_health" else ("blocks/tick base attribute" if key == "movement_speed" else ("jump attribute" if key == "jump_strength" else "appearance index"))
+                units = "health points" if key == "max_health" else ("base movement-speed attribute" if key == "movement_speed" else ("jump-strength attribute" if key == "jump_strength" else "appearance index"))
                 _help(widget, f"{editor_name} {label}: {units}.")
 
 
@@ -94,8 +90,7 @@ class VillagerExplorerDialog(_VillagerExplorerDialog):
         super().__init__(owner, profession=profession, mode=mode)
         self.book_enchants = ExplanationCard("Possible enchanted-book enchantments", "")
         host = self.detail_note.parentWidget(); layout = host.layout() if host is not None else None
-        if layout is not None:
-            layout.insertWidget(layout.indexOf(self.detail_note) + 1, self.book_enchants)
+        if layout is not None: layout.insertWidget(layout.indexOf(self.detail_note) + 1, self.book_enchants)
         self.book_enchants.hide(); self.show_selected()
         _help(self.level, "Filter offers by villager level.")
         _help(self.direction, "Filter by whether you buy, sell, or exchange items.")
@@ -115,5 +110,4 @@ class VillagerExplorerDialog(_VillagerExplorerDialog):
         show = bool(trade and trade.profession.lower() == "librarian" and "enchanted_book" in trade.gives.lower())
         self.book_enchants.setVisible(show)
         if not show: return
-        rows = librarian_enchantments(self.jar)
-        self.book_enchants.set_text(grouped_summary(rows, 12))
+        self.book_enchants.set_text(grouped_summary(librarian_enchantments(self.jar), 12))
