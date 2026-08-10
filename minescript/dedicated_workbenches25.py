@@ -5,7 +5,8 @@ from __future__ import annotations
 from PySide6.QtWidgets import QLabel, QListWidgetItem, QTabWidget
 
 from .async_loot_workbench import LootWorkbenchDialog
-from .enchantment_catalog import grouped_summary, librarian_enchantments
+from .enchantment_catalog import librarian_enchantments
+from .enchantment_widgets import EnchantmentPossibilityPanel
 from .minecraft_widgets import ExplanationCard, SeedEdit
 from .simulation_workbenches import (
     MechanicsLabDialog as _MechanicsLabDialog,
@@ -89,14 +90,28 @@ class MechanicsLabDialog(_MechanicsLabDialog):
         super().__init__(owner)
         self.species.blockSignals(True); self.species.clear(); self.species.addItem("Horse"); self.species.blockSignals(False); self.species.setCurrentIndex(0); self._configure_species()
         _replace_with_seed_edit(self, "breed_seed")
+
         tabs = self.findChild(QTabWidget)
+        breeding_page = tabs.widget(2) if tabs is not None and tabs.count() >= 3 else None
         if tabs is not None and tabs.count() >= 3: tabs.setTabText(2, "Horse Breeding")
+        if breeding_page is not None:
+            cards = breeding_page.findChildren(ExplanationCard)
+            if cards:
+                cards[0].set_text("Set both parent horses' health, movement speed, and jump strength, then simulate the expected offspring range.")
+            for label in breeding_page.findChildren(QLabel):
+                if label.text().strip() == "Species": label.hide()
+            self.species.hide()
+
+        for label in self.findChildren(QLabel):
+            if label.text().startswith("Interact with brewing"):
+                label.setText("Brewing, leather dye/cauldron calculations, and horse inherited-stat simulation.")
+
+        self.outcomes.setMinimumHeight(100); self.outcomes.setMaximumHeight(125)
         _metric_label(self.child_metric, "Sample size"); _metric_label(self.unique_metric, "Average health"); _metric_label(self.food_metric, "Average speed")
         _help(self.potion, "Potion currently in the brewing-stand bottle slot.")
         _help(self.ingredient, "Ingredient placed in the brewing stand.")
         _help(self.existing, "Optional existing leather RGB color, e.g. #A06540.")
         _help(self.water, "Current cauldron water level, 0–3.")
-        _help(self.species, "Horse breeding is simulated because max health, movement speed, and jump strength are inherited stats.")
         _help(self.children, "Number of offspring rolls used for the stat distribution.")
         _help(self.breed_seed, "Reproducibility seed. Number or text; blank uses F3Plus.")
         self._breed()
@@ -128,9 +143,10 @@ class MechanicsLabDialog(_MechanicsLabDialog):
 class VillagerExplorerDialog(_VillagerExplorerDialog):
     def __init__(self, owner, profession: str | None = None, mode: str = "Trade Browser"):
         super().__init__(owner, profession=profession, mode=mode)
-        self.book_enchants = ExplanationCard("Possible enchanted-book enchantments", "")
+        self.book_enchants = EnchantmentPossibilityPanel("Possible enchanted-book enchantments")
         host = self.detail_note.parentWidget(); layout = host.layout() if host is not None else None
         if layout is not None: layout.insertWidget(layout.indexOf(self.detail_note) + 1, self.book_enchants)
+        self.compare_list.setMaximumHeight(90)
         self.book_enchants.hide(); self.show_selected()
         _help(self.level, "Filter offers by villager level.")
         _help(self.direction, "Filter by whether you buy, sell, or exchange items.")
@@ -148,6 +164,6 @@ class VillagerExplorerDialog(_VillagerExplorerDialog):
         if not hasattr(self, "book_enchants"): return
         trade = self.selected_trade()
         show = bool(trade and trade.profession.lower() == "librarian" and "enchanted_book" in trade.gives.lower())
-        self.book_enchants.setVisible(show)
-        if not show: return
-        self.book_enchants.set_text(grouped_summary(librarian_enchantments(self.jar), 12))
+        if not show:
+            self.book_enchants.hide(); return
+        self.book_enchants.set_rows(librarian_enchantments(self.jar))
