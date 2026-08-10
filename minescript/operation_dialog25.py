@@ -64,7 +64,7 @@ _OUTPUT_NAMES = {
 }
 
 _INLINE_KEYS = {
-    "seed", "world_path", "search_mode", "radius", "radius_step", "max_search_radius",
+    "seed", "world_path", "radius", "radius_step", "max_search_radius",
     "worldgen_max_chunks", "target_biome", "probability", "attempts",
 }
 
@@ -75,8 +75,7 @@ def _concise_description(mode) -> str:
     text = " ".join(_operation_description(mode).split()); prefix = mode.name + " "
     if text.startswith(prefix): text = text[len(prefix):]
     text = text[:1].upper() + text[1:] if text else mode.name
-    if len(text) > 190:
-        text = text[:190].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
+    if len(text) > 190: text = text[:190].rsplit(" ", 1)[0].rstrip(" ,;:") + "…"
     return text
 
 
@@ -87,17 +86,15 @@ def _friendly_output_key(key: str) -> str:
 def _output_explanation(mode) -> str:
     if mode is None or mode.legacy is None: return "Result for the selected operation."
     if mode.name in _OUTPUT_EXPLANATIONS: return _OUTPUT_EXPLANATIONS[mode.name]
-    keys = OUTPUT_KEYS.get(mode.legacy.id, [])
-    useful = []
+    keys = OUTPUT_KEYS.get(mode.legacy.id, []); useful = []
     for key in keys:
         if key in _INTERNAL_OUTPUT_KEYS or str(key).startswith("_"): continue
         label = _friendly_output_key(key)
         if label not in useful: useful.append(label)
         if len(useful) >= 6: break
-    if useful:
-        return "Returns " + ", ".join(useful) + "."
+    if useful: return "Returns " + ", ".join(useful) + "."
     name = mode.name.lower()
-    if any(token in name for token in ("finder", "locator", "nearest", "search")): return "Matching locations with coordinates, distance/search coverage, and match details."
+    if any(token in name for token in ("finder", "locator", "nearest", "search")): return "Matching locations with coordinates, search coverage, and match details."
     if any(token in name for token in ("route", "tour", "path")): return "Ordered stops/coordinates with route distance and direction where applicable."
     if any(token in name for token in ("probability", "odds", "chance")): return "Calculated probability plus attempt/confidence values used by this operation."
     if any(token in name for token in ("planner", "calculator", "estimate", "optimizer")): return f"{mode.name} calculation with labeled quantities and units."
@@ -106,11 +103,17 @@ def _output_explanation(mode) -> str:
 
 def _short_hint(key: str, label: str, default, kind: str) -> str:
     if key not in _INLINE_KEYS: return ""
+    low = str(label).lower()
     if key == "seed": return f"Number or text seed. Blank = {DEFAULT_SEED_TEXT}."
-    if key == "world_path": return "Existing Java world folder. Leave blank when using Seed as the data source."
-    base = field_help(key, label).split(". ", 1)[0].rstrip(".") + "."
-    if kind in {"int", "float"}: base += f" Default: {default}."
-    return base
+    if key == "world_path": return "Java save folder containing level.dat."
+    if key == "radius": return "Distance from the search center, in chunks." if "chunk" in low else "Distance from the search center, in blocks."
+    if key == "radius_step": return "Radius added after each search with no match."
+    if key == "max_search_radius": return "Largest radius searched unless Ignore maximum limit is enabled."
+    if key == "worldgen_max_chunks": return "Safety cap for chunks generated in Seed mode."
+    if key == "target_biome": return "Biome to find."
+    if key == "probability": return "Chance per attempt, from 0 to 1."
+    if key == "attempts": return "Number of trials or attempts."
+    return ""
 
 
 class OperationDialog(_AsyncOperationDialog):
@@ -132,6 +135,18 @@ class OperationDialog(_AsyncOperationDialog):
             hint = QLabel(hint_text); hint.setWordWrap(True); hint.setObjectName("Muted"); layout.addWidget(hint)
         return widget, column
 
+    def _input_row(self, key: str):
+        widget = self.inputs.get(key)
+        if widget is None: return None, None
+        editor = widget.parentWidget()
+        label = self.form.labelForField(editor) if editor is not None else None
+        return editor, label
+
+    def _set_input_visible(self, key: str, visible: bool):
+        editor, label = self._input_row(key)
+        if editor is not None: editor.setVisible(visible)
+        if label is not None: label.setVisible(visible)
+
     def _rebuild(self):
         super()._rebuild(); self.world_source_mode = None
         if self.mode is None or self.mode.legacy is None: return
@@ -144,11 +159,7 @@ class OperationDialog(_AsyncOperationDialog):
         if "world_path" in self.inputs and "regenerate_from_seed" in self.inputs:
             source = QComboBox(); source.addItems(["Seed", "World save"]); source.setToolTip("Seed generates the required reference area. World save reads an existing Java save.")
             self.world_source_mode = source; self.form.insertRow(0, "Data source", source)
-            regen = self.inputs.get("regenerate_from_seed")
-            if regen is not None:
-                editor = regen.parentWidget(); label = self.form.labelForField(editor) if editor is not None else None
-                if label is not None: label.hide()
-                if editor is not None: editor.hide()
+            self._set_input_visible("regenerate_from_seed", False)
             world = self.inputs.get("world_path")
             if isinstance(world, QLineEdit) and world.text().strip(): source.setCurrentText("World save")
             source.currentTextChanged.connect(self._sync_world_source); self._sync_world_source()
@@ -156,12 +167,14 @@ class OperationDialog(_AsyncOperationDialog):
     def _sync_world_source(self):
         if self.world_source_mode is None: return
         use_seed = self.world_source_mode.currentText() == "Seed"
+        self._set_input_visible("world_path", not use_seed)
         for key in ("seed", "accept_minecraft_eula", "worldgen_max_chunks"):
-            widget = self.inputs.get(key)
-            if widget is not None: widget.setEnabled(use_seed)
-        world = self.inputs.get("world_path")
-        if world is not None: world.setEnabled(not use_seed)
-        self.note.setText("Seed: generate the bounded reference area locally, then scan it." if use_seed else "World save: read the selected Java save locally.")
+            self._set_input_visible(key, use_seed)
+        seed_editor, seed_label = self._input_row("seed")
+        if seed_label is not None: seed_label.setText("World seed")
+        world_editor, world_label = self._input_row("world_path")
+        if world_label is not None: world_label.setText("Java world folder")
+        self.note.setText("Generate the required area from this seed, then scan it." if use_seed else "Scan the selected Java save.")
         self._sync_search()
 
     def _sync_search(self):
@@ -176,7 +189,7 @@ class OperationDialog(_AsyncOperationDialog):
         budget = self.inputs.get("worldgen_max_chunks"); use_seed = self.world_source_mode is None or self.world_source_mode.currentText() == "Seed"
         if budget is not None: budget.setEnabled(use_seed and not (until and unlimited))
         if not until: text = "Searches once inside the selected radius."
-        elif unlimited: text = "Expands until a match or a real backend/prerequisite failure stops the search."
+        elif unlimited: text = "Expands until a match or a backend/prerequisite failure stops the search."
         else: text = "Expands by the selected step until a match or the maximum radius is reached."
         self.search_help.setText(text)
 
