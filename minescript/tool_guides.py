@@ -49,7 +49,6 @@ def specs_for_section(section: str, favorites=(), recent=()):
         if tool_id and tool_id not in seen:
             out.append(BY_ID[tool_id]); seen.add(tool_id)
     if out: return out
-    # First-run Home stays compact but includes visually distinctive, high-value entry points.
     for wanted in (
         "navigation.coordinates", "world.structures", "world.ores", "build.planner",
         "simulation.rng", "villagers.explorer", "utilities.version",
@@ -116,29 +115,47 @@ def search_text(spec: ToolSpec, guide: ToolGuide) -> str:
     return " ".join((spec.id, spec.name, spec.workspace, spec.group, spec.summary, guide.when, guide.inputs, guide.output, operations)).lower()
 
 
+_ART_KEYS = {
+    "automation.actions": "actions",
+    "automation.travel": "travel",
+    "automation.mining": "mining",
+    "automation.farming": "farm",
+    "automation.construction": "construction",
+    "automation.sequences": "macro",
+    "automation.macro_studio": "macro",
+    "navigation.position": "position",
+    "navigation.coordinates": "coordinates",
+    "navigation.routes": "route",
+    "navigation.portals": "portal",
+    "world.seed_recovery": "seed_recovery",
+    "world.slime": "slime",
+    "world.structures": "structure",
+    "world.spawners": "spawner",
+    "world.biomes": "biome",
+    "world.area": "local_area",
+    "world.ores": "ore",
+    "world.analysis": "world_analysis",
+    "world.nether": "portal",
+    "world.profiles": "profiles",
+    "build.planner": "building",
+    "build.redstone": "redstone",
+    "build.storage": "storage",
+    "build.farming": "farm",
+    "build.technical": "technical",
+    "build.resources": "resources",
+    "build.recipes": "recipes",
+    "simulation.rng": "enchant",
+    "simulation.loot": "loot",
+    "simulation.generation": "generation",
+    "simulation.mechanics": "brewing",
+    "villagers.explorer": "villager",
+    "utilities.version": "version",
+    "utilities.settings": "settings",
+    "utilities.safety": "safety",
+    "utilities.results": "history",
+    "utilities.diagnostics": "diagnostics",
+}
+
+
 def tool_art_key(spec: ToolSpec) -> str:
-    if spec.id.startswith("automation."): return "automation"
-    if spec.id.startswith("navigation."):
-        if spec.id == "navigation.routes": return "route"
-        if spec.id == "navigation.portals": return "portal"
-        return "map"
-    if spec.id.startswith("world."):
-        if spec.id == "world.spawners": return "spawner"
-        if spec.id == "world.biomes": return "biome"
-        if spec.id == "world.ores": return "ore"
-        if spec.id == "world.structures": return "structure"
-        if spec.id == "world.nether": return "portal"
-        return "seed"
-    if spec.id.startswith("build."):
-        if spec.id == "build.redstone": return "redstone"
-        if spec.id == "build.storage": return "storage"
-        if spec.id == "build.farming": return "farm"
-        return "building"
-    if spec.id.startswith("simulation."):
-        if spec.id == "simulation.loot": return "loot"
-        if spec.id == "simulation.rng": return "enchant"
-        if spec.id == "simulation.mechanics": return "brewing"
-        return "rng"
-    if spec.id.startswith("villagers."): return "villager"
-    if spec.id == "utilities.safety": return "safety"
-    return "utilities"
+    return _ART_KEYS.get(spec.id, "utilities")
