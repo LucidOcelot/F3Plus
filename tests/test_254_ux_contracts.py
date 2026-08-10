@@ -9,6 +9,7 @@ os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 from minescript.catalog_ids import SPECS as LEGACY_SPECS
 from minescript.enchantment_catalog import rarity_from_weight
 from minescript.feature_executor import FeatureExecutor
+from minescript.seed_generation import SEED_REGENERATABLE
 from minescript.seed_text import DEFAULT_SEED_TEXT, java_string_hash, seed_number
 
 GUI_IMPORT_ERROR = None
@@ -40,14 +41,16 @@ class SeedAndRarityContracts(unittest.TestCase):
         self.assertEqual(rarity_from_weight(2), "Rare")
         self.assertEqual(rarity_from_weight(1), "Very Rare")
 
-    def test_seed_tools_that_accept_a_world_save_also_accept_seed_generation(self):
-        executor = FeatureExecutor(); world_only = []
-        for spec in LEGACY_SPECS:
-            if spec.top != "Seed Tools": continue
+    def test_generated_world_analyzers_accept_both_save_and_seed(self):
+        executor = FeatureExecutor(); failures = []
+        specs = [spec for spec in LEGACY_SPECS if spec.top == "Seed Tools" and spec.name in SEED_REGENERATABLE]
+        self.assertEqual({spec.name for spec in specs}, set(SEED_REGENERATABLE))
+        required = {"world_path", "seed", "regenerate_from_seed", "accept_minecraft_eula"}
+        for spec in specs:
             keys = {field[0] for field in executor.input_fields(spec)}
-            if "world_path" in keys and not {"seed", "regenerate_from_seed", "accept_minecraft_eula"}.issubset(keys):
-                world_only.append(spec.name)
-        self.assertFalse(world_only, f"World-save-only analyzers remain: {world_only}")
+            missing = sorted(required - keys)
+            if missing: failures.append((spec.name, missing))
+        self.assertFalse(failures, f"Generated-world analyzers missing a save/seed source: {failures}")
 
 
 @unittest.skipIf(GUI_IMPORT_ERROR is not None, f"Qt GUI runtime unavailable: {GUI_IMPORT_ERROR}")
