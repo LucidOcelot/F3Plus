@@ -6,11 +6,16 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
-from PySide6.QtWidgets import QApplication
+GUI_IMPORT_ERROR = None
+try:
+    from PySide6.QtWidgets import QApplication
+    from minescript.workbench_forms import OperationDialog
+except ImportError as exc:
+    GUI_IMPORT_ERROR = exc
+    QApplication = OperationDialog = None
 
 from minescript.feature_executor import FeatureExecutor
 from minescript.tool_registry import BY_ID
-from minescript.workbench_forms import OperationDialog
 
 
 class _Settings:
@@ -20,6 +25,7 @@ class _Settings:
     custom_palette = {}
 
 
+@unittest.skipIf(GUI_IMPORT_ERROR is not None, f"Qt GUI runtime unavailable: {GUI_IMPORT_ERROR}")
 class WorkbenchNavigationTests(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
