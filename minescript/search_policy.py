@@ -26,6 +26,7 @@ _SLIME_FINDERS = {"Adjacent Pair", "2x2 Cluster", "Triple Cluster", "Quad Cluste
 _SPAWNER_CLUSTER_NAMES = {"Double Spawner Locator", "Triple Spawner Locator", "Quad Spawner Locator", "Spawner Cluster Ranking"}
 _MATCH_LIST_KEYS = ("candidate_chunks", "candidates", "matches", "hits", "clusters", "ranked", "sample_hits", "boundary_segments", "pairs", "squares", "locations", "results")
 _MATCH_SINGLE_KEYS = ("nearest", "peak", "valley", "largest", "best")
+_TERRAIN_SOURCE_KEYS = {"seed", "regenerate_from_seed", "accept_minecraft_eula", "worldgen_max_chunks"}
 
 
 def supports(spec) -> bool:
@@ -59,8 +60,18 @@ def terrain_fields():
     ]
 
 
+def _terrain_search_fields(fields):
+    """Use chunk-centered terrain inputs without deleting save/seed source controls."""
+    source_fields = [field for field in fields if field[0] in _TERRAIN_SOURCE_KEYS]
+    merged = terrain_fields(); existing = {field[0] for field in merged}
+    merged.extend(field for field in source_fields if field[0] not in existing)
+    return merged
+
+
 def add_fields(spec, fields):
-    fields = terrain_fields() if getattr(spec, "submenu", "") == "Biomes" and getattr(spec, "name", "") in _TERRAIN_FINDERS else list(fields)
+    fields = list(fields)
+    if getattr(spec, "submenu", "") == "Biomes" and getattr(spec, "name", "") in _TERRAIN_FINDERS:
+        fields = _terrain_search_fields(fields)
     if not supports(spec): return fields
     existing = {field[0] for field in fields}
     if "radius" not in existing:
