@@ -37,7 +37,7 @@ F3+ can acquire the supported upstream release on first use and verifies the pin
 
 ## Python and runtime bootstrap
 
-F3+ 2.4.0 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
+F3+ 2.4.1 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
 
 - **uv:** Astral Software Inc.; Apache-2.0 OR MIT
 - **CPython:** Python Software Foundation; upstream Python licensing
