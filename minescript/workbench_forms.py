@@ -11,6 +11,7 @@ from PySide6.QtWidgets import (
 
 from .descriptions import PRECISE, SPECIAL
 from .feature_executor import FeatureExecutor, MACRO_NAMES
+from .guide_metadata import OUTPUT_KEYS
 from .result_view import ResultView
 from .tool_registry import ToolMode, ToolSpec, modes_for
 from .ui_dialogs import field_help, make_widget, widget_value
@@ -23,21 +24,100 @@ _CONTROL_DELEGATES = {
 }
 
 
-def _operation_family(name: str) -> str:
-    low = str(name).lower()
-    if any(token in low for token in ("ore", "resource", "distribution", "density", "heatmap", "profile", "survey", "analysis", "comparison", "statistics")):
-        return "Analysis & Distribution"
-    if any(token in low for token in ("biome", "terrain", "mountain", "valley", "island", "river", "cliff", "cave", "lake")):
-        return "Terrain & Biomes"
-    if any(token in low for token in ("portal", "route", "network", "link", "waypoint", "travel", "highway", "corridor")):
-        return "Routes & Networks"
-    if any(token in low for token in ("find", "finder", "locator", "nearest", "search", "cluster")):
-        return "Finders"
-    if any(token in low for token in ("rng", "random", "sequence", "timeline", "recovery", "seed", "probability")):
-        return "RNG & Recovery"
-    if any(token in low for token in ("planner", "optimizer", "calculator", "count", "capacity", "timing", "spacing", "layout")):
-        return "Planning & Calculation"
-    return "Other Operations"
+_DOMAIN_PURPOSE = {
+    ("Navigation", "Coordinates"): "calculates coordinate geometry and travel measurements from the positions you enter",
+    ("Navigation", "Routes"): "builds or analyzes a route/survey from entered or recorded Minecraft positions",
+    ("Navigation", "Portal Helpers"): "plans portal coordinates and link geometry without modifying the world",
+    ("Seed Tools", "Slime"): "analyzes slime-chunk positions for a known Java world seed",
+    ("Seed Tools", "Structures"): "searches or compares structure placement candidates for a known Java world seed",
+    ("Seed Tools", "Spawners"): "inspects generated Java world data for actual saved spawner blocks/entities",
+    ("Seed Tools", "Biomes"): "queries biome or generated-terrain information around a selected location",
+    ("Seed Tools", "Local Area"): "summarizes a bounded area for building, technical, or exploration planning",
+    ("Seed Tools", "World Analysis"): "analyzes generated-world or known-seed information for a bounded region",
+    ("Seed Tools", "Nether"): "analyzes Nether travel, biome, structure, or portal-network behavior",
+    ("Calculators", "Coordinate"): "calculates coordinate, distance, direction, or travel values",
+    ("Calculators", "Build"): "plans a Minecraft build from dimensions, spacing, or material constraints",
+    ("Calculators", "Shapes"): "generates a block-layout plan for the selected geometric shape",
+    ("Calculators", "Redstone"): "calculates timing or throughput for a redstone-related planning problem",
+    ("Calculators", "Storage"): "converts item totals into Minecraft storage/logistics requirements",
+    ("Calculators", "Farm"): "estimates farm dimensions, capacity, yield, or supporting infrastructure",
+    ("Calculators", "Technical"): "calculates technical-Minecraft spacing, loading, spawning, or alignment geometry",
+    ("Calculators", "Speedrunning"): "calculates route or triangulation values from speedrun observations",
+    ("Calculators", "Resource Usage"): "estimates resource, XP, durability, or consumable requirements",
+    ("Calculators", "End"): "calculates End-dimension travel or gateway planning values",
+    ("RNG Tools", "Enchanting"): "models enchanting-related RNG, cost, or table planning",
+    ("RNG Tools", "Probability"): "calculates or visualizes deterministic/probability sequences",
+    ("RNG Tools", "Generation RNG"): "previews deterministic generation-stage RNG behavior without claiming a candidate roll guarantees placement",
+}
+
+
+_EXPLANATION_OVERRIDES = {
+    "Arch": "Generates a symmetric block arch plan from the entered shape dimensions. Use it to choose the span/height before building; the result is a geometric planning layout rather than an in-world scan.",
+    "Rounded Rectangle": "Generates a rounded rectangular footprint from a primary radius/size and secondary width value for build planning.",
+    "Diamond": "Generates a diamond-shaped block outline from the selected radius/size.",
+    "Pyramid": "Generates stacked square layers for a pyramid-style build from the selected radius and height.",
+    "Ellipse": "Generates an elliptical block outline using the primary and secondary radii.",
+    "Hexagon": "Generates a hexagonal block outline sized by the selected radius.",
+    "Octagon": "Generates an octagonal block outline sized by the selected radius.",
+    "Circle": "Generates a hollow block circle from the selected radius.",
+    "Filled Circle": "Generates a filled block circle from the selected radius.",
+    "Sphere": "Generates a block sphere from the selected radius.",
+    "Hollow Sphere": "Generates only the outer shell of a block sphere.",
+    "Dome": "Generates the upper portion of a block sphere as a dome plan.",
+    "Cylinder": "Generates a cylindrical block layout from radius and height.",
+    "Cone": "Generates a tapered cone layout from radius and height.",
+    "Spiral": "Generates a flat spiral path on the X/Z plane from radius and turn count.",
+    "Helix": "Generates a three-dimensional helical path rising along Y from radius, height, and turn count.",
+    "Double Helix": "Generates two phase-offset helical paths for a paired spiral build.",
+}
+
+
+_GROUP_LABELS = {
+    "Coordinates": "Coordinate Calculators",
+    "Routes": "Routes & Surveys",
+    "Portal Helpers": "Portal Planning",
+    "Build": "Build Calculators",
+    "Shapes": "Shape Layouts",
+    "Redstone": "Redstone & Timing",
+    "Storage": "Storage & Logistics",
+    "Farm": "Farm Planning",
+    "Technical": "Technical Minecraft",
+    "Resource Usage": "Resource Planning",
+    "Speedrunning": "Speedrun Planning",
+    "World Analysis": "World Analysis",
+    "Local Area": "Local Area Analysis",
+    "Structures": "Structure Search",
+    "Spawners": "Generated Spawners",
+    "Biomes": "Biomes & Terrain",
+    "Nether": "Nether Analysis",
+    "Enchanting": "Enchanting",
+    "Probability": "Probability & Sequences",
+    "Generation RNG": "Generation RNG",
+}
+
+
+def _operation_group(mode: ToolMode) -> str:
+    legacy = mode.legacy
+    if legacy is None:
+        return "Operations"
+    return _GROUP_LABELS.get(legacy.submenu, legacy.submenu or "Operations")
+
+
+def _human_key(value: str) -> str:
+    return str(value).replace("_", " ").strip().capitalize()
+
+
+def _output_summary(mode: ToolMode) -> str:
+    keys = [
+        key for key in OUTPUT_KEYS.get(mode.key, [])
+        if key not in {"implementation", "implementation_detail", "operation", "source", "backend"}
+    ]
+    if not keys:
+        return "A structured result with the calculation status, values, limitations, and source/exactness context when applicable."
+    visible = ", ".join(_human_key(key) for key in keys[:6])
+    if len(keys) > 6:
+        visible += f", and {len(keys) - 6} more result fields"
+    return visible + "."
 
 
 def _operation_description(mode: ToolMode) -> str:
@@ -46,9 +126,14 @@ def _operation_description(mode: ToolMode) -> str:
         return PRECISE[name]
     if name in SPECIAL:
         return SPECIAL[name]
+    if name in _EXPLANATION_OVERRIDES:
+        return _EXPLANATION_OVERRIDES[name]
     legacy = mode.legacy
     if legacy is not None:
-        return f"{name} is part of {legacy.top} → {legacy.submenu}. Configure the values below, run it, then inspect the structured result, exactness/source information, and any available visual output."
+        purpose = _DOMAIN_PURPOSE.get((legacy.top, legacy.submenu))
+        if purpose:
+            return f"{name} {purpose}."
+        return f"{name} performs the {legacy.submenu} workflow in {legacy.top}."
     return f"Configure and run {name}."
 
 
@@ -64,7 +149,7 @@ class OperationDialog(QDialog):
         self.tool = tool; self.executor = executor; self.settings = settings
         self.mode: ToolMode | None = None; self.inputs: dict[str, QWidget] = {}
         self._modes = [mode for mode in modes_for(tool) if mode.legacy is not None]
-        self.setWindowTitle(tool.name); self.resize(1180, 790); self.setMinimumSize(920, 620)
+        self.setWindowTitle(tool.name); self.resize(1220, 820); self.setMinimumSize(980, 660)
 
         root = QVBoxLayout(self); root.setContentsMargins(12, 12, 12, 12); root.setSpacing(8)
         hero = QFrame(); hero.setObjectName("ExplorerHero"); hv = QVBoxLayout(hero)
@@ -76,24 +161,29 @@ class OperationDialog(QDialog):
         kicker = QLabel("OPERATIONS"); kicker.setObjectName("DeckLabel"); lv.addWidget(kicker)
         self.operation_search = QLineEdit(); self.operation_search.setClearButtonEnabled(True); self.operation_search.setPlaceholderText(f"Search {tool.name.lower()} operations…"); lv.addWidget(self.operation_search)
         self.mode_list = QListWidget(); self.mode_list.setObjectName("ProfessionList"); lv.addWidget(self.mode_list, 1)
-        count = QLabel(f"{len(self._modes)} operations"); count.setObjectName("Muted"); lv.addWidget(count); split.addWidget(left)
+        self.count = QLabel(); self.count.setObjectName("Muted"); lv.addWidget(self.count); split.addWidget(left)
 
-        right = QFrame(); right.setObjectName("ExplorerTrades"); rv = QVBoxLayout(right); rv.setContentsMargins(10, 8, 10, 8)
-        top = QHBoxLayout(); names = QVBoxLayout(); self.mode_title = QLabel("Choose an operation"); self.mode_title.setObjectName("WorkspaceTitle"); names.addWidget(self.mode_title)
+        right = QFrame(); right.setObjectName("ExplorerTrades"); rv = QVBoxLayout(right); rv.setContentsMargins(12, 10, 12, 10); rv.setSpacing(8)
+        top = QHBoxLayout(); names = QVBoxLayout(); self.path = QLabel(); self.path.setObjectName("DeckLabel"); names.addWidget(self.path)
+        self.mode_title = QLabel("Choose an operation"); self.mode_title.setObjectName("WorkspaceTitle"); names.addWidget(self.mode_title)
         self.mode_help = QLabel(); self.mode_help.setWordWrap(True); self.mode_help.setObjectName("Muted"); names.addWidget(self.mode_help); top.addLayout(names, 1)
-        self.configure_btn = QPushButton("Configure"); self.configure_btn.setCheckable(True); self.configure_btn.setChecked(True)
+        self.configure_btn = QPushButton("Inputs"); self.configure_btn.setCheckable(True); self.configure_btn.setChecked(True)
         self.results_btn = QPushButton("Results"); self.results_btn.setCheckable(True); top.addWidget(self.configure_btn); top.addWidget(self.results_btn); rv.addLayout(top)
+
+        self.context_card = QFrame(); self.context_card.setObjectName("ExplorerHero"); context = QVBoxLayout(self.context_card); context.setContentsMargins(10, 8, 10, 8)
+        out_kicker = QLabel("EXPECTED OUTPUT"); out_kicker.setObjectName("DeckLabel"); context.addWidget(out_kicker)
+        self.output_help = QLabel(); self.output_help.setWordWrap(True); self.output_help.setObjectName("Muted"); context.addWidget(self.output_help); rv.addWidget(self.context_card)
 
         self.mode_combo = QComboBox(); self.mode_combo.addItems([mode.name for mode in self._modes]); self.mode_combo.hide(); rv.addWidget(self.mode_combo)
 
         self.pages = QStackedWidget(); rv.addWidget(self.pages, 1)
-        config = QWidget(); cv = QVBoxLayout(config); cv.setContentsMargins(0, 0, 0, 0)
+        config = QWidget(); cv = QVBoxLayout(config); cv.setContentsMargins(0, 0, 0, 0); cv.setSpacing(8)
         self.search_card = QFrame(); self.search_card.setObjectName("WarningBanner"); sc = QVBoxLayout(self.search_card); sc.setContentsMargins(10, 8, 10, 8)
         sk = QLabel("SEARCH BEHAVIOR"); sk.setObjectName("DeckLabel"); sc.addWidget(sk); self.search_help = QLabel(); self.search_help.setWordWrap(True); self.search_help.setObjectName("Muted"); sc.addWidget(self.search_help); cv.addWidget(self.search_card); self.search_card.hide()
-        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame); host = QWidget(); self.form = QFormLayout(host); self.form.setHorizontalSpacing(18); self.form.setVerticalSpacing(10); scroll.setWidget(host); cv.addWidget(scroll, 1)
+        scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame); host = QWidget(); self.form = QFormLayout(host); self.form.setHorizontalSpacing(18); self.form.setVerticalSpacing(14); self.form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow); scroll.setWidget(host); cv.addWidget(scroll, 1)
         self.note = QLabel(); self.note.setWordWrap(True); self.note.setObjectName("Muted"); cv.addWidget(self.note)
-        actions = QHBoxLayout(); self.run_btn = QPushButton("Run operation"); self.run_btn.setObjectName("PrimaryButton"); actions.addWidget(self.run_btn); actions.addStretch(); cv.addLayout(actions); self.pages.addWidget(config)
-        self.result_view = ResultView(); self.pages.addWidget(self.result_view); split.addWidget(right); split.setSizes([300, 860])
+        actions = QHBoxLayout(); self.run_btn = QPushButton("Run"); self.run_btn.setObjectName("PrimaryButton"); actions.addWidget(self.run_btn); actions.addStretch(); cv.addLayout(actions); self.pages.addWidget(config)
+        self.result_view = ResultView(); self.pages.addWidget(self.result_view); split.addWidget(right); split.setSizes([320, 880])
 
         close = QDialogButtonBox(QDialogButtonBox.Close); close.rejected.connect(self.reject); root.addWidget(close)
         self.operation_search.textChanged.connect(self._refresh_mode_list); self.mode_list.currentItemChanged.connect(self._list_selected)
@@ -135,22 +225,19 @@ class OperationDialog(QDialog):
         self.pages.setCurrentIndex(index); self.configure_btn.setChecked(index == 0); self.results_btn.setChecked(index == 1)
 
     def _refresh_mode_list(self):
-        query = self.operation_search.text().strip().lower(); current = self.mode.key if self.mode else ""
-        self.mode_list.blockSignals(True); self.mode_list.clear(); families: dict[str, list[tuple[int, ToolMode]]] = {}
+        query = self.operation_search.text().strip().lower(); current = self.mode.key if self.mode else ""; groups: dict[str, list[tuple[int, ToolMode]]] = {}
         for index, mode in enumerate(self._modes):
-            haystack = f"{mode.name} {_operation_description(mode)}".lower()
+            haystack = f"{mode.name} {_operation_description(mode)} {_operation_group(mode)}".lower()
             if query and query not in haystack: continue
-            families.setdefault(_operation_family(mode.name), []).append((index, mode))
-        order = ["Finders", "Terrain & Biomes", "Analysis & Distribution", "Routes & Networks", "Planning & Calculation", "RNG & Recovery", "Other Operations"]
-        selected_row = -1
-        for family in order:
-            rows = families.get(family, [])
-            if not rows: continue
-            header = QListWidgetItem(family.upper()); header.setFlags(Qt.NoItemFlags); self.mode_list.addItem(header)
+            groups.setdefault(_operation_group(mode), []).append((index, mode))
+        selected_row = -1; visible = 0
+        self.mode_list.blockSignals(True); self.mode_list.clear()
+        for group, rows in groups.items():
+            header = QListWidgetItem(group.upper()); header.setFlags(Qt.NoItemFlags); self.mode_list.addItem(header)
             for index, mode in rows:
-                item = QListWidgetItem(mode.name); item.setData(Qt.UserRole, index); item.setToolTip(_operation_description(mode)); self.mode_list.addItem(item)
+                item = QListWidgetItem(mode.name); item.setData(Qt.UserRole, index); item.setToolTip(_operation_description(mode)); self.mode_list.addItem(item); visible += 1
                 if mode.key == current: selected_row = self.mode_list.count() - 1
-        self.mode_list.blockSignals(False)
+        self.mode_list.blockSignals(False); self.count.setText(f"{visible} operation{'s' if visible != 1 else ''}")
         if selected_row >= 0: self.mode_list.setCurrentRow(selected_row)
         elif self.mode_list.count():
             for row in range(self.mode_list.count()):
@@ -185,18 +272,27 @@ class OperationDialog(QDialog):
         if position is None: return default
         return {"x": position.x, "y": position.y, "z": position.z, "x1": position.x, "y1": position.y, "z1": position.z}.get(str(key), default)
 
+    def _field_editor(self, key: str, label: str, default, kind: str):
+        widget = make_widget(kind, default); tip = field_help(key, label)
+        if tip:
+            widget.setToolTip(tip); widget.setAccessibleDescription(tip)
+        column = QWidget(); layout = QVBoxLayout(column); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(3); layout.addWidget(widget)
+        if tip:
+            hint = QLabel(tip); hint.setWordWrap(True); hint.setObjectName("Muted"); layout.addWidget(hint)
+        return widget, column
+
     def _rebuild(self):
         self._clear_form()
         if self.mode is None or self.mode.legacy is None:
-            self.mode_title.setText("Choose an operation"); self.mode_help.clear(); self.note.setText("No operation selected."); self.search_card.hide(); return
-        self.mode_title.setText(self.mode.name); self.mode_help.setText(_operation_description(self.mode))
+            self.path.clear(); self.mode_title.setText("Choose an operation"); self.mode_help.clear(); self.output_help.clear(); self.note.setText("No operation selected."); self.search_card.hide(); return
+        self.path.setText(f"{self.mode.legacy.top.upper()}  •  {_operation_group(self.mode).upper()}")
+        self.mode_title.setText(self.mode.name); self.mode_help.setText(_operation_description(self.mode)); self.output_help.setText(_output_summary(self.mode))
         fields = self.executor.input_fields(self.mode.legacy)
         for key, label, default, kind in fields:
             if key == "seed" and getattr(self.settings, "seed", None): default = self.settings.seed
-            default = self._live_default(str(key), default); widget = make_widget(kind, default); tip = field_help(str(key), str(label))
-            if tip: widget.setToolTip(tip); widget.setAccessibleDescription(tip)
-            self.inputs[str(key)] = widget; self.form.addRow(label, widget)
-        self.note.setText("Review the values above before running." if fields else "This operation does not require manual values.")
+            default = self._live_default(str(key), default); widget, editor = self._field_editor(str(key), str(label), default, kind)
+            self.inputs[str(key)] = widget; self.form.addRow(str(label), editor)
+        self.note.setText("Only the inputs shown here are sent to this operation." if fields else "This operation uses saved/live application state and does not require manual input.")
         mode = self.inputs.get("search_mode"); ignore = self.inputs.get("ignore_max_generation_limit")
         if isinstance(mode, QComboBox): mode.currentTextChanged.connect(lambda *_: self._sync_search())
         if isinstance(ignore, QCheckBox): ignore.setText("Continue beyond the configured maximum"); ignore.toggled.connect(lambda *_: self._sync_search())
@@ -246,4 +342,4 @@ class OperationDialog(QDialog):
         except Exception as exc:
             box = QMessageBox(QMessageBox.Warning, name, str(exc), parent=self); box.setDetailedText(repr(exc)); box.exec()
         finally:
-            self.run_btn.setEnabled(True); self.run_btn.setText("Run operation")
+            self.run_btn.setEnabled(True); self.run_btn.setText("Run")
