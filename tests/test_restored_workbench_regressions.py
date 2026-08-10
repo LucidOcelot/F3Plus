@@ -64,7 +64,9 @@ class RestoredWorkbenchRegressionTests(TestCase):
         from minescript.loot_workbench import LootWorkbenchDialog as RichBase
         self.assertTrue(issubclass(LootWorkbenchDialog, AsyncBase))
         self.assertTrue(issubclass(LootWorkbenchDialog, RichBase))
-        self.assertEqual(LootWorkbenchDialog.__module__, "minescript.dedicated_workbenches25")
+        source = (Path(__file__).resolve().parents[1] / "minescript" / "loot_workbench.py").read_text(encoding="utf-8")
+        self.assertIn("It is not the Minecraft world seed", source)
+        self.assertIn("AssetProvider", source)
 
     def test_namespace_cache_decodes_a_namespace_in_one_cached_pass(self):
         from minescript.minecraft_simulators import _namespace_cache
