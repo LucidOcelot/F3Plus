@@ -3,8 +3,11 @@ from __future__ import annotations
 import unittest
 from pathlib import Path
 
+from minescript.minecraft_art import _TEXTURES
+from minescript.semantic_icons_extra import SVG_KEYS as EXTRA_SVG_KEYS
 from minescript.tool_guides import make_guide, tool_art_key
 from minescript.tool_registry import BY_ID, LEGACY_TO_CANONICAL, TOOLS
+from minescript.vector_icons import SVG_KEYS as BASE_SVG_KEYS
 
 ROOT = Path(__file__).resolve().parents[1]
 
@@ -21,16 +24,24 @@ class CanonicalUiDepthTests(unittest.TestCase):
         ):
             self.assertIn(required, BY_ID)
 
-    def test_task_specific_icons_cover_major_workbench_families(self):
+    def test_every_canonical_workbench_has_semantic_art_with_recovery_or_svg_fallback(self):
+        keys = {tool.id: tool_art_key(tool) for tool in TOOLS}
+        supported = set(_TEXTURES) | set(EXTRA_SVG_KEYS) | set(BASE_SVG_KEYS)
+        missing = {tool_id: key for tool_id, key in keys.items() if key not in supported}
+        self.assertFalse(missing, missing)
+        # The canonical list must not collapse back to a handful of repeated family glyphs.
+        self.assertGreaterEqual(len(set(keys.values())), 24)
         cases = {
-            "world.spawners": "spawner", "world.biomes": "biome", "world.ores": "ore",
-            "navigation.portals": "portal", "build.planner": "building",
-            "build.farming": "farm", "simulation.rng": "enchant",
-            "simulation.loot": "loot", "simulation.mechanics": "brewing",
-            "villagers.explorer": "villager",
+            "automation.actions": "actions", "automation.travel": "travel", "automation.mining": "mining",
+            "automation.macro_studio": "macro", "navigation.position": "position", "navigation.coordinates": "coordinates",
+            "navigation.portals": "portal", "world.seed_recovery": "seed_recovery", "world.slime": "slime",
+            "world.spawners": "spawner", "world.biomes": "biome", "world.ores": "ore", "world.area": "local_area",
+            "world.analysis": "world_analysis", "world.profiles": "profiles", "build.technical": "technical",
+            "build.resources": "resources", "build.recipes": "recipes", "simulation.generation": "generation",
+            "utilities.version": "version", "utilities.settings": "settings", "utilities.results": "history",
+            "utilities.diagnostics": "diagnostics",
         }
-        for tool_id, expected in cases.items():
-            self.assertEqual(tool_art_key(BY_ID[tool_id]), expected, tool_id)
+        for tool_id, expected in cases.items(): self.assertEqual(tool_art_key(BY_ID[tool_id]), expected, tool_id)
 
     def test_guides_explain_operation_selection_and_limits(self):
         guide = make_guide(BY_ID["world.spawners"])
