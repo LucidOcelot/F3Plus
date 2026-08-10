@@ -101,7 +101,7 @@ class FullRelease254Audit(unittest.TestCase):
         self.assertIn('"Data source"', source)
         self.assertIn('"Seed", "World save"', source)
         self.assertNotIn("active calculation input", source)
-        self.assertNotIn("EXPECTED OUTPUT", source)
+        self.assertIn('label.setText("RESULT")', source)
 
     def test_no_new_runtime_monkeypatch_layer(self):
         for relative in ("minescript/app25.py", "minescript/operation_dialog25.py", "minescript/minecraft_art25.py", "minescript/launch_contract.py"):
