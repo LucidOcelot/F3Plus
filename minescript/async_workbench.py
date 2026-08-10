@@ -31,18 +31,18 @@ class OperationDialog(_OperationDialog):
         """Use the dedicated surface even when launched by a historical operation ID."""
         owner = self.parent(); owner_module = type(owner).__module__ if owner is not None else ""; mode_name = self.mode.name if self.mode is not None else ""
         # Nested operation panels intentionally remain inside their dedicated parent.
-        if owner is not None and owner_module not in {"minescript.simulation_workbenches", "minescript.villager_workbench"}:
+        if owner is not None and owner_module not in {"minescript.simulation_workbenches", "minescript.villager_workbench", "minescript.dedicated_workbenches25"}:
             if self.tool.id == "simulation.rng":
-                from .simulation_workbenches import RngEnchantingDialog
+                from .dedicated_workbenches25 import RngEnchantingDialog
                 RngEnchantingDialog(owner, self.executor, self.tool).exec(); return QDialog.Rejected
             if self.tool.id == "simulation.loot":
-                from .async_loot_workbench import LootWorkbenchDialog
+                from .dedicated_workbenches25 import LootWorkbenchDialog
                 LootWorkbenchDialog(owner, mode_name or "Loot Table Simulator").exec(); return QDialog.Rejected
             if self.tool.id == "simulation.mechanics":
-                from .simulation_workbenches import MechanicsLabDialog
+                from .dedicated_workbenches25 import MechanicsLabDialog
                 MechanicsLabDialog(owner).exec(); return QDialog.Rejected
             if self.tool.id == "villagers.explorer":
-                from .villager_workbench import VillagerExplorerDialog
+                from .dedicated_workbenches25 import VillagerExplorerDialog
                 profession = mode_name.lower() if self.mode is not None and self.mode.legacy is not None and self.mode.legacy.submenu == "Professions" else None
                 VillagerExplorerDialog(owner, profession=profession, mode=mode_name or "Trade Browser").exec(); return QDialog.Rejected
         return super().exec()
@@ -60,7 +60,10 @@ class OperationDialog(_OperationDialog):
                 label = self.form.labelForField(editor)
                 if label is not None: label.hide()
                 editor.hide()
-        self.location_panel = LocationInput(self.parent(), self); self.form.insertRow(0, "", self.location_panel)
+        # QFormLayout's single-widget overload spans both columns. Insert the panel in
+        # its final ownership position immediately; removing/reinserting an owned row
+        # caused a native Qt use-after-free on macOS during repeated dialog creation.
+        self.location_panel = LocationInput(self.parent(), self); self.form.insertRow(0, self.location_panel)
         self.note.setText("Choose the search center above, then set only the operation-specific limits/options below. F3+ converts the center to the coordinate form required by the underlying calculation.")
 
     def values(self):
@@ -129,6 +132,7 @@ class OperationDialog(_OperationDialog):
         name = getattr(self._job_spec, "name", "Operation"); self._reset_job_ui(); box = QMessageBox(QMessageBox.Warning, name, message, parent=self); box.setDetailedText(detail); box.exec()
 
     def _job_cancelled(self): self._reset_job_ui(); self.note.setText("Operation cancelled. Inputs were preserved so you can adjust them and run again.")
+
     def closeEvent(self, event):
         if self._job is not None: self._job.cancel()
         super().closeEvent(event)
