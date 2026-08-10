@@ -109,8 +109,52 @@ def fields_for(spec):
             ]
         if name == "Loop Detection":
             return [
-                _recorded_points(),
+                ("points", "Path points (x,y,z; ...)", "0,64,0;20,64,0;20,64,20;0,64,20;1,64,1", "text"),
                 ("epsilon", "Revisit tolerance (blocks)", 4.0, "float"),
             ]
+
+    if top == "Calculators" and sub == "Shapes":
+        radius = ("radius", "Radius (blocks)", 8, "int")
+        height = ("height", "Height (blocks)", 12, "int")
+        if name in {"Circle", "Filled Circle", "Sphere", "Hollow Sphere", "Dome", "Hexagon", "Octagon", "Diamond", "Arch"}:
+            return [radius]
+        if name in {"Cylinder", "Cone", "Pyramid", "Double Helix"}:
+            return [radius, height]
+        if name in {"Spiral", "Helix"}:
+            return [radius, height, ("secondary", "Turns", 2, "int")]
+        if name == "Ellipse":
+            return [radius, ("secondary", "Second radius (blocks)", 5, "int")]
+        if name == "Rounded Rectangle":
+            return [radius, ("secondary", "Straight section (blocks)", 5, "int")]
+
+    if top == "Calculators" and sub == "Build":
+        width = ("width", "Width (blocks)", 16, "int")
+        length = ("length", "Length (blocks)", 20, "int")
+        height = ("height", "Height (blocks)", 8, "int")
+        spacing = ("spacing", "Spacing (blocks)", 4, "int")
+        if name in {"Area", "Perimeter", "Foundation Planner"}:
+            return [width, length]
+        if name in {"Volume", "Surface Area", "Block Count", "Stacks", "Shulkers", "Double Chests"}:
+            return [width, length, height]
+        if name == "Stair Calculator":
+            return [height, ("spacing", "Blocks forward per step", 4, "int")]
+        if name == "Spiral Staircase Planner":
+            return [width, height, ("spacing", "Steps per turn", 4, "int")]
+        if name == "Catenary Calculator":
+            return [length, height, ("sag", "Sag (blocks)", 4.0, "float")]
+        if name == "Roof Pitch":
+            return [width, height]
+        if name in {"Wall Segments", "Bridge Span"}:
+            return [width, length, spacing] if name == "Wall Segments" else [length, spacing]
+        if name in {"Grid", "Lighting Grid", "Pillar Spacing", "Road Planner", "Crop Layout"}:
+            return [width, length, spacing]
+        if name == "Gradient Ratio":
+            return [length, height]
+        if name == "Chunk Grid Builder":
+            return [width, length]
+        if name == "Circle Layer Export":
+            return [("width", "Circle radius (blocks)", 16, "int")]
+        if name == "Beacon Offset":
+            return [width, length, ("height", "Beacon tier (1-4)", 4, "int")]
 
     return None
