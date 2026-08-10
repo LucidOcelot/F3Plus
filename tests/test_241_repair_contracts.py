@@ -29,9 +29,11 @@ class RepairArchitectureContracts(unittest.TestCase):
     def test_public_workbench_exports_responsive_controllers(self):
         source = (ROOT / "minescript" / "workbenches.py").read_text(encoding="utf-8")
         explained = (ROOT / "minescript" / "operation_dialog25.py").read_text(encoding="utf-8")
+        dedicated = (ROOT / "minescript" / "dedicated_workbenches25.py").read_text(encoding="utf-8")
         self.assertIn("from .operation_dialog25 import OperationDialog", source)
+        self.assertIn("from .dedicated_workbenches25 import", source)
         self.assertIn("from .async_workbench import OperationDialog as _AsyncOperationDialog", explained)
-        self.assertIn("from .async_loot_workbench import LootWorkbenchDialog", source)
+        self.assertIn("from .async_loot_workbench import LootWorkbenchDialog", dedicated)
 
     def test_stable_channel_is_default_and_preview_is_explicit(self):
         old = os.environ.pop("F3PLUS_UPDATE_CHANNEL", None)
