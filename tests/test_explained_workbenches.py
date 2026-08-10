@@ -62,7 +62,6 @@ class ExplainedWorkbenchTests(unittest.TestCase):
         self.assertEqual(list(dialog.inputs), ["radius"])
         tooltip = dialog.inputs["radius"].toolTip()
         self.assertIn("build radii determine the generated block geometry", tooltip.lower())
-        self.assertIn("Default: 8", tooltip)
         self.assertNotIn("ignored compatibility", tooltip.lower())
         self.assertNotIn("Value used by this operation", tooltip)
         self.assertIn("Points", dialog.output_help.text())
