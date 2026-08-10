@@ -13,7 +13,6 @@ from minescript.feature_executor import FeatureExecutor
 from minescript.search_policy import run_until_found
 from minescript.villager_reference import complete_reference
 from minescript.villagers import baseline_trades
-from minescript.workbench_forms import _operation_family
 
 
 class RestoredWorkbenchRegressionTests(TestCase):
@@ -66,10 +65,19 @@ class RestoredWorkbenchRegressionTests(TestCase):
         self.assertIn((5, "diamond_chestplate"), armorer)
 
     def test_ore_distribution_is_grouped_as_analysis_not_buried_other(self):
+        try:
+            from minescript.workbench_forms import _operation_family
+        except ImportError as exc:
+            if "libEGL" in str(exc): self.skipTest(f"Qt GUI runtime unavailable: {exc}")
+            raise
         self.assertEqual(_operation_family("Ore Distribution"), "Analysis & Distribution")
 
     def test_public_workbench_routes_loot_to_rich_canonical_explorer(self):
-        from minescript.workbenches import LootWorkbenchDialog
+        try:
+            from minescript.workbenches import LootWorkbenchDialog
+        except ImportError as exc:
+            if "libEGL" in str(exc): self.skipTest(f"Qt GUI runtime unavailable: {exc}")
+            raise
         self.assertEqual(LootWorkbenchDialog.__module__, "minescript.loot_workbench")
 
     def test_namespace_cache_decodes_a_namespace_in_one_cached_pass(self):
