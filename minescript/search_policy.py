@@ -77,7 +77,7 @@ def add_fields(spec, fields):
 def terminal_unavailable(result) -> bool:
     if str(getattr(result, "status", "")).lower() == "unavailable": return True
     data = getattr(result, "data", {}) or {}
-    return isinstance(data, dict) and (data.get("available") is False or data.get("requires_generated_world") or data.get("requires_seed_worldgen"))
+    return isinstance(data, dict) and data.get("available") is False
 
 
 def _nonempty(value: Any) -> bool:
@@ -142,11 +142,13 @@ def run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[i
     if ignore:
         effective_max = None; limit_reason = "Configured maximum radius/generation limits are ignored for this run. The search continues until a match, backend error, or internal runaway-loop guard."
     else: effective_max, limit_reason = exact_regeneration_cap(spec, values, configured_max)
-    last = None; found_radius = None; attempts = 0; current = start; safety_stop = False
+    last = None; found_radius = None; attempts = 0; current = start; last_searched = None; safety_stop = False; backend_unavailable = False
     while True:
         if attempts >= PROCESS_SAFETY_ATTEMPTS: safety_stop = True; break
-        attempts += 1; last = execute_at_radius(current)
-        if terminal_unavailable(last): break
+        candidate = execute_at_radius(current)
+        if terminal_unavailable(candidate):
+            last = candidate; backend_unavailable = True; break
+        last = candidate; attempts += 1; last_searched = current
         if has_match(spec, getattr(last, "data", {}) or {}): found_radius = current; break
         if not ignore and effective_max is not None and current >= effective_max: break
         next_radius = current + step
@@ -154,8 +156,18 @@ def run_until_found(spec, values: dict[str, Any], execute_at_radius: Callable[[i
             next_radius = min(effective_max, next_radius)
             if next_radius == current: break
         current = next_radius
-    summary = {"mode": "Search until found", "unit": unit(spec), "start_radius": start, "radius_step": step, "configured_maximum_radius": configured_max, "ignore_maximum_limit": ignore, "effective_maximum_radius": effective_max, "attempts": attempts, "last_radius_searched": current, "found": found_radius is not None, "found_radius": found_radius}
+    summary = {
+        "mode": "Search until found", "unit": unit(spec), "start_radius": start,
+        "radius_step": step, "configured_maximum_radius": configured_max,
+        "ignore_maximum_limit": ignore, "effective_maximum_radius": effective_max,
+        "attempts": attempts, "last_radius_searched": last_searched,
+        "found": found_radius is not None, "found_radius": found_radius,
+    }
     if limit_reason: summary["limit_note"] = limit_reason
-    if safety_stop: summary["process_safety_stop"] = f"Stopped after {PROCESS_SAFETY_ATTEMPTS:,} expansion attempts to prevent a non-terminating process."
-    elif found_radius is None and last is not None and not terminal_unavailable(last): summary["result"] = "No matching target was found before the configured maximum radius." if not ignore else "No match was found before the backend ended the search."
+    if backend_unavailable:
+        summary["stop_reason"] = "Search did not start because the required backend/data source is unavailable. Fix the reported prerequisite and run again."
+    elif safety_stop:
+        summary["process_safety_stop"] = f"Stopped after {PROCESS_SAFETY_ATTEMPTS:,} expansion attempts to prevent a non-terminating process."
+    elif found_radius is None:
+        summary["result"] = "No matching target was found before the configured maximum radius." if not ignore else "No match was found before the backend ended the search."
     return last, summary
