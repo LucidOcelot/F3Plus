@@ -9,7 +9,7 @@ os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 GUI_IMPORT_ERROR = None
 try:
     from PySide6.QtWidgets import QApplication
-    from minescript.workbench_forms import OperationDialog
+    from minescript.workbenches import OperationDialog
 except ImportError as exc:
     GUI_IMPORT_ERROR = exc
     QApplication = OperationDialog = None
@@ -31,12 +31,13 @@ class WorkbenchNavigationTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_world_analysis_can_find_ore_distribution_without_scanning_flat_combo(self):
-        dialog = OperationDialog(BY_ID["world.analysis"], FeatureExecutor(), _Settings())
+    def test_ore_explorer_can_find_ore_distribution_without_scanning_unrelated_analysis(self):
+        dialog = OperationDialog(BY_ID["world.ores"], FeatureExecutor(), _Settings())
         dialog.operation_search.setText("ore distribution")
         names = [dialog.mode_list.item(i).text() for i in range(dialog.mode_list.count())]
         self.assertIn("Ore Distribution", names)
         self.assertLessEqual(sum(1 for name in names if name and not name.isupper()), 2)
+        self.assertIn("ORE", dialog.windowTitle().upper())
         dialog.close()
 
 
