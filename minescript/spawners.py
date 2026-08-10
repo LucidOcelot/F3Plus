@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Generated-world spawner inspection.
 
-This is a normal domain service.  It never rewrites FeatureExecutor or UI classes.
+This is a normal domain service. It never rewrites FeatureExecutor or UI classes.
 """
 
 import math
@@ -27,8 +27,7 @@ def _entity_ids(block_entity: dict[str, Any]) -> list[str]:
     found: list[str] = []
     def add(value):
         text = str(value or "").strip().lower()
-        if text and text not in found:
-            found.append(text)
+        if text and text not in found: found.append(text)
     add(block_entity.get("EntityId"))
     spawn_data = block_entity.get("SpawnData") or block_entity.get("spawn_data")
     if isinstance(spawn_data, dict):
@@ -50,8 +49,7 @@ def _mob_labels(entity_ids: list[str]) -> list[str]:
     for entity_id in entity_ids:
         label = MOB_LABELS.get(entity_id)
         if label is None:
-            clean = entity_id.removeprefix("minecraft:").replace("_", " ").strip()
-            label = clean.title() if clean else "Unknown"
+            clean = entity_id.removeprefix("minecraft:").replace("_", " ").strip(); label = clean.title() if clean else "Unknown"
         if label not in labels: labels.append(label)
     return labels
 
@@ -62,16 +60,12 @@ def _region_intersects(path: Path, cx0: int, cz0: int, radius: int) -> bool:
         if len(parts) < 4 or parts[0] != "r": return True
         rx, rz = int(parts[1]), int(parts[2])
     except (TypeError, ValueError): return True
-    region_min_x, region_max_x = rx * 32, rx * 32 + 31
-    region_min_z, region_max_z = rz * 32, rz * 32 + 31
-    search_min_x, search_max_x = cx0 - radius, cx0 + radius
-    search_min_z, search_max_z = cz0 - radius, cz0 + radius
+    region_min_x, region_max_x = rx * 32, rx * 32 + 31; region_min_z, region_max_z = rz * 32, rz * 32 + 31; search_min_x, search_max_x = cx0 - radius, cx0 + radius; search_min_z, search_max_z = cz0 - radius, cz0 + radius
     return not (region_max_x < search_min_x or region_min_x > search_max_x or region_max_z < search_min_z or region_min_z > search_max_z)
 
 
 def _chunk_position(nbt: dict[str, Any]) -> tuple[int, int] | None:
-    containers = [nbt]
-    level = nbt.get("Level") if isinstance(nbt, dict) else None
+    containers = [nbt]; level = nbt.get("Level") if isinstance(nbt, dict) else None
     if isinstance(level, dict): containers.append(level)
     for container in containers:
         if "xPos" in container and "zPos" in container:
@@ -82,10 +76,8 @@ def _chunk_position(nbt: dict[str, Any]) -> tuple[int, int] | None:
 
 def scan_spawners(world_path: str | Path, *, dimension: str = "overworld", center_chunk=(0, 0), radius_chunks=64):
     from .world_scan import _region_chunks, _region_dir, _walk
-    root = Path(world_path).expanduser(); region = _region_dir(root, dimension)
-    cx0, cz0 = map(int, center_chunk); radius = max(0, int(radius_chunks)); hits = []; files = chunks = 0
-    if not region.exists():
-        return {"available": False, "reason": f"No generated {dimension} region directory was found at {region}.", "hits": [], "chunks_scanned": 0}
+    root = Path(world_path).expanduser(); region = _region_dir(root, dimension); cx0, cz0 = map(int, center_chunk); radius = max(0, int(radius_chunks)); hits = []; files = chunks = 0
+    if not region.exists(): return {"available": False, "reason": f"No generated {dimension} region directory was found at {region}.", "hits": [], "chunks_scanned": 0}
     for rp in sorted(region.glob("r.*.*.mca")):
         if not _region_intersects(rp, cx0, cz0, radius): continue
         files += 1
@@ -99,9 +91,7 @@ def scan_spawners(world_path: str | Path, *, dimension: str = "overworld", cente
                 if not all(key in block_entity for key in ("x", "y", "z")): continue
                 x, y, z = int(block_entity["x"]), int(block_entity["y"]), int(block_entity["z"]); chunk = [math.floor(x/16), math.floor(z/16)]
                 if abs(chunk[0]-cx0) > radius or abs(chunk[1]-cz0) > radius: continue
-                entities = _entity_ids(block_entity) if ident in {"minecraft:mob_spawner", "mobspawner"} else []
-                kind = "Trial Spawner" if ident == "minecraft:trial_spawner" else "Vault" if ident == "minecraft:vault" else "Mob Spawner"
-                mobs = _mob_labels(entities)
+                entities = _entity_ids(block_entity) if ident in {"minecraft:mob_spawner", "mobspawner"} else []; kind = "Trial Spawner" if ident == "minecraft:trial_spawner" else "Vault" if ident == "minecraft:vault" else "Mob Spawner"; mobs = _mob_labels(entities)
                 hits.append({"spawner_kind": kind, "mobs": mobs or (["Unknown"] if kind == "Mob Spawner" else []), "position": [x, y, z], "chunk": chunk, "distance_from_reference_blocks": round(math.hypot(x-(cx0*16+8), z-(cz0*16+8)), 1), "region_file": rp.name})
     hits.sort(key=lambda row: float(row["distance_from_reference_blocks"]))
     return {"available": True, "world_path": str(root), "dimension": dimension.title(), "reference_chunk": [cx0, cz0], "radius_chunks": radius, "region_files_scanned": files, "chunks_scanned": chunks, "hits": hits}
@@ -121,14 +111,12 @@ def _matches(hit: dict[str, Any], selected: str) -> bool:
 def _clusters(hits: list[dict[str, Any]], minimum: int, distance: float) -> list[dict[str, Any]]:
     groups: dict[tuple[tuple[int, int, int], ...], list[dict[str, Any]]] = {}
     for anchor in hits:
-        ax, ay, az = anchor["position"]
-        group = [row for row in hits if math.dist((ax, ay, az), tuple(row["position"])) <= distance]
+        ax, ay, az = anchor["position"]; group = [row for row in hits if math.dist((ax, ay, az), tuple(row["position"])) <= distance]
         if len(group) < minimum: continue
         key = tuple(sorted(tuple(map(int, row["position"])) for row in group)); groups[key] = group
     rows = []
     for group in groups.values():
-        center = [sum(row["position"][axis] for row in group)/len(group) for axis in range(3)]
-        rows.append({"spawners": len(group), "approx_center": [round(v, 1) for v in center], "mob_types": sorted({mob for row in group for mob in row.get("mobs", [])}), "positions": [row["position"] for row in group]})
+        center = [sum(row["position"][axis] for row in group)/len(group) for axis in range(3)]; rows.append({"spawners": len(group), "approx_center": [round(v, 1) for v in center], "mob_types": sorted({mob for row in group for mob in row.get("mobs", [])}), "positions": [row["position"] for row in group]})
     rows.sort(key=lambda row: (-int(row["spawners"]), row["approx_center"])); return rows
 
 
@@ -151,15 +139,13 @@ def report(name: str, params: dict[str, Any], executor, dry_run: bool) -> dict[s
     selected = str(params.get("spawner_type", "All mob spawners"))
     if name == "Stronghold Silverfish": selected = "Silverfish"
     elif name == "Trial Chamber Spawners": selected = "Trial Spawner"
-    if dry_run:
-        return {"available": False, "requires_generated_world": True, "selected_spawner_type": selected, "reason": "Run against a generated Java save, or enable exact seed regeneration."}
-    from .seed_worldgen import resolve_world_source
+    if dry_run: return {"available": False, "requires_generated_world": True, "selected_spawner_type": selected, "reason": "Run against a generated Java save, or enable exact seed regeneration."}
+    from .seed_worldgen_reuse import resolve_world_source
     world, source = resolve_world_source(params, executor, default_radius=8)
     if world is None: return {**source, "selected_spawner_type": selected}
     data = scan_spawners(world, dimension=str(params.get("dimension", "overworld")).lower(), center_chunk=(int(params.get("cx", 0)), int(params.get("cz", 0))), radius_chunks=int(params.get("radius", 8)))
     if not data.get("available"): return data
-    filtered = [row for row in data["hits"] if _matches(row, selected)]
-    result = {"purpose": "Find generated spawner block entities and identify the mob encoded in their NBT when available.", "selected_spawner_type": selected, "matches_found": len(filtered), "reference_chunk": data["reference_chunk"], "radius_chunks": data["radius_chunks"], "hits": filtered, "scan_summary": {"chunks_scanned": data["chunks_scanned"], "region_files_scanned": data["region_files_scanned"], "world_source": source.get("source", "generated save")}}
+    filtered = [row for row in data["hits"] if _matches(row, selected)]; result = {"purpose": "Find generated spawner block entities and identify the mob encoded in their NBT when available.", "selected_spawner_type": selected, "matches_found": len(filtered), "reference_chunk": data["reference_chunk"], "radius_chunks": data["radius_chunks"], "hits": filtered, "scan_summary": {"chunks_scanned": data["chunks_scanned"], "region_files_scanned": data["region_files_scanned"], "world_source": source.get("source", "generated save"), "cache_reused": source.get("cache_reused", False), "reference_world_extended": source.get("reference_world_extended", False)}}
     rules = {"Double Spawner Locator": (2, 32.0), "Triple Spawner Locator": (3, 32.0), "Quad Spawner Locator": (4, 32.0), "Spawner Cluster Ranking": (2, 48.0)}
     if name in rules:
         minimum, distance = rules[name]; result["clusters"] = _clusters(filtered, minimum, distance)
