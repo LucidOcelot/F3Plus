@@ -118,7 +118,10 @@ def search_text(spec: ToolSpec, guide: ToolGuide) -> str:
 
 def tool_art_key(spec: ToolSpec) -> str:
     if spec.id.startswith("automation."): return "automation"
-    if spec.id.startswith("navigation."): return "route" if spec.id == "navigation.routes" else "map"
+    if spec.id.startswith("navigation."):
+        if spec.id == "navigation.routes": return "route"
+        if spec.id == "navigation.portals": return "portal"
+        return "map"
     if spec.id.startswith("world."):
         if spec.id == "world.spawners": return "spawner"
         if spec.id == "world.biomes": return "biome"
