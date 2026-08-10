@@ -37,7 +37,7 @@ F3+ can acquire the supported upstream release on first use and verifies the pin
 
 ## Python and runtime bootstrap
 
-F3+ 2.5.3 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
+F3+ 2.5.4 supports Python **3.11 through 3.13**. It first uses a runnable compatible local installation. If none is available, it can prepare a project-local runtime under `.runtime/` using uv and a managed CPython distribution.
 
 - **uv:** Astral Software Inc.; Apache-2.0 OR MIT
 - **CPython:** Python Software Foundation; upstream Python licensing
@@ -76,6 +76,6 @@ Zig is not bundled. If Cubiomes needs compilation and no suitable local C compil
 
 Minecraft client/server JARs, Microsoft Java runtimes, textures, logos, and other Mojang/Microsoft assets are not distributed with F3+.
 
-Where artwork is available in a local installed Minecraft Java JAR, F3+ may read those textures at runtime for the user's local interface. 2.5.3 may also search the installed JAR conservatively for an equivalent item/block texture when Mojang moved a semantic asset path. The texture bytes remain in the user's Minecraft installation and are not redistributed by F3+.
+Where artwork is available in a local installed Minecraft Java JAR, F3+ may read those textures at runtime for the user's local interface. F3+ may also search the installed JAR conservatively for an equivalent item/block texture when Mojang moved a semantic asset path. The texture bytes remain in the user's Minecraft installation and are not redistributed by F3+.
 
 When a suitable installed texture is unavailable—or when the user selects original artwork—F3+ uses first-party recolorable SVG interface artwork. Those SVGs are part of F3+ and do not embed Mojang texture files.
