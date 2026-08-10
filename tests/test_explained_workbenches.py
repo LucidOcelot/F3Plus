@@ -64,7 +64,7 @@ class ExplainedWorkbenchTests(unittest.TestCase):
         self.assertIn("build radii determine the generated block geometry", tooltip.lower())
         self.assertNotIn("ignored compatibility", tooltip.lower())
         self.assertNotIn("Value used by this operation", tooltip)
-        self.assertIn("Points", dialog.output_help.text())
+        self.assertIn("block coordinates", dialog.output_help.text().lower())
         self.assertIn("SHAPE LAYOUTS", dialog.path.text())
         dialog.close()
 
