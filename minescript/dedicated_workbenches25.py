@@ -19,6 +19,10 @@ def _help(widget, text: str) -> None:
     widget.setToolTip(text); widget.setAccessibleDescription(text)
 
 
+def _pretty(value: str) -> str:
+    return str(value).removeprefix("minecraft:").replace("_", " ").title()
+
+
 def _replace_with_seed_edit(owner, attr: str) -> SeedEdit | None:
     old = getattr(owner, attr, None)
     if old is None: return None
@@ -69,6 +73,16 @@ class RngEnchantingDialog(_RngEnchantingDialog):
         _help(self.rename, "Include a rename in this anvil operation (+1 level).")
         _help(self.rng_query, "Filter RNG/recovery tools by name.")
 
+    def _roll(self):
+        if self.enchanting is None: return
+        offers = self.enchanting.roll_offers(self.enchant_item.value(), self.shelves.value(), self.seed.value())
+        for index, offer in enumerate(offers[:3]):
+            enchants = offer.get("enchantments", [])
+            label = ", ".join(f"{_pretty(row.get('id', ''))} {row.get('level', 1)}" for row in enchants) if enchants else "No compatible enchantment in this roll"
+            required = offer.get("displayed_cost", "?"); levels = offer.get("levels_spent", index + 1); lapis = offer.get("lapis_cost", index + 1)
+            self.offer_widgets[index][0].setText(label)
+            self.offer_widgets[index][1].setText(f"Requires level {required}\nCosts {levels} level{'s' if levels != 1 else ''} + {lapis} lapis")
+
 
 class MechanicsLabDialog(_MechanicsLabDialog):
     def __init__(self, owner):
@@ -94,7 +108,7 @@ class MechanicsLabDialog(_MechanicsLabDialog):
                 label = str(key).replace("_", " ")
                 units = "health points" if key == "max_health" else ("base movement-speed attribute" if key == "movement_speed" else ("jump-strength attribute" if key == "jump_strength" else "appearance index"))
                 _help(widget, f"{editor_name} {label}: {units}.")
-        self.breed_profile.setText("Inherited stats: max health, movement speed, jump strength. Coat and markings are shown only as parent inputs; the stat summary below is the primary result.")
+        self.breed_profile.setText("Inherited stats: health, movement speed, jump strength. Coat/markings remain visible parent traits.")
 
     def _breed(self):
         if not hasattr(self, "breed_seed"): return
@@ -106,10 +120,9 @@ class MechanicsLabDialog(_MechanicsLabDialog):
         stats = result.get("stats", {}); health = stats.get("max_health", {}); speed = stats.get("movement_speed", {}); jump = stats.get("jump_strength", {})
         self.child_metric.set_value(result.get("children", "—")); self.unique_metric.set_value(f"{health.get('mean', 0):.2f}"); self.food_metric.set_value(f"{speed.get('mean', 0):.4f}")
         self.outcomes.clear()
-        labels = (("Max health", health, "HP"), ("Movement speed", speed, "attribute"), ("Jump strength", jump, "attribute"))
-        for name, row, unit in labels:
+        for name, row, unit in (("Max health", health, "HP"), ("Movement speed", speed, "attribute"), ("Jump strength", jump, "attribute")):
             self.outcomes.addItem(QListWidgetItem(f"{name}: min {row.get('minimum', 0):.4g}  •  average {row.get('mean', 0):.4g}  •  max {row.get('maximum', 0):.4g}  ({unit})"))
-        self.breed_note.set_text("These ranges come from the selected parent stats across the requested simulated offspring. A single foal can land anywhere inside the modeled distribution.")
+        self.breed_note.set_text("Expected offspring range from the selected parents and sample size.")
 
 
 class VillagerExplorerDialog(_VillagerExplorerDialog):
