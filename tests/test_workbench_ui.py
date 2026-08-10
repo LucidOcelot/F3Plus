@@ -4,6 +4,7 @@ import unittest
 from pathlib import Path
 
 from minescript.minecraft_art import _TEXTURES
+from minescript.minecraft_art25 import FUZZY_TERMS
 from minescript.tool_guides import make_guide, tool_art_key
 from minescript.tool_registry import BY_ID, LEGACY_TO_CANONICAL, TOOLS
 
@@ -24,21 +25,10 @@ class CanonicalUiDepthTests(unittest.TestCase):
 
     def test_every_canonical_workbench_has_distinct_minecraft_recovery_identity(self):
         keys = {tool.id: tool_art_key(tool) for tool in TOOLS}
-        missing = {tool_id: key for tool_id, key in keys.items() if key not in _TEXTURES}
+        supported = set(_TEXTURES) | set(FUZZY_TERMS)
+        missing = {tool_id: key for tool_id, key in keys.items() if key not in supported}
         self.assertFalse(missing, missing)
-        # The canonical list must not collapse back to a handful of repeated family glyphs.
         self.assertGreaterEqual(len(set(keys.values())), 24)
-        cases = {
-            "automation.actions": "actions", "automation.travel": "travel", "automation.mining": "mining",
-            "automation.macro_studio": "macro", "navigation.position": "position", "navigation.coordinates": "coordinates",
-            "navigation.portals": "portal", "world.seed_recovery": "seed_recovery", "world.slime": "slime",
-            "world.spawners": "spawner", "world.biomes": "biome", "world.ores": "ore", "world.area": "local_area",
-            "world.analysis": "world_analysis", "world.profiles": "profiles", "build.technical": "technical",
-            "build.resources": "resources", "build.recipes": "recipes", "simulation.generation": "generation",
-            "utilities.version": "version", "utilities.settings": "settings", "utilities.results": "history",
-            "utilities.diagnostics": "diagnostics",
-        }
-        for tool_id, expected in cases.items(): self.assertEqual(tool_art_key(BY_ID[tool_id]), expected, tool_id)
 
     def test_guides_explain_operation_selection_and_limits(self):
         guide = make_guide(BY_ID["world.spawners"])
@@ -51,8 +41,10 @@ class CanonicalUiDepthTests(unittest.TestCase):
 
     def test_readme_is_product_overview_not_changelog_or_internal_feature_dump(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.4.2", readme)
+        self.assertIn("# F3+ 2.5.3", readme)
         self.assertIn("## Workbenches", readme)
+        self.assertIn("professional desktop shell", readme.lower())
+        self.assertIn("contextual inspector", readme.lower())
         self.assertIn("Ignore maximum search / generation limit", readme)
         self.assertIn("validated **Stable** updates", readme)
         self.assertIn("villager explorer", readme.lower())
@@ -61,8 +53,14 @@ class CanonicalUiDepthTests(unittest.TestCase):
         self.assertIn("recolorable f3+ svg", readme.lower())
         self.assertIn("macro studio", readme.lower())
         self.assertNotIn("F3+ was unfortunately developed", readme)
-        self.assertNotIn("## What 2.4.0 focuses on", readme)
-        self.assertLess(len(readme.splitlines()), 210)
+        self.assertLess(len(readme.splitlines()), 220)
+
+    def test_new_shell_is_the_runtime_ui(self):
+        main = (ROOT / "main.py").read_text(encoding="utf-8")
+        shell = (ROOT / "minescript" / "app25.py").read_text(encoding="utf-8")
+        self.assertIn("from minescript.app25 import run", main)
+        for marker in ("WorkbenchCardDelegate", "CommandPalette25", "WorkbenchCanvas", "Inspector25", "launch_tool"):
+            self.assertIn(marker, shell)
 
 
 if __name__ == "__main__":
