@@ -1,12 +1,6 @@
 from __future__ import annotations
 
-"""Capture reviewable UI screenshots for the Windows CI artifact.
-
-Automated widget assertions cannot catch clipped controls, unreadable hierarchy, generic
-fallback art, or a dialog that technically exists but never paints useful content. This
-artifact therefore captures the major player-facing surfaces with the native Windows Qt
-platform plugin in addition to the normal test suite.
-"""
+"""Capture reviewable UI screenshots for the Windows CI artifact."""
 
 import os
 import sys
@@ -34,7 +28,6 @@ from minescript.result_view254 import ResultView
 from minescript.tool_registry import BY_ID
 from minescript.ui_theme import stylesheet
 from minescript.workbenches import LootWorkbenchDialog, MechanicsLabDialog, OperationDialog, RngEnchantingDialog, VillagerExplorerDialog
-
 
 OUT = Path(os.environ.get("F3PLUS_UI_ARTIFACT_DIR", "ui-artifacts"))
 OUT.mkdir(parents=True, exist_ok=True)
@@ -75,23 +68,18 @@ def select_mode(dialog: OperationDialog, name: str):
 
 
 window = F3Plus(); window.stop_hotkeys(); window.link_timer.stop(); window.settings.auto_link_minecraft = False
-
 THEMES = (("chorus", "chorus"), ("light", "light"), ("cyberpunk", "cyber"), ("minecraft", "vanilla"), ("custom", "custom"))
 for theme, label in THEMES:
     window.settings.theme = theme; app.setStyleSheet(stylesheet(theme, window.settings.custom_palette)); window.apply_theme(); capture(window, f"main-{label}", 1480, 900)
     options = OptionsDialog(window.settings, window); capture(options, f"options-{label}", 900, 760); options.deleteLater()
-
 window.settings.theme = "chorus"; app.setStyleSheet(stylesheet("chorus", window.settings.custom_palette)); window.apply_theme()
 
 build = OperationDialog(BY_ID["build.planner"], window.executor, window.settings, window, preferred_mode="Arch"); select_mode(build, "Arch"); capture(build, "workbench-build-shapes-arch", 1220, 820); build.close(); build.deleteLater()
-
 structures = OperationDialog(BY_ID["world.structures"], window.executor, window.settings, window, preferred_mode="Structure Finder"); select_mode(structures, "Structure Finder"); capture(structures, "workbench-structure-search-center", 1280, 840); structures.close(); structures.deleteLater()
-
 ores = OperationDialog(BY_ID["world.ores"], window.executor, window.settings, window, preferred_mode="Ore Distribution"); select_mode(ores, "Ore Distribution"); capture(ores, "workbench-ore-cave-explorer-seed-source", 1280, 840)
 if ores.world_source_mode is not None:
     ores.world_source_mode.setCurrentText("World save"); settle(3); capture(ores, "workbench-ore-cave-explorer-world-save-source", 1280, 840)
 ores.close(); ores.deleteLater()
-
 automation = AutomationControllerDialog(window, BY_ID["automation.actions"], window.executor, window.settings, preferred_mode="Resource Guard"); capture(automation, "workbench-automation-resource-guard", 1120, 740); automation.close(); automation.deleteLater()
 
 villagers = VillagerExplorerDialog(window, profession="librarian", mode="Librarian Browser"); villagers.show(); wait_until(lambda: getattr(villagers, "_load_job", None) is None, 10.0)
@@ -129,11 +117,19 @@ if wait_until(lambda: getattr(loot, "engine", None) is not None and getattr(loot
 capture(loot, "workbench-loot-explorer", 1460, 890); loot.close(); loot.deleteLater()
 
 village_spec = BY_NAME["Village"][0]
-map_result = SimpleNamespace(status="ok", note="Candidate fixture used only for native UI review.", data={"purpose": "Unordered structure placement candidates", "source": "CI fixture", "candidate_chunks": [[1, 2], [4, -3], [7, 5]], "count": 3})
+map_result = SimpleNamespace(status="ok", note="CI visualization fixture.", data={"purpose": "Unordered structure placement candidates", "source": "CI fixture", "candidate_chunks": [[1, 2], [4, -3], [7, 5]], "count": 3})
 result_map = ResultView(); result_map.set_result(village_spec, map_result, "chorus", window.settings.custom_palette); capture(result_map, "result-structure-scatter-map-explained", 1120, 780); result_map.deleteLater()
 
+biome_spec = BY_NAME["Biome Diversity Finder"][0]
+biome_result = SimpleNamespace(status="ok", note="CI ranked-result fixture.", data={"ranked": [{"position": [-256, -128], "distinct": 6}, {"position": [64, -192], "distinct": 5}, {"position": [192, 96], "distinct": 4}], "samples": 128, "biome_counts": {"Plains": 42, "Forest": 31, "Desert": 20, "Taiga": 18, "Savanna": 17}})
+result_biomes = ResultView(); result_biomes.set_result(biome_spec, biome_result, "chorus", window.settings.custom_palette); capture(result_biomes, "result-biome-diversity-ranked-explained", 1180, 800); result_biomes.deleteLater()
+
+cluster_spec = BY_NAME["Structure Cluster Finder"][0]
+cluster_result = SimpleNamespace(status="ok", note="CI ranked-result fixture.", data={"ranked": [{"center": [64, -96], "candidate_count": 3, "spread": 46.5}, {"center": [-160, 48], "candidate_count": 2, "spread": 31.0}], "total_candidates": 5, "radius": 256})
+result_cluster = ResultView(); result_cluster.set_result(cluster_spec, cluster_result, "chorus", window.settings.custom_palette); capture(result_cluster, "result-structure-cluster-ranked-explained", 1180, 800); result_cluster.deleteLater()
+
 ore_spec = BY_NAME["Ore Distribution"][0]
-chart_result = SimpleNamespace(status="ok", note="Generated-world fixture used only for native UI review.", data={"source": "generated-world block states", "chunks_scanned": 81, "ore_counts": {"diamond_ore": 48, "iron_ore": 730, "coal_ore": 910, "redstone_ore": 310}})
+chart_result = SimpleNamespace(status="ok", note="Generated-world CI fixture.", data={"source": "generated-world block states", "chunks_scanned": 81, "ore_counts": {"diamond_ore": 48, "iron_ore": 730, "coal_ore": 910, "redstone_ore": 310}})
 result_chart = ResultView(); result_chart.set_result(ore_spec, chart_result, "chorus", window.settings.custom_palette); capture(result_chart, "result-ore-chart-explained", 1120, 720); result_chart.deleteLater()
 
 sphere_spec = BY_NAME["Sphere"][0]
@@ -143,10 +139,10 @@ for y in range(-r, r + 1):
         for x in range(-r, r + 1):
             d = x*x + y*y + z*z
             if (r - .75) ** 2 <= d <= (r + .25) ** 2: points.append([x, y, z])
-shape_result = SimpleNamespace(status="ok", note="Layered build fixture used only for native UI review.", data={"purpose": "Discrete block sphere blueprint", "points": points, "count": len(points)})
+shape_result = SimpleNamespace(status="ok", note="Layered build CI fixture.", data={"purpose": "Discrete block sphere blueprint", "points": points, "count": len(points)})
 result_shape = ResultView(); result_shape.set_result(sphere_spec, shape_result, "chorus", window.settings.custom_palette); capture(result_shape, "result-shape-layer-blueprint", 1120, 780); result_shape.deleteLater()
 
 window.close(); window.deleteLater(); settle(4)
 files = sorted(OUT.glob("*.png"))
-if len(files) < 27: raise RuntimeError(f"Expected at least 27 UI review screenshots, created {len(files)}")
+if len(files) < 29: raise RuntimeError(f"Expected at least 29 UI review screenshots, created {len(files)}")
 print(f"Captured {len(files)} UI review screenshots in {OUT}")
