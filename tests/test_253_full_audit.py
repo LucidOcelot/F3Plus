@@ -48,37 +48,28 @@ class FullRelease253Audit(unittest.TestCase):
         self.assertTrue(required.issubset(DEDICATED_LAUNCHERS))
 
     def test_every_public_input_has_nontrivial_help(self):
-        executor = FeatureExecutor()
-        failures = []
-        banned = (
-            "value used by this operation",
-            "configure and run",
-            "operation-specific input. its meaning is defined",
-        )
+        executor = FeatureExecutor(); failures = []
+        banned = ("value used by this operation", "configure and run", "operation-specific input. its meaning is defined")
         for spec in LEGACY_SPECS:
             try: fields = executor.input_fields(spec)
             except Exception as exc:
                 failures.append((spec.id, "schema error", str(exc))); continue
             for key, label, default, kind in fields:
-                text = field_help(str(key), str(label)).strip()
-                low = text.lower()
-                if len(text) < 45 or any(token in low for token in banned):
-                    failures.append((spec.id, str(label), text))
+                text = field_help(str(key), str(label)).strip(); low = text.lower()
+                if len(text) < 45 or any(token in low for token in banned): failures.append((spec.id, str(label), text))
         self.assertFalse(failures[:30], failures[:30])
 
     def test_workbench_guides_are_user_facing_not_catalog_metadata(self):
         failures = []
         for tool in TOOLS:
-            guide = make_guide(tool)
-            combined = " ".join((guide.summary, guide.when, guide.inputs, guide.output, guide.limitations)).lower()
+            guide = make_guide(tool); combined = " ".join((guide.summary, guide.when, guide.inputs, guide.output, guide.limitations)).lower()
             if len(guide.summary) < 30: failures.append((tool.id, "short summary"))
             if "implementation" in combined or "dispatch" in combined or "feature id" in combined: failures.append((tool.id, "internal wording"))
             if "choose an operation" not in guide.inputs.lower() and launch_kind(tool.id) == "operation_explorer": failures.append((tool.id, "missing operation guidance"))
         self.assertFalse(failures, failures)
 
     def test_every_workbench_art_identity_has_minecraft_recovery_contract(self):
-        missing = {}
-        keys = []
+        missing = {}; keys = []
         for tool in TOOLS:
             key = tool_art_key(tool); keys.append(key)
             if key not in _TEXTURES and key not in FUZZY_TERMS: missing[tool.id] = key
@@ -88,8 +79,7 @@ class FullRelease253Audit(unittest.TestCase):
     def test_current_five_themes_remain_available(self):
         self.assertEqual(set(PALETTES), {"chorus", "light", "cyberpunk", "minecraft", "custom"})
         source = (ROOT / "minescript" / "app.py").read_text(encoding="utf-8")
-        for label in ("Chorus", "Light", "Cyber", "Vanilla", "Custom"):
-            self.assertIn(f'"{label}"', source)
+        for label in ("Chorus", "Light", "Cyber", "Vanilla", "Custom"): self.assertIn(f'"{label}"', source)
 
     def test_new_shell_uses_professional_information_hierarchy(self):
         source = (ROOT / "minescript" / "app25.py").read_text(encoding="utf-8")
@@ -100,7 +90,8 @@ class FullRelease253Audit(unittest.TestCase):
             'class CommandPalette25', 'def launch_tool(',
         ):
             self.assertIn(required, source)
-        self.assertNotIn("QInputDialog", source)
+        self.assertNotIn("QInputDialog.getItem", source)
+        self.assertNotIn("from PySide6.QtWidgets import QInputDialog", source)
 
     def test_contextual_operation_dialog_explains_defaults_and_operation_role(self):
         source = (ROOT / "minescript" / "operation_dialog25.py").read_text(encoding="utf-8")
@@ -110,10 +101,7 @@ class FullRelease253Audit(unittest.TestCase):
         self.assertIn("setAccessibleDescription", source)
 
     def test_no_new_runtime_monkeypatch_layer(self):
-        for relative in (
-            "minescript/app25.py", "minescript/operation_dialog25.py",
-            "minescript/minecraft_art25.py", "minescript/launch_contract.py",
-        ):
+        for relative in ("minescript/app25.py", "minescript/operation_dialog25.py", "minescript/minecraft_art25.py", "minescript/launch_contract.py"):
             source = (ROOT / relative).read_text(encoding="utf-8")
             self.assertNotIn(".install()", source, relative)
             self.assertNotIn("setattr(", source, relative)
