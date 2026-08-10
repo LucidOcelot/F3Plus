@@ -2,7 +2,7 @@ from __future__ import annotations
 
 """Qt-free, human-facing semantics for operation fields.
 
-These strings are part of the public UX contract.  A field may be inherited from a
+These strings are part of the public UX contract. A field may be inherited from a
 historical compatibility schema, but the player should never see an explanation like
 "value used by this operation" or be asked to infer units from an internal key.
 """
@@ -24,7 +24,7 @@ FIELD_HELP = {
     "origin_x": "Block X coordinate used as the operation's origin/reference point.",
     "origin_z": "Block Z coordinate used as the operation's origin/reference point.",
     "x": "Minecraft block X coordinate on the east/west axis. Positive X is east and negative X is west.",
-    "y": "Minecraft block Y coordinate on the vertical axis.",
+    "y": "Minecraft block Y coordinate on the vertical axis. Higher values are upward; lower values are deeper in the world.",
     "z": "Minecraft block Z coordinate on the north/south axis. Positive Z is south and negative Z is north.",
     "x1": "X coordinate of the first/start/current position used by the calculation.",
     "y1": "Y coordinate of the first/start/current position used by the calculation.",
@@ -133,7 +133,7 @@ def field_help(key: str, label: str = "") -> str:
     if "level" in low:
         return "Minecraft level/tier named by this field. The surrounding operation description identifies whether this means XP level, enchantment tier, beacon tier, or another mechanic level."
     if low == "x" or low.endswith(" x"): return "Minecraft X coordinate on the east/west axis. Positive is east; negative is west."
-    if low == "y" or low.endswith(" y"): return "Minecraft Y coordinate on the vertical axis."
+    if low == "y" or low.endswith(" y"): return "Minecraft Y coordinate on the vertical axis. Higher values move upward; lower values move deeper."
     if low == "z" or low.endswith(" z"): return "Minecraft Z coordinate on the north/south axis. Positive is south; negative is north."
     if "version" in low:
         return "Minecraft/data version selected for this operation. F3+ reports when the active calculation or local data source uses a different version."
