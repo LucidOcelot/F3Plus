@@ -1,22 +1,24 @@
 from __future__ import annotations
 
+import os
 import tomllib
 import unittest
 from pathlib import Path
+from unittest.mock import patch
 
 from minescript import TARGET_MINECRAFT, __version__
 from minescript.version import TARGET_MINECRAFT_ID, USER_AGENT, VERSION
 from minescript.seed_worldgen import USER_AGENT as WORLDGEN_USER_AGENT
 from minescript.runtime_deps import USER_AGENT as DEPS_USER_AGENT
 from minescript.rng_recovery import USER_AGENT as RNG_USER_AGENT
-from updater import USER_AGENT as UPDATER_USER_AGENT
+from updater import USER_AGENT as UPDATER_USER_AGENT, update_channel
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class ReleaseAudit240Tests(unittest.TestCase):
-    def test_runtime_version_is_240_everywhere_authoritative(self):
-        self.assertEqual(VERSION, "2.4.0")
+class ReleaseAudit241Tests(unittest.TestCase):
+    def test_runtime_version_is_241_everywhere_authoritative(self):
+        self.assertEqual(VERSION, "2.4.1")
         self.assertEqual(__version__, VERSION)
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         self.assertEqual(project["project"]["version"], VERSION)
@@ -26,26 +28,34 @@ class ReleaseAudit240Tests(unittest.TestCase):
         self.assertEqual(TARGET_MINECRAFT_ID, "26.3-snapshot-7")
 
     def test_download_clients_use_current_release_identity(self):
-        self.assertEqual(USER_AGENT, "F3Plus/2.4.0")
+        self.assertEqual(USER_AGENT, "F3Plus/2.4.1")
         self.assertEqual(WORLDGEN_USER_AGENT, USER_AGENT)
         self.assertEqual(DEPS_USER_AGENT, USER_AGENT)
         self.assertEqual(RNG_USER_AGENT, USER_AGENT)
-        self.assertIn("2.4.0", UPDATER_USER_AGENT)
+        self.assertIn("2.4.1", UPDATER_USER_AGENT)
         self.assertNotIn("1.16", UPDATER_USER_AGENT)
         self.assertNotIn("2.0.0", UPDATER_USER_AGENT)
 
     def test_platform_launchers_show_current_release(self):
         for relative in ("START_F3PLUS.bat", "START_F3PLUS.sh", "START_F3PLUS.command", "WINDOWS_BOOTSTRAP.ps1"):
             text = (ROOT / relative).read_text(encoding="utf-8")
-            self.assertIn("2.4.0", text, relative)
-            self.assertNotIn("2.0.0", text, relative)
+            self.assertIn("2.4.1", text, relative)
+            self.assertNotIn("2.4.0", text, relative)
+
+    def test_stable_is_default_update_channel(self):
+        with patch.dict(os.environ, {}, clear=False):
+            os.environ.pop("F3PLUS_UPDATE_CHANNEL", None)
+            self.assertEqual(update_channel(), ("stable", "stable"))
+        with patch.dict(os.environ, {"F3PLUS_UPDATE_CHANNEL": "preview"}):
+            self.assertEqual(update_channel(), ("preview", "main"))
 
     def test_public_docs_describe_current_release_and_canonical_workbenches(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         features = (ROOT / "FEATURES.md").read_text(encoding="utf-8")
         third_party = (ROOT / "THIRD_PARTY.md").read_text(encoding="utf-8")
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.4.0", readme)
+        self.assertIn("# F3+ 2.4.1", readme)
+        self.assertIn("validated **Stable** updates", readme)
         self.assertIn("# F3+ Workbench Guide", features)
         self.assertIn("3.11 through 3.13", readme)
         self.assertIn("3.11 through 3.13", third_party)
