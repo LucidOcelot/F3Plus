@@ -2,47 +2,49 @@ from __future__ import annotations
 
 """2.5 generic operation explorer.
 
-The underlying operation schemas stay canonical.  This class improves the public
-abstraction layer: every control receives operation-aware helper text, an example/default
-when useful, and the same explanation as an accessible tooltip/description.
+The underlying operation schemas stay canonical. This class improves the public
+abstraction layer: every control receives concise operation-aware helper text, an
+example/default when useful, and the same explanation as a tooltip/accessibility label.
 """
 
 from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
 
 from .async_workbench import OperationDialog as _AsyncOperationDialog
 from .field_semantics import field_help
+from .location_contract import LOCATION_KEYS
 from .ui_dialogs import make_widget
 from .workbench_forms import _operation_description
+
+
+_OUTPUT_EXPLANATIONS = {
+    "Ore Distribution": "Generated-world ore totals by ore type and Y level, chunks scanned, data source, and limitations. A labeled chart is shown when ore totals are available.",
+    "Ore Exposure Estimate": "Generated-world exposed-ore totals by ore type plus scan coverage, data source, and exposure-model limitations.",
+    "Cave Exposure Estimate": "Generated-world cave-air and cave-surface measurements, chunks scanned, data source, and tick/exposure limitations.",
+    "Ancient City Area Analysis": "Ancient City area/candidate information for the selected seed and region, with the calculation source and placement limitations clearly labeled.",
+    "Structure Finder": "Candidate chunk sets for the requested structure types, including coordinates and source/exactness information. Candidates are shown as points, not connected routes.",
+}
 
 
 def contextual_field_help(mode, key: str, label: str, default, kind: str) -> str:
     base = field_help(key, label).strip()
     operation = getattr(mode, "name", "this operation") if mode is not None else "this operation"
-    legacy = getattr(mode, "legacy", None) if mode is not None else None
-    context = _operation_description(mode) if mode is not None else ""
     label_clean = str(label or key).strip()
 
     if kind == "choice" and isinstance(default, (list, tuple)):
         options = ", ".join(str(value) for value in list(default)[:8])
-        example = f"Available choices: {options}."
+        example = f"Choices: {options}."
     elif kind == "bool":
-        example = f"Default: {'enabled' if bool(default) else 'disabled'}. Toggle it only when you want the named behavior to apply."
+        example = f"Default: {'on' if bool(default) else 'off'}."
     elif kind in {"int", "float"}:
-        example = f"Example/default: {default}."
+        example = f"Default: {default}."
     elif str(default).strip():
-        example = f"Example/default: {default}."
+        example = f"Example: {default}."
     else:
-        example = "Leave this blank only when the operation explicitly supports automatic/local-state discovery."
+        example = "Leave blank only when automatic/local discovery is supported."
 
-    # Do not repeat a full paragraph when the base explanation already names the
-    # operation-specific concept.  The context line is especially important for old
-    # compatibility fields named simply value/secondary.
-    if key in {"value", "secondary", "amount", "units", "hours", "level"} or "value" in label_clean.lower():
-        role = f"For {operation}, this control supplies “{label_clean}” to the calculation; it is not an ignored legacy placeholder."
-    else:
-        role = f"For {operation}, this is the {label_clean.lower()} input."
-    concise_context = context.rstrip(".") + "." if context else ""
-    return " ".join(part for part in (base, role, example, concise_context) if part)
+    ambiguous = key in {"value", "secondary", "amount", "units", "hours", "level"} or "value" in label_clean.lower()
+    role = f"In {operation}, “{label_clean}” is an active calculation input, not an ignored compatibility field." if ambiguous else ""
+    return " ".join(part for part in (base, role, example) if part)
 
 
 class OperationDialog(_AsyncOperationDialog):
@@ -52,19 +54,41 @@ class OperationDialog(_AsyncOperationDialog):
         widget.setToolTip(tip); widget.setAccessibleDescription(tip)
         column = QWidget(); layout = QVBoxLayout(column); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(4)
         layout.addWidget(widget)
-        hint = QLabel(tip); hint.setWordWrap(True); hint.setObjectName("Muted"); hint.setTextInteractionFlags(hint.textInteractionFlags())
-        layout.addWidget(hint)
+        hint = QLabel(tip); hint.setWordWrap(True); hint.setObjectName("Muted"); layout.addWidget(hint)
         return widget, column
 
     def _rebuild(self):
         super()._rebuild()
         if self.mode is None or self.mode.legacy is None:
             return
+
+        # Search Center is one public input, not two hidden compatibility-coordinate
+        # rows. Span it across the form so operation-specific fields remain visible.
+        if self.location_panel is not None:
+            try:
+                self.form.takeRow(self.location_panel)
+                self.form.insertRow(0, self.location_panel)
+            except Exception:
+                pass
+
         description = _operation_description(self.mode).strip()
         fields = self.executor.input_fields(self.mode.legacy)
-        if fields:
-            names = ", ".join(str(row[1]) for row in fields[:6])
-            if len(fields) > 6: names += f", and {len(fields) - 6} more"
-            self.mode_help.setText(f"{description} Inputs used by this operation: {names}.")
+        labels = []
+        location_added = False
+        for key, label, _default, _kind in fields:
+            if str(key) in LOCATION_KEYS:
+                if not location_added:
+                    labels.append("Search Center")
+                    location_added = True
+                continue
+            labels.append(str(label))
+        if labels:
+            names = ", ".join(labels[:6])
+            if len(labels) > 6: names += f", and {len(labels) - 6} more"
+            self.mode_help.setText(f"{description} Inputs: {names}.")
         else:
             self.mode_help.setText(description + " This action uses live/saved application state and does not ask for unused compatibility values.")
+
+        explained = _OUTPUT_EXPLANATIONS.get(self.mode.name)
+        if explained:
+            self.output_help.setText(explained)
