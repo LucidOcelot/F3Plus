@@ -22,18 +22,33 @@ def _help(widget, text: str) -> None:
 
 
 def _polish_enchantment_editor(editor) -> None:
-    """Give anvil enchantment controls enough room to render real labels on Windows."""
-    editor.setMinimumHeight(178)
+    """Give anvil enchantment controls enough room to render labels at Windows DPI."""
+    editor.setMinimumHeight(205)
     editor.choice.setMinimumWidth(170)
     editor.level.setMinimumWidth(72)
-    editor.list.setMinimumHeight(72)
-    editor.list.setMaximumHeight(96)
+    editor.list.setMinimumHeight(88)
+    editor.list.setMaximumHeight(112)
+
+
+def _polish_anvil_grid(left_editor) -> None:
+    """Reserve distinct rows for enchantments and prior-work controls."""
+    slots = left_editor.parentWidget()
+    if slots is None: return
+    slots.setMinimumHeight(390)
+    layout = slots.layout()
+    if layout is None: return
+    try:
+        layout.setRowMinimumHeight(2, 210)
+        layout.setRowMinimumHeight(3, 42)
+        layout.setVerticalSpacing(10)
+    except Exception:
+        pass
 
 
 class RngEnchantingDialog(_RngEnchantingDialog):
     def _engines_ready(self, payload):
         super()._engines_ready(payload)
-        _polish_enchantment_editor(self.left_enchants); _polish_enchantment_editor(self.right_enchants)
+        _polish_enchantment_editor(self.left_enchants); _polish_enchantment_editor(self.right_enchants); _polish_anvil_grid(self.left_enchants)
         _help(self.enchant_item, "Item placed into the enchanting table. The simulator filters offers to enchantments compatible with this item.")
         _help(self.shelves, "Number of valid bookshelves powering the table, from 0 to the Java Edition maximum of 15. This changes displayed enchantment levels and available offers.")
         _help(self.seed, "Reproducibility seed for the enchanting simulation only. It is not the Minecraft world seed and does not recover one.")
