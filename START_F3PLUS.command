@@ -8,7 +8,7 @@ UV="$UV_DIR/uv"
 UV_VERSION='0.12.0'
 exec > >(tee -a "$LOG") 2>&1
 
-printf 'F3+ 2.4.0 - LucidOcelot\n==================================\n\n'
+printf 'F3+ 2.4.1 - LucidOcelot\n==================================\n\n'
 echo 'Checking installation...'
 for required in launcher.py main.py requirements.txt minescript/app.py updater.py; do
   if [ ! -e "$ROOT/$required" ]; then
@@ -98,7 +98,7 @@ fi
 PYVER="$($PYTHON -c 'import sys; print(sys.version.split()[0])')"
 echo "Found Python $PYVER"
 echo 'Starting F3+ setup and launch...'
-echo 'F3+ checks GitHub for updates before loading the application; offline launch continues if the check cannot connect.'
+echo 'F3+ checks GitHub for validated Stable updates before loading the application; offline launch continues if the check cannot connect.'
 "$PYTHON" "$ROOT/launcher.py"
 RC=$?
 if [ "$RC" -ne 0 ]; then
