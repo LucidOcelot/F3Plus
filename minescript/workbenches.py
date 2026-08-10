@@ -6,7 +6,7 @@ from .result_map import ResultMapDialog, extract_coordinate_layers
 from .loot_workbench import LootWorkbenchDialog
 from .simulation_workbenches import MechanicsLabDialog, RngEnchantingDialog
 from .villager_workbench import VillagerExplorerDialog
-from .workbench_forms import OperationDialog
+from .async_workbench import OperationDialog
 
 __all__ = [
     "OperationDialog",
