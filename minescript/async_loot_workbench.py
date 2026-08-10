@@ -8,10 +8,11 @@ from PySide6.QtGui import QIcon
 from PySide6.QtWidgets import QHBoxLayout, QLabel, QProgressBar, QPushButton, QTableWidgetItem
 
 from .async_jobs import raise_if_cancelled, start_job
-from .enchantment_catalog import grouped_summary, loot_enchanted_book_enchantments
+from .enchantment_catalog import loot_enchanted_book_enchantments
+from .enchantment_widgets import EnchantmentPossibilityPanel
 from .loot_workbench import LootWorkbenchDialog as _LootWorkbenchDialog, _Icons
 from .minecraft_simulators import LootTableEngine, MinecraftJarData
-from .minecraft_widgets import ExplanationCard, SeedEdit
+from .minecraft_widgets import SeedEdit
 
 
 class LootWorkbenchDialog(_LootWorkbenchDialog):
@@ -26,7 +27,7 @@ class LootWorkbenchDialog(_LootWorkbenchDialog):
         if layout is not None: layout.replaceWidget(old_seed, self.seed)
         old_seed.hide(); old_seed.deleteLater()
 
-        self.book_enchants = ExplanationCard("Enchanted book possibilities", "")
+        self.book_enchants = EnchantmentPossibilityPanel("Enchanted book possibilities")
         possible_parent = self.possible.parentWidget(); possible_layout = possible_parent.layout() if possible_parent is not None else None
         if possible_layout is not None: possible_layout.insertWidget(possible_layout.indexOf(self.possible) + 1, self.book_enchants)
         self.book_enchants.hide()
@@ -35,7 +36,7 @@ class LootWorkbenchDialog(_LootWorkbenchDialog):
         self.activity = QProgressBar(); self.activity.setRange(0, 0); self.activity.setTextVisible(False); self.activity.setMaximumWidth(260); self.activity.hide(); row.addWidget(self.activity); row.addStretch()
         self.cancel_sim = QPushButton("Cancel simulation"); self.cancel_sim.setEnabled(False); self.cancel_sim.clicked.connect(self._cancel_simulation); row.addWidget(self.cancel_sim)
         self.layout().insertLayout(max(0, self.layout().count() - 1), row)
-        self.summary.setText("Choose a table, then choose how many rolls to simulate. Hit rate = rolls containing an item; average = copies per roll.")
+        self.summary.setText("Choose a table and number of rolls. Hit rate = rolls containing the item; average = copies per roll.")
 
     def _show_activity(self, text: str): self.activity_label.setText(text); self.activity_label.show(); self.activity.show()
     def _hide_activity(self): self.activity.hide(); self.activity_label.hide()
@@ -63,8 +64,8 @@ class LootWorkbenchDialog(_LootWorkbenchDialog):
         item = self.tables.currentItem()
         if item is None: self.book_enchants.hide(); return
         table_id = item.data(Qt.UserRole); rows = loot_enchanted_book_enchantments(self.data, table_id)
-        self.book_enchants.setVisible(bool(rows))
-        if rows: self.book_enchants.set_text(grouped_summary(rows, 14))
+        if rows: self.book_enchants.set_rows(rows)
+        else: self.book_enchants.hide()
 
     def _simulate_cancellable(self, table_id: str, pulls: int, seed: int, seed_label: str, context: dict):
         pulls = max(1, min(1_000_000, int(pulls))); rng = random.Random(int(seed)); hits = Counter(); totals = Counter(); examples = []
