@@ -27,7 +27,7 @@ STATE_FILE = ".f3plus-update.json"
 USER_AGENT = f"F3Plus-Updater/{VERSION}"
 MAX_ARCHIVE_BYTES = 80 * 1024 * 1024
 EXCLUDED_TOP_LEVEL = {".git", ".venv", ".runtime", STATE_FILE, "F3Plus_startup.log", "__pycache__", "build", "dist"}
-REQUIRED_UPDATE_FILES = ("launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml", "minescript/__init__.py", "minescript/app.py")
+REQUIRED_UPDATE_FILES = ("launcher.py", "main.py", "updater.py", "requirements.txt", "pyproject.toml", "minescript/__init__.py", "minescript/app.py", "minescript/app25.py")
 _FALSE_VALUES = {"0", "false", "no", "off", "disabled"}
 
 

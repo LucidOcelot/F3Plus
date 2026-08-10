@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-"""Console entrypoint that preserves the same updater and UI patch path as main.py."""
+"""Console entrypoint using the same update and desktop startup path as main.py."""
 
 from pathlib import Path
 import sys

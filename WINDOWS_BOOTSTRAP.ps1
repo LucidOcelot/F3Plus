@@ -21,7 +21,7 @@ function Write-Status([string]$Text = '') {
 
 function Reset-Log {
     @(
-        'F3+ 2.4.1 startup log',
+        'F3+ 2.5.3 startup log',
         ('Started: ' + (Get-Date -Format 'yyyy-MM-dd HH:mm:ss')),
         ('Folder: ' + $Root),
         ''
@@ -158,9 +158,9 @@ function Install-ManagedPython {
 
 try {
     Reset-Log
-    Write-Host 'F3+ 2.4.1 - LucidOcelot'
+    Write-Host 'F3+ 2.5.3 - LucidOcelot'
     Write-Host '==================================='; Write-Host ''; Write-Status 'Checking installation...'
-    foreach ($required in @('launcher.py','main.py','requirements.txt','minescript\app.py')) { if (-not (Test-Path (Join-Path $Root $required))) { throw 'F3+ is not fully extracted. Extract the complete ZIP first, then run START_F3PLUS.bat from the extracted F3+ folder.' } }
+    foreach ($required in @('launcher.py','main.py','requirements.txt','minescript\app.py','minescript\app25.py')) { if (-not (Test-Path (Join-Path $Root $required))) { throw 'F3+ is not fully extracted. Extract the complete ZIP first, then run START_F3PLUS.bat from the extracted F3+ folder.' } }
     $python = Find-Python; if ($null -eq $python) { $python = Install-ManagedPython }
     Write-Status ('Found Python ' + $python.Version); Write-Status ('Interpreter: ' + $python.Exe); Write-Status ''; Write-Status 'Starting F3+ setup and launch...'; Write-Status 'F3+ checks GitHub for validated Stable updates before loading the application; if GitHub is unavailable, the installed build still opens.'; Write-Status 'The first launch may install interface/input packages and can take several minutes.'; Write-Status 'This window will remain open and show progress.'; Write-Status ''
     & $python.Exe (Join-Path $Root 'launcher.py'); $rc = $LASTEXITCODE

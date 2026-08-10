@@ -2,9 +2,9 @@ from __future__ import annotations
 
 """Full canonical loot explorer UI.
 
-This is the rich pre-rewrite workflow rebuilt against the canonical simulator engine:
-installed table browsing, reachable-item inspection, context controls and repeatable
-simulation stay in one workspace without any runtime installer/monkeypatch layer.
+Installed table browsing, reachable-item inspection, context controls and repeatable
+simulation stay in one workspace. Player-facing controls explain what changes the
+simulation; raw loot JSON remains an implementation detail rather than the primary UI.
 """
 
 from PySide6.QtCore import QSize, Qt, QTimer
@@ -13,10 +13,11 @@ from PySide6.QtWidgets import (
     QAbstractItemView, QCheckBox, QComboBox, QDialog, QDialogButtonBox, QFrame,
     QGridLayout, QHBoxLayout, QHeaderView, QLabel, QLineEdit, QListWidget,
     QListWidgetItem, QPushButton, QSpinBox, QSplitter, QTableWidget,
-    QTableWidgetItem, QVBoxLayout, QWidget,
+    QTableWidgetItem, QVBoxLayout,
 )
 
 from .minecraft_simulators import LootTableEngine, MinecraftJarData, loot_category
+from .minecraft_widgets import AssetProvider
 from .pixel_art import icon_pixmap
 from .ui_theme import palette
 
@@ -31,15 +32,19 @@ def _set_headers(table: QTableWidget, headers: list[str]):
     if headers: table.horizontalHeader().setSectionResizeMode(len(headers) - 1, QHeaderView.Stretch)
 
 
+def _explain(widget, text: str):
+    widget.setToolTip(text); widget.setAccessibleDescription(text)
+
+
 class _Icons:
     def __init__(self, owner, data: MinecraftJarData):
-        self.owner = owner; self.data = data; self.colors = palette(owner.settings.theme, owner.settings.custom_palette); self.cache = {}
+        self.owner = owner; self.data = data; self.colors = palette(owner.settings.theme, owner.settings.custom_palette); self.cache = {}; self.assets = AssetProvider(data)
 
     def pixmap(self, item: str, size=26, fallback="loot"):
         key = (item, size, fallback)
         if key in self.cache: return self.cache[key]
-        clean = _clean_item(item); raw, _ = self.data.texture_bytes((f"assets/minecraft/textures/item/{clean}.png", f"assets/minecraft/textures/block/{clean}.png")); pix = QPixmap()
-        if raw and pix.loadFromData(raw): pix = pix.scaled(size, size, Qt.KeepAspectRatio, Qt.FastTransformation)
+        token = str(item or ""); token = token if token.startswith("minecraft:") else "minecraft:" + _clean_item(token)
+        pix = self.assets.icon(token, size).pixmap(QSize(size, size))
         if pix.isNull(): pix = icon_pixmap(fallback, self.colors, size)
         self.cache[key] = pix; return pix
 
@@ -55,29 +60,36 @@ class LootWorkbenchDialog(QDialog):
 
         hero = QFrame(); hero.setObjectName("ExplorerHero"); hb = QHBoxLayout(hero)
         titles = QVBoxLayout(); title = QLabel("Loot Table Explorer"); title.setObjectName("WorkspaceTitle"); titles.addWidget(title)
-        subtitle = QLabel("Browse installed vanilla loot tables, inspect recursively reachable items and run repeatable simulations without modifying Minecraft."); subtitle.setWordWrap(True); subtitle.setObjectName("Muted"); titles.addWidget(subtitle); hb.addLayout(titles, 1)
+        subtitle = QLabel("Browse installed vanilla loot tables, inspect recursively reachable items, then run reproducible simulations. Hit rate is the fraction of simulated pulls that contained an item; Mean / pull is the average item count per pull."); subtitle.setWordWrap(True); subtitle.setObjectName("Muted"); titles.addWidget(subtitle); hb.addLayout(titles, 1)
         self.source = QLabel("Loading installed Minecraft loot data…"); self.source.setObjectName("VersionChip"); hb.addWidget(self.source); root.addWidget(hero)
 
         filters = QHBoxLayout(); self.category = QComboBox(); self.category.addItem("All"); self.search = QLineEdit(); self.search.setClearButtonEnabled(True); self.search.setPlaceholderText("Search tables: chest, fishing, zombie, piglin, trial…")
         self.contextual = QCheckBox("Include context-dependent branches"); self.contextual.setChecked(True); self.killed = QCheckBox("Killed by player"); self.killed.setChecked(True)
+        _explain(self.category, "Limit the table list to a gameplay source such as chests, fishing, entity drops, archaeology, piglin bartering, or trial rewards.")
+        _explain(self.search, "Filter installed loot-table IDs by text. This does not alter the table itself or the simulation rules.")
+        _explain(self.contextual, "Keep entries that require game context F3+ cannot fully reconstruct from a standalone simulation. Disable this for a stricter context-free subset; results remain labeled as simulated observations.")
+        _explain(self.killed, "Supply the common killed-by-player loot context. This affects predicates that explicitly require a player kill; it does not force unrelated drops to succeed.")
         filters.addWidget(QLabel("Category")); filters.addWidget(self.category); filters.addWidget(self.search, 1); filters.addWidget(self.contextual); filters.addWidget(self.killed); root.addLayout(filters)
 
         split = QSplitter(Qt.Horizontal); split.setChildrenCollapsible(False); root.addWidget(split, 1)
         left = QFrame(); left.setObjectName("ExplorerRail"); lb = QVBoxLayout(left); lt = QLabel("LOOT TABLES"); lt.setObjectName("DeckLabel"); lb.addWidget(lt); self.tables = QListWidget(); self.tables.setIconSize(QSize(24, 24)); lb.addWidget(self.tables, 1); self.table_count = QLabel("Loading…"); self.table_count.setObjectName("Muted"); lb.addWidget(self.table_count); split.addWidget(left)
 
         middle = QFrame(); middle.setObjectName("ExplorerTrades"); mb = QVBoxLayout(middle); mt = QLabel("ALL POSSIBLE LOOT"); mt.setObjectName("DeckLabel"); mb.addWidget(mt); self.table_title = QLabel("Choose a loot table"); self.table_title.setObjectName("WorkspaceTitle"); self.table_title.setWordWrap(True); mb.addWidget(self.table_title)
-        explanation = QLabel("Nested loot-table references and item tags are expanded. Weight is structural/nominal; context-dependent predicates and functions are shown instead of being converted into a fake universal percentage."); explanation.setWordWrap(True); explanation.setObjectName("Muted"); mb.addWidget(explanation)
+        explanation = QLabel("Nested loot-table references and item tags are expanded. Weight is structural/nominal—not a promised final drop percentage. Pools shows how many reachable pools reference the item; Conditions and Functions count rule nodes that can change eligibility or output."); explanation.setWordWrap(True); explanation.setObjectName("Muted"); mb.addWidget(explanation)
         self.possible = QTableWidget(); _set_headers(self.possible, ["Item", "Weight", "Pool", "Count", "Conditions", "Functions"]); self.possible.setIconSize(QSize(28, 28)); mb.addWidget(self.possible, 1); split.addWidget(middle)
 
         right = QFrame(); right.setObjectName("ExplorerFilters"); rb = QVBoxLayout(right); rt = QLabel("SIMULATION"); rt.setObjectName("DeckLabel"); rb.addWidget(rt)
-        sim_help = QLabel("Run deterministic pulls from the selected table. Random-chance predicates are simulated; branches requiring real game context remain potentially eligible when the context toggle is enabled."); sim_help.setWordWrap(True); sim_help.setObjectName("Muted"); rb.addWidget(sim_help)
-        form = QGridLayout(); self.seed = QSpinBox(); self.seed.setRange(-2_000_000_000, 2_000_000_000); self.seed.setValue(12345); self.custom_pulls = QSpinBox(); self.custom_pulls.setRange(1, 1_000_000); self.custom_pulls.setValue(1000); form.addWidget(QLabel("Simulation seed"),0,0); form.addWidget(self.seed,0,1); form.addWidget(QLabel("Custom pulls"),1,0); form.addWidget(self.custom_pulls,1,1); rb.addLayout(form)
+        sim_help = QLabel("Run deterministic pulls from the selected table. The simulation seed only makes this run reproducible—it is not the Minecraft world seed. Larger pull counts reduce sampling noise but take longer."); sim_help.setWordWrap(True); sim_help.setObjectName("Muted"); rb.addWidget(sim_help)
+        form = QGridLayout(); self.seed = QSpinBox(); self.seed.setRange(-2_000_000_000, 2_000_000_000); self.seed.setValue(12345); self.custom_pulls = QSpinBox(); self.custom_pulls.setRange(1, 1_000_000); self.custom_pulls.setValue(1000)
+        _explain(self.seed, "Deterministic seed for reproducing the same loot simulation sequence. It does not select or recover a Minecraft world seed.")
+        _explain(self.custom_pulls, "Number of independent table rolls to simulate when Run custom is pressed. More pulls produce a larger statistical sample and require more computation.")
+        form.addWidget(QLabel("Simulation seed"),0,0); form.addWidget(self.seed,0,1); form.addWidget(QLabel("Custom pulls"),1,0); form.addWidget(self.custom_pulls,1,1); rb.addLayout(form)
         buttons = QHBoxLayout()
         for text, count in (("Roll once",1),("Roll 10",10),("Roll 1,000",1000)):
-            button = QPushButton(text); button.clicked.connect(lambda _=False, n=count: self.run_sim(n)); buttons.addWidget(button)
-        custom = QPushButton("Run custom"); custom.setObjectName("PrimaryButton"); custom.clicked.connect(lambda: self.run_sim(self.custom_pulls.value())); buttons.addWidget(custom); rb.addLayout(buttons)
+            button = QPushButton(text); button.setToolTip(f"Simulate exactly {count:,} independent loot-table roll{'s' if count != 1 else ''} using the current simulation seed and context."); button.clicked.connect(lambda _=False, n=count: self.run_sim(n)); buttons.addWidget(button)
+        custom = QPushButton("Run custom"); custom.setObjectName("PrimaryButton"); custom.setToolTip("Run the number of independent pulls entered above. Long runs execute in the background in the public workbench and can be cancelled safely."); custom.clicked.connect(lambda: self.run_sim(self.custom_pulls.value())); buttons.addWidget(custom); rb.addLayout(buttons)
         self.summary = QLabel("Choose a table to simulate."); self.summary.setWordWrap(True); self.summary.setObjectName("Muted"); rb.addWidget(self.summary)
-        self.stats = QTableWidget(); _set_headers(self.stats, ["Item", "Hit rate", "Mean / pull", "Total"]); self.stats.setIconSize(QSize(24,24)); rb.addWidget(self.stats,1); split.addWidget(right); split.setSizes([290, 690, 440])
+        self.stats = QTableWidget(); _set_headers(self.stats, ["Item", "Hit rate", "Mean / pull", "Total"]); self.stats.setIconSize(QSize(24,24)); self.stats.setToolTip("Hit rate = pulls containing the item ÷ total pulls. Mean / pull = total item count ÷ total pulls. Total = all copies observed in this simulation."); rb.addWidget(self.stats,1); split.addWidget(right); split.setSizes([290, 690, 440])
 
         close = QDialogButtonBox(QDialogButtonBox.Close); close.rejected.connect(self.reject); root.addWidget(close)
         self.category.currentTextChanged.connect(self.refresh_tables); self.search.textChanged.connect(self.refresh_tables); self.tables.currentItemChanged.connect(self.load_current)
@@ -106,8 +118,7 @@ class LootWorkbenchDialog(QDialog):
             if index >= 0: self.category.setCurrentIndex(index)
 
     def _category_icon(self, table_id: str):
-        category = loot_category(table_id)
-        item = "chest"
+        category = loot_category(table_id); item = "chest"
         if category == "Fishing": item = "fishing_rod"
         elif category == "Piglin bartering": item = "gold_ingot"
         elif category == "Entity drops": item = "rotten_flesh"
@@ -141,10 +152,8 @@ class LootWorkbenchDialog(QDialog):
         if self.engine is None: return
         item = self.tables.currentItem()
         if item is None: return
-        table_id = item.data(Qt.UserRole); self.summary.setText(f"Simulating {pulls:,} pulls…"); QApplication = None
+        table_id = item.data(Qt.UserRole); self.summary.setText(f"Simulating {pulls:,} pulls…")
         try:
-            from PySide6.QtWidgets import QApplication as _QApplication
-            QApplication = _QApplication; QApplication.processEvents()
             result = self.engine.simulate(table_id, pulls, self.seed.value(), {"killed_by_player": self.killed.isChecked(), "include_contextual_entries": self.contextual.isChecked()}); rows = result["stats"]; self.stats.setRowCount(len(rows))
             for r, row in enumerate(rows):
                 first = QTableWidgetItem(self.icons.icon(row["item"],24) if self.icons else QIcon(), str(row["item"]).removeprefix("minecraft:")); self.stats.setItem(r,0,first); self.stats.setItem(r,1,QTableWidgetItem(f"{row['observed_hit_rate']*100:.3f}%")); self.stats.setItem(r,2,QTableWidgetItem(f"{row['mean_items_per_pull']:.4f}")); self.stats.setItem(r,3,QTableWidgetItem(str(row["total_items"])))

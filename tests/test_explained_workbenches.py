@@ -9,7 +9,8 @@ os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 GUI_IMPORT_ERROR = None
 try:
     from PySide6.QtWidgets import QApplication
-    from minescript.workbench_forms import OperationDialog, _operation_description, _operation_group
+    from minescript.workbenches import OperationDialog
+    from minescript.workbench_forms import _operation_description, _operation_group
 except ImportError as exc:
     GUI_IMPORT_ERROR = exc
     QApplication = OperationDialog = None
@@ -56,9 +57,14 @@ class ExplainedWorkbenchTests(unittest.TestCase):
     def test_arch_is_explained_and_only_requests_radius(self):
         dialog = OperationDialog(BY_ID["build.planner"], FeatureExecutor(), _Settings(), preferred_mode="Arch")
         self.assertEqual(dialog.mode.name, "Arch")
-        self.assertIn("Generates a symmetric block arch", dialog.mode_help.text())
+        self.assertIn("upper half of a hollow block circle", dialog.mode_help.text())
+        self.assertIn("2×radius + 1", dialog.mode_help.text())
         self.assertEqual(list(dialog.inputs), ["radius"])
-        self.assertIn("Radius used by this operation", dialog.inputs["radius"].toolTip())
+        tooltip = dialog.inputs["radius"].toolTip()
+        self.assertIn("build radii determine the generated block geometry", tooltip.lower())
+        self.assertIn("Default: 8", tooltip)
+        self.assertNotIn("ignored compatibility", tooltip.lower())
+        self.assertNotIn("Value used by this operation", tooltip)
         self.assertIn("Points", dialog.output_help.text())
         self.assertIn("SHAPE LAYOUTS", dialog.path.text())
         dialog.close()

@@ -16,9 +16,9 @@ from updater import USER_AGENT as UPDATER_USER_AGENT, update_channel
 ROOT = Path(__file__).resolve().parents[1]
 
 
-class ReleaseAudit241Tests(unittest.TestCase):
-    def test_runtime_version_is_241_everywhere_authoritative(self):
-        self.assertEqual(VERSION, "2.4.1")
+class ReleaseAudit253Tests(unittest.TestCase):
+    def test_runtime_version_is_253_everywhere_authoritative(self):
+        self.assertEqual(VERSION, "2.5.3")
         self.assertEqual(__version__, VERSION)
         project = tomllib.loads((ROOT / "pyproject.toml").read_text(encoding="utf-8"))
         self.assertEqual(project["project"]["version"], VERSION)
@@ -28,19 +28,19 @@ class ReleaseAudit241Tests(unittest.TestCase):
         self.assertEqual(TARGET_MINECRAFT_ID, "26.3-snapshot-7")
 
     def test_download_clients_use_current_release_identity(self):
-        self.assertEqual(USER_AGENT, "F3Plus/2.4.1")
+        self.assertEqual(USER_AGENT, "F3Plus/2.5.3")
         self.assertEqual(WORLDGEN_USER_AGENT, USER_AGENT)
         self.assertEqual(DEPS_USER_AGENT, USER_AGENT)
         self.assertEqual(RNG_USER_AGENT, USER_AGENT)
-        self.assertIn("2.4.1", UPDATER_USER_AGENT)
+        self.assertIn("2.5.3", UPDATER_USER_AGENT)
         self.assertNotIn("1.16", UPDATER_USER_AGENT)
         self.assertNotIn("2.0.0", UPDATER_USER_AGENT)
 
     def test_platform_launchers_show_current_release(self):
         for relative in ("START_F3PLUS.bat", "START_F3PLUS.sh", "START_F3PLUS.command", "WINDOWS_BOOTSTRAP.ps1"):
             text = (ROOT / relative).read_text(encoding="utf-8")
-            self.assertIn("2.4.1", text, relative)
-            self.assertNotIn("2.4.0", text, relative)
+            self.assertIn("2.5.3", text, relative)
+            self.assertNotIn("F3+ 2.4.2", text, relative)
 
     def test_stable_is_default_update_channel(self):
         with patch.dict(os.environ, {}, clear=False):
@@ -49,18 +49,26 @@ class ReleaseAudit241Tests(unittest.TestCase):
         with patch.dict(os.environ, {"F3PLUS_UPDATE_CHANNEL": "preview"}):
             self.assertEqual(update_channel(), ("preview", "main"))
 
-    def test_public_docs_describe_current_release_and_canonical_workbenches(self):
+    def test_public_docs_describe_current_release_and_new_ui(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
         features = (ROOT / "FEATURES.md").read_text(encoding="utf-8")
         third_party = (ROOT / "THIRD_PARTY.md").read_text(encoding="utf-8")
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.4.1", readme)
+        self.assertIn("# F3+ 2.5.3", readme)
         self.assertIn("validated **Stable** updates", readme)
+        self.assertIn("professional desktop shell", readme.lower())
+        self.assertIn("contextual inspector", readme.lower())
         self.assertIn("# F3+ Workbench Guide", features)
+        self.assertIn("F3+ 2.5.3", features)
         self.assertIn("3.11 through 3.13", readme)
         self.assertIn("3.11 through 3.13", third_party)
         self.assertIn("historical feature ids", readme.lower())
         self.assertIn("compatibility aliases", features.lower())
+        self.assertIn("ore & cave explorer", readme.lower())
+        self.assertIn("search center", readme.lower())
+        self.assertIn("block blueprint", features.lower())
+        self.assertIn("virtualized", features.lower())
+        self.assertIn("recolorable f3+ svgs", readme.lower())
         self.assertIn("macro studio", readme.lower())
         self.assertIn("world profiles", readme.lower())
         self.assertIn("recipe & material explorer", readme.lower())
@@ -79,6 +87,10 @@ class ReleaseAudit241Tests(unittest.TestCase):
             text = (ROOT / relative).read_text(encoding="utf-8")
             self.assertNotIn("F3Plus/2.0.0", text, relative)
             self.assertNotIn("F3Plus/1.16.2", text, relative)
+
+    def test_main_launches_new_shell(self):
+        text = (ROOT / "main.py").read_text(encoding="utf-8")
+        self.assertIn("from minescript.app25 import run", text)
 
 
 if __name__ == "__main__":

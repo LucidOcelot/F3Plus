@@ -15,7 +15,7 @@ from .feature_engine import (
     FeatureResult,
 )
 from .version import TARGET_MINECRAFT
-from . import executor_policy, operation_fields
+from . import executor_policy, operation_fields, search_policy, seed_generation
 
 
 class FeatureExecutor(_BaseFeatureExecutor):
@@ -43,7 +43,13 @@ class FeatureExecutor(_BaseFeatureExecutor):
         spec = self.spec(feature)
         explicit = operation_fields.fields_for(spec)
         if explicit is not None:
-            return list(explicit)
+            fields = list(explicit)
+            # Explicit schemas describe operation inputs; shared world-generation and
+            # expanding-search policy is composed afterward so specializing a form can
+            # never accidentally remove exact Mojang generation or Search Until Found.
+            if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
+                fields = seed_generation.add_fields(fields)
+            return search_policy.add_fields(spec, fields)
         return executor_policy.input_fields(self, spec)
 
     def dry_run(self, feature):

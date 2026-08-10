@@ -225,7 +225,7 @@ def execute_once(executor, spec, values, dry_run=False):
         and not str(values.get("world_path", "")).strip()
         and bool(values.get("regenerate_from_seed", False))
     ):
-        from .seed_worldgen import resolve_world_source
+        from .seed_worldgen_reuse import resolve_world_source
         world, source = resolve_world_source(values, executor)
         if world is None:
             return executor._result(spec, "unavailable", {"operation": spec.name, **source})
