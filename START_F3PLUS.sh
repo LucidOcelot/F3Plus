@@ -8,12 +8,12 @@ UV_DIR="$RUNTIME/uv"
 UV="$UV_DIR/uv"
 UV_VERSION='0.12.0'
 
-echo 'F3+ 2.4.2 - LucidOcelot'
+echo 'F3+ 2.5.3 - LucidOcelot'
 echo '=================================='
 echo
 echo 'Checking installation...'
 
-for required in launcher.py main.py requirements.txt minescript/app.py updater.py; do
+for required in launcher.py main.py requirements.txt minescript/app.py minescript/app25.py updater.py; do
   if [ ! -e "$ROOT/$required" ]; then
     echo 'ERROR: F3+ is not fully extracted.'
     echo 'Extract the entire ZIP to a normal folder and try again.'
