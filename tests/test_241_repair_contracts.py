@@ -27,11 +27,10 @@ class RepairArchitectureContracts(unittest.TestCase):
         self.assertFalse((ROOT / "minescript" / "catalog_direct.py").exists())
 
     def test_public_workbench_exports_responsive_controllers(self):
-        # Source-level assertion is intentionally platform-independent. Existing
-        # Windows/macOS GUI suites import and instantiate the real Qt workbenches;
-        # Ubuntu hosted runners can lack libEGL even with QT_QPA_PLATFORM=offscreen.
         source = (ROOT / "minescript" / "workbenches.py").read_text(encoding="utf-8")
-        self.assertIn("from .async_workbench import OperationDialog", source)
+        explained = (ROOT / "minescript" / "operation_dialog25.py").read_text(encoding="utf-8")
+        self.assertIn("from .operation_dialog25 import OperationDialog", source)
+        self.assertIn("from .async_workbench import OperationDialog as _AsyncOperationDialog", explained)
         self.assertIn("from .async_loot_workbench import LootWorkbenchDialog", source)
 
     def test_stable_channel_is_default_and_preview_is_explicit(self):
