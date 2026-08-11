@@ -24,16 +24,16 @@ def add_fields(fields):
         if field[0] == "radius": out[index] = (field[0], field[1], 8, field[3])
     present = {field[0] for field in out}
     additions = [
-        ("regenerate_from_seed", "Generate vanilla chunks from seed when no save is selected", True, "bool"),
-        ("accept_minecraft_eula", "I accept the Minecraft EULA for this local server generation", False, "bool"),
-        ("worldgen_max_chunks", "Maximum exact chunks to generate", 4096, "int"),
+        ("regenerate_from_seed", "Use seed when no save folder is selected", True, "bool"),
+        ("accept_minecraft_eula", "Allow local vanilla world generation (Minecraft EULA)", False, "bool"),
+        ("worldgen_max_chunks", "Maximum chunks to generate", 4096, "int"),
     ]
     out.extend(field for field in additions if field[0] not in present)
     return out
 
 
 def execute_with_world(spec, params: dict[str, Any], executor, base_execute):
-    if spec.top != "Seed Tools" or spec.name not in SEED_REGENERATABLE or str(params.get("world_path", "")).strip() or not bool(params.get("regenerate_from_seed", False)):
+    if spec.top != "Seed Tools" or spec.name not in SEED_REGENERATABLE or str(params.get("world_path", "")).strip() or not bool(params.get("regenerate_from_seed", True)):
         return base_execute(spec, params)
     world, source = resolve_world_source(params, executor)
     if world is None:
@@ -43,10 +43,6 @@ def execute_with_world(spec, params: dict[str, Any], executor, base_execute):
     if isinstance(getattr(result, "data", None), dict):
         source = dict(source)
         if spec.name in TICK_SENSITIVE:
-            source["limitation"] = (
-                "Cave/air/exposure state is measured from a freshly generated vanilla server save. "
-                "Scheduled fluid, gravity, and other game ticks can change some air/exposure blocks after generation; "
-                "ore placement and immutable geology are separately integration-tested for exact repeatability."
-            )
+            source["limitation"] = "Freshly generated terrain can change after fluid/gravity ticks. Static geology and ore placement are not affected by that warning."
         result.data = {**result.data, "worldgen_source": source}
     return result

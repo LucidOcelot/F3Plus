@@ -49,6 +49,10 @@ def _application_icon_colors() -> dict[str, str]:
     }
 
 
+def _pretty_id(value: str) -> str:
+    return str(value).removeprefix("minecraft:").replace("_", " ").title()
+
+
 class AssetProvider:
     def __init__(self, data: MinecraftJarData):
         self.data = data
@@ -69,7 +73,6 @@ class AssetProvider:
         for member in self._members():
             if member.startswith(prefix) and member.endswith(".png"):
                 token = member[len(prefix):-4]
-                # Exclude animation frames/legacy clock-compass frames from the chooser.
                 if "/" not in token and not token.rsplit("_", 1)[-1].isdigit(): rows.add("minecraft:" + token)
         self._items = sorted(rows) or [
             "minecraft:book", "minecraft:enchanted_book", "minecraft:diamond_pickaxe",
@@ -81,7 +84,6 @@ class AssetProvider:
         return self._items
 
     def _fuzzy_member(self, token: str) -> str | None:
-        """Conservative local-JAR fallback for renamed/animated item or block art."""
         wanted = token.lower().replace("minecraft:", "")
         members = [
             member for member in self._members()
@@ -118,36 +120,44 @@ class AssetProvider:
 
 
 class ItemPicker(QFrame):
-    """Minecraft item chooser with a single selected-item slot preview."""
+    """Minecraft item dropdown with an icon preview; registry IDs stay internal."""
 
     def __init__(self, assets: AssetProvider, default: str = "minecraft:book", parent=None):
         super().__init__(parent)
         self.assets = assets; self.setObjectName("TradeStack")
         row = QHBoxLayout(self); row.setContentsMargins(8, 7, 8, 7); row.setSpacing(8)
         self.slot = QLabel(); self.slot.setFixedSize(42, 42); self.slot.setAlignment(Qt.AlignCenter); row.addWidget(self.slot)
-        self.combo = QComboBox(); self.combo.setEditable(True); self.combo.setInsertPolicy(QComboBox.NoInsert)
-        self.combo.addItems(self.assets.item_ids()); row.addWidget(self.combo, 1)
-        self.combo.currentTextChanged.connect(self._sync); self.set_value(default)
+        self.combo = QComboBox(); self.combo.setEditable(False)
+        for item_id in self.assets.item_ids():
+            self.combo.addItem(self.assets.icon(item_id, 22), _pretty_id(item_id), item_id)
+        row.addWidget(self.combo, 1)
+        self.combo.currentIndexChanged.connect(self._sync); self.set_value(default)
 
     def set_value(self, item_id: str):
-        text = str(item_id or "minecraft:book"); index = self.combo.findText(text)
-        if index < 0: self.combo.addItem(text); index = self.combo.findText(text)
-        self.combo.setCurrentIndex(index); self._sync(text)
+        wanted = str(item_id or "minecraft:book")
+        index = next((i for i in range(self.combo.count()) if self.combo.itemData(i) == wanted), -1)
+        if index < 0:
+            self.combo.addItem(self.assets.icon(wanted, 22), _pretty_id(wanted), wanted)
+            index = self.combo.count() - 1
+        self.combo.setCurrentIndex(index); self._sync(index)
 
     def value(self) -> str:
-        text = self.combo.currentText().strip(); return text if ":" in text else "minecraft:" + text
+        value = self.combo.currentData()
+        return str(value or "minecraft:book")
 
-    def _sync(self, text: str):
-        icon = self.assets.icon(text, 36); self.slot.setPixmap(icon.pixmap(QSize(36, 36)))
+    def _sync(self, _index=None):
+        item_id = self.value(); icon = self.assets.icon(item_id, 36); self.slot.setPixmap(icon.pixmap(QSize(36, 36)))
 
 
 class EnchantmentEditor(QFrame):
-    """Add/remove enchantments without exposing JSON dictionaries."""
+    """Add/remove enchantments without exposing registry IDs or JSON dictionaries."""
 
     def __init__(self, enchantments: dict[str, dict], parent=None):
         super().__init__(parent); self.enchantments = enchantments; self.setObjectName("ToolConfigCard")
         root = QVBoxLayout(self); root.setContentsMargins(8, 7, 8, 7); root.setSpacing(6)
-        row = QHBoxLayout(); self.choice = QComboBox(); self.choice.addItems(sorted(enchantments)); self.level = QSpinBox(); self.level.setRange(1, 255); add = QPushButton("Add enchantment")
+        row = QHBoxLayout(); self.choice = QComboBox()
+        for enchant_id in sorted(enchantments): self.choice.addItem(_pretty_id(enchant_id), enchant_id)
+        self.level = QSpinBox(); self.level.setRange(1, 255); add = QPushButton("Add enchantment")
         row.addWidget(self.choice, 1); row.addWidget(QLabel("Level")); row.addWidget(self.level); row.addWidget(add); root.addLayout(row)
         self.list = QListWidget(); self.list.setMaximumHeight(150); root.addWidget(self.list)
         remove = QPushButton("Remove selected"); root.addWidget(remove)
@@ -159,12 +169,12 @@ class EnchantmentEditor(QFrame):
         except Exception: return 5
 
     def _add(self):
-        enchant_id = self.choice.currentText(); level = min(self.level.value(), self._max_level(enchant_id))
+        enchant_id = str(self.choice.currentData() or self.choice.currentText()); level = min(self.level.value(), self._max_level(enchant_id))
         for row in range(self.list.count()):
             item = self.list.item(row)
             if item.data(Qt.UserRole) == enchant_id:
-                item.setData(Qt.UserRole + 1, level); item.setText(f"{enchant_id.removeprefix('minecraft:').replace('_', ' ').title()} {level}"); return
-        item = QListWidgetItem(f"{enchant_id.removeprefix('minecraft:').replace('_', ' ').title()} {level}")
+                item.setData(Qt.UserRole + 1, level); item.setText(f"{_pretty_id(enchant_id)} {level}"); return
+        item = QListWidgetItem(f"{_pretty_id(enchant_id)} {level}")
         item.setData(Qt.UserRole, enchant_id); item.setData(Qt.UserRole + 1, level); self.list.addItem(item)
 
     def _remove(self):
@@ -173,7 +183,7 @@ class EnchantmentEditor(QFrame):
     def set_values(self, values: dict[str, int]):
         self.list.clear()
         for enchant_id, level in values.items():
-            item = QListWidgetItem(f"{str(enchant_id).removeprefix('minecraft:').replace('_', ' ').title()} {int(level)}")
+            item = QListWidgetItem(f"{_pretty_id(str(enchant_id))} {int(level)}")
             item.setData(Qt.UserRole, str(enchant_id)); item.setData(Qt.UserRole + 1, int(level)); self.list.addItem(item)
 
     def values(self) -> dict[str, int]:
