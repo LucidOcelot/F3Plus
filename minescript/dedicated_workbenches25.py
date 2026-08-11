@@ -15,7 +15,6 @@ from .minecraft_widgets import EnchantmentEditor, ExplanationCard, ItemPicker, M
 from .simulation_workbenches import (
     MechanicsLabDialog as _MechanicsLabDialog,
     RngEnchantingDialog as _RngEnchantingDialog,
-    _human_traits,
     _pretty_id,
 )
 from .ux_semantics25 import DEFAULT_SEED_TEXT, grouped_enchantment_text, seed_value
@@ -25,6 +24,13 @@ from .villager_workbench import VillagerExplorerDialog as _VillagerExplorerDialo
 def _help(widget, text: str) -> None:
     if widget is None: return
     widget.setToolTip(text); widget.setAccessibleDescription(text)
+
+
+def _metric_label(card, text: str) -> None:
+    for label in card.findChildren(QLabel):
+        if label.objectName() == "MetricLabel":
+            label.setText(text)
+            return
 
 
 def _polish_enchantment_editor(editor) -> None:
@@ -112,17 +118,28 @@ class MechanicsLabDialog(_MechanicsLabDialog):
         for tabs in self.findChildren(QTabWidget):
             for index in range(tabs.count()):
                 if "Breeding" in tabs.tabText(index): tabs.setTabText(index, "Horse & Donkey Breeding")
-        self._breed()
+        _metric_label(self.child_metric, "Sample size")
+        _metric_label(self.unique_metric, "Average health")
+        _metric_label(self.food_metric, "Average speed")
+        self._configure_species(); self._breed()
         _help(self.potion, "Potion currently in the bottle slot.")
         _help(self.ingredient, "Ingredient placed in the brewing stand.")
         _help(self.existing, "Existing leather color as RGB hex; leave blank for undyed leather.")
         _help(self.water, "Water level remaining in the cauldron, 0–3.")
-        _help(self.species, "Only animals with inherited gameplay stats are simulated here.")
-        _help(self.children, "Number of offspring to sample.")
+        _help(self.species, "Horse and Donkey are shown because their inherited health, movement speed, and jump strength can be compared.")
+        _help(self.children, "Number of offspring rolls used for the displayed stat range.")
 
     def _configure_species(self):
-        super()._configure_species()
-        self.breed_profile.setText("Inherited stats: max health, movement speed, and jump strength. Horse coats/markings are also modeled.")
+        if not hasattr(self, "species") or not hasattr(self, "parent_a"): return
+        for editor_name, editor in (("Parent A", self.parent_a), ("Parent B", self.parent_b)):
+            editor.clear_fields()
+            editor.add_number("max_health", "Max health", 22.5, 15.0, 30.0, 2)
+            editor.add_number("movement_speed", "Movement speed", 0.225, 0.1125, 0.3375, 4)
+            editor.add_number("jump_strength", "Jump strength", 0.7, 0.4, 1.0, 3)
+            _help(editor.fields.get("max_health"), f"{editor_name} maximum health in health points; 2 health points = 1 heart.")
+            _help(editor.fields.get("movement_speed"), f"{editor_name} movement-speed attribute. This is an entity attribute, not blocks per second.")
+            _help(editor.fields.get("jump_strength"), f"{editor_name} jump-strength attribute. This is an entity attribute, not jump height in blocks.")
+        self.breed_profile.setText("Inherited stats only: max health, movement speed, and jump strength. Health uses points; speed and jump are entity attributes.")
 
     def _breed(self):
         if not hasattr(self, "species") or not hasattr(self, "parent_a"): return
@@ -131,10 +148,16 @@ class MechanicsLabDialog(_MechanicsLabDialog):
         except Exception as exc:
             from PySide6.QtWidgets import QMessageBox
             return QMessageBox.warning(self, "Breeding", str(exc))
-        self.child_metric.set_value(result.get("children", "—")); self.unique_metric.set_value(result.get("unique_outcomes", "—")); self.food_metric.set_value(result.get("profile", {}).get("food", "—")); self.outcomes.clear()
-        for row in result.get("most_common_outcomes", [])[:50]:
-            self.outcomes.addItem(QListWidgetItem(f"{row.get('count', 0):,} ×  {_human_traits(row.get('nbt', {}))}"))
-        self.breed_note.set_text("Most common offspring stat combinations from this sample.")
+        stats = result.get("stats", {}); health = stats.get("max_health", {}); speed = stats.get("movement_speed", {}); jump = stats.get("jump_strength", {})
+        self.child_metric.set_value(result.get("children", "—")); self.unique_metric.set_value(f"{health.get('mean', 0):.2f}"); self.food_metric.set_value(f"{speed.get('mean', 0):.4f}")
+        self.outcomes.clear()
+        for name, row, unit in (
+            ("Max health", health, "health points"),
+            ("Movement speed", speed, "entity attribute"),
+            ("Jump strength", jump, "entity attribute"),
+        ):
+            self.outcomes.addItem(QListWidgetItem(f"{name}: min {row.get('minimum', 0):.4g} • average {row.get('mean', 0):.4g} • max {row.get('maximum', 0):.4g} ({unit})"))
+        self.breed_note.set_text(f"Range across {result.get('children', 0):,} simulated {species.lower()} offspring.")
 
 
 class LootWorkbenchDialog(_AsyncLootWorkbenchDialog):
