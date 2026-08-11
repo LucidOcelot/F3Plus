@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+"""Task-first navigation and concise workbench discovery text."""
+
 from dataclasses import dataclass
 
 from .tool_registry import BY_ID, LEGACY_TO_CANONICAL, TOOLS, ToolSpec, modes_for
@@ -7,54 +9,135 @@ from .tool_registry import BY_ID, LEGACY_TO_CANONICAL, TOOLS, ToolSpec, modes_fo
 
 NAV_SECTIONS = [
     ("Home", "home"),
-    ("Automation", "automation"),
-    ("Navigation", "navigation"),
-    ("World Explorer", "seed"),
-    ("Build & Technical", "building"),
-    ("Simulation & RNG", "rng"),
-    ("Villagers", "villager"),
-    ("Utilities & Safety", "utilities"),
+    ("Play & Travel", "travel"),
+    ("Explore Worlds", "world"),
+    ("Plan & Build", "building"),
+    ("Mechanics & Trading", "mechanics"),
+    ("App & Safety", "utilities"),
 ]
 
 
-def display_name(spec: ToolSpec) -> str: return spec.name
+_SECTION_BY_PREFIX = {
+    "automation.": "Play & Travel",
+    "navigation.": "Play & Travel",
+    "world.": "Explore Worlds",
+    "build.": "Plan & Build",
+    "simulation.": "Mechanics & Trading",
+    "villagers.": "Mechanics & Trading",
+    "utilities.": "App & Safety",
+}
 
-def nav_section(spec: ToolSpec) -> str: return spec.workspace
 
-def submenu_label(spec: ToolSpec) -> str: return spec.group
+_GROUP_BY_ID = {
+    "automation.actions": "Repeat Actions",
+    "automation.travel": "Travel Automation",
+    "automation.mining": "Mining Automation",
+    "automation.farming": "Farm Automation",
+    "automation.construction": "Build Automation",
+    "automation.sequences": "Macros",
+    "automation.macro_studio": "Macros",
+    "navigation.position": "Position & Coordinates",
+    "navigation.coordinates": "Position & Coordinates",
+    "navigation.routes": "Routes & Waypoints",
+    "navigation.portals": "Portals",
+    "world.seed_recovery": "Seed Tools",
+    "world.slime": "Seed Tools",
+    "world.structures": "Find Locations",
+    "world.spawners": "Scan Generated Worlds",
+    "world.biomes": "Find Locations",
+    "world.area": "Scan Generated Worlds",
+    "world.ores": "Scan Generated Worlds",
+    "world.analysis": "Analyze Worlds",
+    "world.nether": "Find Locations",
+    "world.profiles": "Worlds & Saves",
+    "build.planner": "Build Planning",
+    "build.redstone": "Redstone & Timing",
+    "build.storage": "Storage & Logistics",
+    "build.farming": "Farms",
+    "build.technical": "Technical Layouts",
+    "build.resources": "Materials & Resources",
+    "build.recipes": "Materials & Resources",
+    "simulation.rng": "Enchanting & RNG",
+    "simulation.loot": "Loot & Drops",
+    "simulation.generation": "Generation Mechanics",
+    "simulation.mechanics": "Game Mechanics",
+    "villagers.explorer": "Villagers",
+    "utilities.version": "Minecraft Data",
+    "utilities.settings": "Settings & Controls",
+    "utilities.safety": "Settings & Controls",
+    "utilities.results": "History & Export",
+    "utilities.diagnostics": "Diagnostics",
+}
 
-def workspace_group(spec: ToolSpec) -> str: return spec.group
+
+def display_name(spec: ToolSpec) -> str:
+    return spec.name
+
+
+def nav_section(spec: ToolSpec) -> str:
+    for prefix, section in _SECTION_BY_PREFIX.items():
+        if spec.id.startswith(prefix):
+            return section
+    return "App & Safety"
+
+
+def workspace_group(spec: ToolSpec) -> str:
+    return _GROUP_BY_ID.get(spec.id, spec.group)
+
+
+def submenu_label(spec: ToolSpec) -> str:
+    return workspace_group(spec)
 
 
 def group_order(section: str, groups=()) -> list[str]:
-    ordered = []
+    if section == "Home":
+        return ["Favorites", "Recent", "Suggested"]
+    ordered: list[str] = []
     for tool in TOOLS:
-        if tool.workspace == section and tool.group not in ordered: ordered.append(tool.group)
+        if nav_section(tool) == section:
+            group = workspace_group(tool)
+            if group not in ordered:
+                ordered.append(group)
     for group in groups:
-        if group not in ordered: ordered.append(group)
-    if section == "Home": return ["Favorites", "Recent", "Suggested"]
+        if group not in ordered:
+            ordered.append(group)
     return ordered
 
 
 def _canonical_id(value: str) -> str | None:
-    if value in BY_ID: return value
+    if value in BY_ID:
+        return value
     return LEGACY_TO_CANONICAL.get(value)
 
 
 def specs_for_section(section: str, favorites=(), recent=()):
-    if section != "Home": return [tool for tool in TOOLS if tool.workspace == section]
-    out: list[ToolSpec] = []; seen: set[str] = set()
+    if section != "Home":
+        return [tool for tool in TOOLS if nav_section(tool) == section]
+
+    out: list[ToolSpec] = []
+    seen: set[str] = set()
     for raw in list(favorites) + list(recent):
         tool_id = _canonical_id(str(raw))
         if tool_id and tool_id not in seen:
-            out.append(BY_ID[tool_id]); seen.add(tool_id)
-    if out: return out
+            out.append(BY_ID[tool_id])
+            seen.add(tool_id)
+
+    if out:
+        return out
+
     for wanted in (
-        "navigation.coordinates", "world.structures", "world.ores", "build.planner",
-        "simulation.rng", "villagers.explorer", "utilities.version",
+        "navigation.coordinates",
+        "navigation.portals",
+        "world.structures",
+        "world.ores",
+        "build.planner",
+        "build.recipes",
+        "simulation.rng",
+        "villagers.explorer",
     ):
         if wanted in BY_ID:
-            out.append(BY_ID[wanted]); seen.add(wanted)
+            out.append(BY_ID[wanted])
+            seen.add(wanted)
     return out
 
 
@@ -70,49 +153,50 @@ class ToolGuide:
     tags: tuple[str, ...]
 
 
-_WHEN = {
-    "Automation": "Use this when the job involves repeated player input, guided automation, or a repeatable gameplay workflow. Link the intended Minecraft client first and keep Emergency Stop available.",
-    "Navigation": "Use this for coordinates, routes, waypoints, and portals when you want related geometry and routing operations in one place instead of hopping between calculators.",
-    "World Explorer": "Use this with a known seed or generated Java save when you want to inspect world-generation candidates, actual generated data, or larger area reports.",
-    "Build & Technical": "Use this while planning a build, redstone system, storage/logistics job, farm, or technical Minecraft layout before committing resources in-game.",
-    "Simulation & RNG": "Use this to model Minecraft mechanics or gameplay RNG. Player/gameplay RNG is kept separate from world-seed recovery.",
-    "Villagers": "Use this for one end-to-end villager workflow: browse local-version trades, compare offers, inspect professions, and plan curing, breeding, workstations, or halls.",
-    "Utilities & Safety": "Use this to manage F3+ itself: versions/data, profiles, controls, calibration, and automation safety policy.",
-}
-
-_OUTPUT = {
-    "Automation": "The selected mode either starts a safety-bounded automation routine or returns the setup/plan needed to run it.",
-    "Navigation": "Returns readable coordinates, distances, routes, waypoint operations, or portal-network results for the selected operation.",
-    "World Explorer": "Returns structured world/seed results with source/exactness notes; generated-save tools distinguish observed data from placement candidates.",
-    "Build & Technical": "Returns dimensions, counts, coordinates, timing, layout points, material requirements, or mechanic-specific planning values.",
-    "Simulation & RNG": "Returns simulator results, sequences/recovery candidates, observed statistics, or data-driven mechanic output with its source clearly identified.",
-    "Villagers": "Opens or returns the relevant trade/profession/planning view using installed-version data when available and a labeled fallback otherwise.",
-    "Utilities & Safety": "Returns configuration/status information or performs the selected local control action.",
-}
-
-_LIMITS = {
-    "Automation": "Automation is constrained by the active platform input backend, Minecraft focus state, configured safety limits, and server rules. Safe Mode remains a conservative filter rather than a permission guarantee.",
-    "Navigation": "Coordinate math is exact for the entered values; portal outcomes still depend on the actual portal/world state where the selected operation models link competition.",
-    "World Explorer": "The selected Minecraft version, active generation backend, and local-data version are reported separately. Placement candidates are not mislabeled as confirmed final generation.",
-    "Build & Technical": "Planning tools calculate from the supplied dimensions and mechanic assumptions; they do not inspect a world unless the selected mode explicitly requests generated-world data.",
-    "Simulation & RNG": "Each simulator reports whether it is using installed data, a supported exact model, or a labeled baseline/partial model. Gameplay RNG output is never presented as world-seed recovery.",
-    "Villagers": "Trade definitions and artwork are loaded independently. Installed trade data is preferred; fallback planning data is visibly non-exact for the selected Minecraft version.",
-    "Utilities & Safety": "Component availability and platform permissions can limit specific features without disabling unrelated local calculators and explorers.",
-}
+def _operation_preview(spec: ToolSpec, limit: int = 8) -> str:
+    names = [mode.name for mode in modes_for(spec)]
+    if not names:
+        return ""
+    preview = ", ".join(names[:limit])
+    if len(names) > limit:
+        preview += f", +{len(names) - limit} more"
+    return preview
 
 
 def make_guide(spec: ToolSpec, description=None, input_labels=None, output_keys=None, status="tool") -> ToolGuide:
-    modes = modes_for(spec); mode_names = [mode.name for mode in modes]; preview = ", ".join(mode_names[:6])
-    if len(mode_names) > 6: preview += f", and {len(mode_names) - 6} more"
-    inputs = "Choose an operation first. F3+ then shows only the fields required by that operation. " + (f"Available operations include {preview}." if preview else "This workbench opens its dedicated interactive surface.")
-    how = "1. Open the workbench. 2. Choose the operation you actually need. 3. Enter only the operation-specific values. 4. Run it and inspect the result/source notice. Historical favorites open the matching operation automatically."
-    tags = (spec.workspace, spec.group, f"{len(modes)} modes" if modes else "interactive")
-    return ToolGuide(title=spec.name, summary=spec.summary, when=_WHEN.get(spec.workspace, spec.summary), how=how, inputs=inputs, output=_OUTPUT.get(spec.workspace, "Returns the selected operation result."), limitations=spec.limitations or _LIMITS.get(spec.workspace, "Version and backend limits are shown with the result."), tags=tags)
+    """Return concise, workbench-specific discovery text.
+
+    The shell still consumes the older ToolGuide shape, but the strings deliberately
+    avoid generic product boilerplate. Detailed field meaning belongs on each input.
+    """
+    operations = _operation_preview(spec)
+    summary = spec.summary.strip()
+    inputs = f"Includes: {operations}." if operations else "Opens a dedicated interactive workspace."
+    limitation = spec.limitations.strip()
+    if "does not" in limitation.lower() or "never presented" in limitation.lower():
+        limitation = ""
+    return ToolGuide(
+        title=spec.name,
+        summary=summary,
+        when=summary,
+        how="",
+        inputs=inputs,
+        output="",
+        limitations=limitation,
+        tags=(nav_section(spec), workspace_group(spec)),
+    )
 
 
 def search_text(spec: ToolSpec, guide: ToolGuide) -> str:
     operations = " ".join(mode.name for mode in modes_for(spec))
-    return " ".join((spec.id, spec.name, spec.workspace, spec.group, spec.summary, guide.when, guide.inputs, guide.output, operations)).lower()
+    return " ".join((
+        spec.id,
+        spec.name,
+        nav_section(spec),
+        workspace_group(spec),
+        spec.summary,
+        operations,
+    )).lower()
 
 
 _ART_KEYS = {
