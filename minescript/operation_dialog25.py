@@ -1,8 +1,8 @@
 from __future__ import annotations
 
-"""Concise 2.5 generic operation explorer."""
+"""Generic operation explorer with concise forms and concrete input help."""
 
-from PySide6.QtWidgets import QLabel, QVBoxLayout, QWidget
+from PySide6.QtWidgets import QWidget
 
 from .async_workbench import OperationDialog as _AsyncOperationDialog
 from .field_semantics import field_help
@@ -11,52 +11,50 @@ from .workbench_forms import _operation_description
 
 
 _OUTPUT_EXPLANATIONS = {
-    "Ore Distribution": "Ore totals by type and Y level, plus chunks scanned. A chart is shown when data is available.",
-    "Ore Exposure Estimate": "Exposed ore totals by type and scan coverage.",
-    "Cave Exposure Estimate": "Cave-air and exposed-surface measurements for the scanned chunks.",
-    "Ancient City Area Analysis": "Ancient City candidates/area information for the selected seed and region.",
-    "Structure Finder": "Candidate structure locations. Map points are independent locations, not a route.",
-    "Structure Cluster Finder": "Candidate clusters with location/count information, followed by a map of the returned candidates.",
-    "Biome Diversity Finder": "Biome counts and sampled locations. Repeated equal values are summarized instead of printed as duplicate rows.",
-    "Island Finder": "Matched terrain locations and measurements from either the selected save or seed-generated chunks.",
-    "Dungeon/Pig Spawner Locator": "Saved spawner matches, search radius, and stop reason. A seed can generate the required chunks when no save is selected.",
+    "Ore Distribution": "Shows ore totals by block type and Y level for the scanned chunks, plus scan coverage and a distribution chart when multiple ore types are present.",
+    "Ore Exposure Estimate": "Shows exposed ore counts by block type and the number of chunks examined so you can compare visible mining opportunities between areas.",
+    "Cave Exposure Estimate": "Shows cave-air and exposed-surface measurements for the scanned chunks, including the coverage used to produce the totals.",
+    "Ancient City Area Analysis": "Shows returned Ancient City area candidates and their coordinates for the selected world or generated search area.",
+    "Structure Finder": "Shows candidate structure coordinates and search coverage. Each map marker is one returned location.",
+    "Structure Cluster Finder": "Shows candidate clusters, the number of matching structures in each cluster, and the coordinates used for the map.",
+    "Biome Diversity Finder": "Shows how many distinct biomes were found, biome frequencies, and the sampled coordinates used by the comparison.",
+    "Island Finder": "Shows matched terrain locations with the measurements returned by the selected save scan or generated search.",
+    "Dungeon/Pig Spawner Locator": "Shows matching spawner coordinates, the radius searched, and how many matches were found.",
 }
 
 
 def contextual_field_help(mode, key: str, label: str, default, kind: str) -> str:
     base = field_help(key, label).strip()
     if kind == "choice" and isinstance(default, (list, tuple)):
-        suffix = "Options: " + ", ".join(str(value) for value in list(default)[:6]) + "."
+        options = ", ".join(str(value) for value in list(default)[:8])
+        suffix = f"Choices: {options}."
     elif kind == "bool":
-        suffix = f"Default: {'on' if bool(default) else 'off'}."
-    elif kind in {"int", "float"}:
-        suffix = f"Default: {default}."
+        suffix = f"Default: {'enabled' if bool(default) else 'disabled'}."
+    elif kind == "int":
+        suffix = f"Enter a whole number. Default: {default}."
+    elif kind == "float":
+        suffix = f"Enter a number. Default: {default}."
     elif str(default).strip():
         suffix = f"Default: {default}."
     else:
-        suffix = "Optional."
-    if not base:
-        return suffix
-    sentences = [part.strip().rstrip(".") for part in base.split(". ") if part.strip()]
-    concise = ". ".join(sentences[:2]).rstrip(".") + "."
-    return f"{concise} {suffix}"
+        suffix = "Optional unless this operation requires it to run."
+    return f"{base} {suffix}".strip()
 
 
 class OperationDialog(_AsyncOperationDialog):
     def _field_editor(self, key: str, label: str, default, kind: str):
         widget = make_widget(kind, default)
         tip = contextual_field_help(self.mode, key, label, default, kind)
-        widget.setToolTip(tip); widget.setAccessibleDescription(tip)
-        column = QWidget(); layout = QVBoxLayout(column); layout.setContentsMargins(0, 0, 0, 0); layout.setSpacing(3)
-        layout.addWidget(widget)
-        hint = QLabel(tip); hint.setWordWrap(True); hint.setObjectName("Muted"); layout.addWidget(hint)
-        return widget, column
+        widget.setToolTip(tip)
+        widget.setAccessibleDescription(tip)
+        return widget, widget
 
     def _rebuild(self):
         super()._rebuild()
         if self.mode is None or self.mode.legacy is None:
             return
-        self.mode_help.setText(_operation_description(self.mode).strip())
+        description = _operation_description(self.mode).strip()
+        self.mode_help.setText(description)
         explained = _OUTPUT_EXPLANATIONS.get(self.mode.name)
         self.context_card.setVisible(bool(explained))
         if explained:
