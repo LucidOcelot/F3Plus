@@ -163,15 +163,15 @@ class EnchantingEngine(_BaseEnchantingEngine):
 
 
 class AnimalBreedingEngine(_BaseAnimalBreedingEngine):
-    """Only expose species where breeding changes gameplay-relevant numeric stats."""
+    """Preserve full engine compatibility while exposing a narrower stat-planning UI."""
 
-    def species(self) -> list[str]:
+    @staticmethod
+    def stat_species() -> list[str]:
         return ["Horse", "Donkey"]
 
     def profile(self, species: str) -> dict[str, Any]:
         profile = super().profile(species)
-        if species in {"Horse", "Donkey"}:
-            profile["mode"] = "horse"
+        if species in self.stat_species():
             profile["stats"] = ["Max health", "Movement speed", "Jump strength"]
         return profile
 
