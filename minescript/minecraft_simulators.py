@@ -163,11 +163,14 @@ class EnchantingEngine(_BaseEnchantingEngine):
 
 
 class AnimalBreedingEngine(_BaseAnimalBreedingEngine):
-    """Preserve full engine compatibility while exposing a narrower stat-planning UI."""
+    """Player-facing breeding model limited to inherited gameplay statistics."""
 
     @staticmethod
     def stat_species() -> list[str]:
         return ["Horse", "Donkey"]
+
+    def species(self) -> list[str]:
+        return self.stat_species()
 
     def profile(self, species: str) -> dict[str, Any]:
         profile = super().profile(species)
