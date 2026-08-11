@@ -10,6 +10,8 @@ listed here must be consumed by the corresponding handler, and every value requi
 that handler must be obtainable from the UI or from explicitly documented live state.
 """
 
+from .ux_semantics25 import DEFAULT_SEED_TEXT
+
 
 _START_FIELDS = [
     ("x1", "Start X", 0.0, "float"),
@@ -23,14 +25,14 @@ _TARGET_FIELDS = [
     ("z2", "Target Z", 100.0, "float"),
 ]
 
-_WORLD_SEED = ("seed", "Known Java world seed", 123456789, "text")
+_WORLD_SEED = ("seed", "Java world seed", DEFAULT_SEED_TEXT, "text")
 _CENTER_CHUNK = [
     ("cx", "Center chunk X", 0, "int"),
     ("cz", "Center chunk Z", 0, "int"),
 ]
 _WORLD_RADIUS = ("radius", "Analysis radius (chunks)", 64, "int")
 _DIMENSION = ("dimension", "Dimension", ["Overworld", "Nether", "End"], "choice")
-_WORLD_PATH = ("world_path", "Generated Java world/save folder", "", "text")
+_WORLD_PATH = ("world_path", "Java world/save folder (optional)", "", "text")
 
 
 def _route_stops(label: str = "Stops"):
@@ -122,8 +124,6 @@ def fields_for(spec):
                 ("epsilon", "Revisit tolerance (blocks)", 4.0, "float"),
             ]
 
-    # World Analysis historically exposed one broad form to every operation. Keep
-    # compatibility defaults internal and show only values actually read by each model.
     if top == "Seed Tools" and sub == "World Analysis":
         if name in {
             "Ore Distribution", "Ore Exposure Estimate", "Cave Exposure Estimate",
@@ -135,7 +135,7 @@ def fields_for(spec):
         if name == "Seed Comparison":
             return [
                 _WORLD_SEED,
-                ("second_seed", "Comparison world seed", 987654321, "text"),
+                ("second_seed", "Comparison world seed", DEFAULT_SEED_TEXT + "-2", "text"),
                 *_CENTER_CHUNK,
                 _WORLD_RADIUS,
             ]
