@@ -1,17 +1,13 @@
 from __future__ import annotations
 
-"""Responsive public wrapper for calculator/explorer workbenches.
-
-Long operations execute off the Qt event thread, world/search tools share a Minecraft-
-oriented center selector, and top-level launches are redirected to dedicated visual
-workbenches where one exists.
-"""
+"""Responsive public wrapper for calculator/explorer workbenches."""
 
 from PySide6.QtWidgets import QDialog, QLabel, QMessageBox, QProgressBar
 
 from .async_jobs import start_job
 from .feature_executor import MACRO_NAMES
 from .location_input import LOCATION_KEYS, LocationInput, applies_to as location_applies
+from .result_view25 import ResultView25
 from .workbench_forms import OperationDialog as _OperationDialog, _CONTROL_DELEGATES
 
 
@@ -21,6 +17,11 @@ class OperationDialog(_OperationDialog):
         self._job_spec = None
         self.location_panel = None
         super().__init__(*args, **kwargs)
+
+        old_result = self.result_view; index = self.pages.indexOf(old_result)
+        self.pages.removeWidget(old_result); old_result.deleteLater(); self.result_view = ResultView25()
+        self.pages.insertWidget(index, self.result_view)
+
         self.activity_label = QLabel("Working…"); self.activity_label.setObjectName("Muted"); self.activity_label.hide()
         self.activity = QProgressBar(); self.activity.setRange(0, 0); self.activity.setTextVisible(False); self.activity.hide()
         host = self.run_btn.parentWidget(); layout = host.layout() if host is not None else None
@@ -28,9 +29,7 @@ class OperationDialog(_OperationDialog):
             insert_at = max(0, layout.count() - 1); layout.insertWidget(insert_at, self.activity_label); layout.insertWidget(insert_at + 1, self.activity)
 
     def exec(self):
-        """Use the dedicated surface even when launched by a historical operation ID."""
         owner = self.parent(); owner_module = type(owner).__module__ if owner is not None else ""; mode_name = self.mode.name if self.mode is not None else ""
-        # Nested operation panels intentionally remain inside their dedicated parent.
         if owner is not None and owner_module not in {"minescript.simulation_workbenches", "minescript.villager_workbench", "minescript.dedicated_workbenches25"}:
             if self.tool.id == "simulation.rng":
                 from .dedicated_workbenches25 import RngEnchantingDialog
@@ -50,7 +49,7 @@ class OperationDialog(_OperationDialog):
     def _rebuild(self):
         super()._rebuild(); self.location_panel = None
         if self.mode is not None and self.mode.name == "Arch":
-            self.mode_help.setText("Generates the upper half of a hollow block circle from one radius. The finished arch is about 2×radius + 1 blocks wide and rises about radius blocks; the result is a discrete construction blueprint, not an in-world scan.")
+            self.mode_help.setText("Upper half of a hollow block circle. Width is about 2×radius + 1; height is about radius.")
         if self.mode is None or self.mode.legacy is None or not location_applies(self.mode.legacy): return
         for key in LOCATION_KEYS:
             widget = self.inputs.get(key)
@@ -60,11 +59,8 @@ class OperationDialog(_OperationDialog):
                 label = self.form.labelForField(editor)
                 if label is not None: label.hide()
                 editor.hide()
-        # QFormLayout's single-widget overload spans both columns. Insert the panel in
-        # its final ownership position immediately; removing/reinserting an owned row
-        # caused a native Qt use-after-free on macOS during repeated dialog creation.
         self.location_panel = LocationInput(self.parent(), self); self.form.insertRow(0, self.location_panel)
-        self.note.setText("Choose the search center above, then set only the operation-specific limits/options below. F3+ converts the center to the coordinate form required by the underlying calculation.")
+        self.note.setText("Choose the center, then set the search limits below.")
 
     def values(self):
         values = super().values()
@@ -82,24 +78,24 @@ class OperationDialog(_OperationDialog):
         if name in {"Current Position", "Capture Position"}:
             owner.capture_position(); pos = getattr(owner, "current_position", None)
             if pos is not None:
-                self._show_control_result(legacy, {"purpose": "Current player position captured from Minecraft.", "x": pos.x, "y": pos.y, "z": pos.z, "chunk_x": int(pos.x // 16), "chunk_z": int(pos.z // 16), "dimension": owner.settings.dimension, "source": "Live F3+C capture"})
+                self._show_control_result(legacy, {"x": pos.x, "y": pos.y, "z": pos.z, "chunk_x": int(pos.x // 16), "chunk_z": int(pos.z // 16), "dimension": owner.settings.dimension, "source": "Live F3+C capture"})
             return True
         if name == "Copy Sister Coordinates":
             q = owner._sister_position()
             if q is not None:
-                owner.copy_sister(); self._show_control_result(legacy, {"purpose": "Converted the current Overworld/Nether position using the 8:1 horizontal scale and copied it to the clipboard.", "x": q[0], "y": q[1], "z": q[2], "dimension": q[3], "copied": True})
+                owner.copy_sister(); self._show_control_result(legacy, {"x": q[0], "y": q[1], "z": q[2], "dimension": q[3], "copied": True})
             return True
         if name == "Save Sister Waypoint":
             before = set(owner.settings.waypoints); owner.save_sister_waypoint(); created = [key for key in owner.settings.waypoints if key not in before]
-            self._show_control_result(legacy, {"purpose": "Saved the converted sister coordinate as a local F3+ waypoint.", "saved": bool(created), "waypoint": created[-1] if created else None}); return True
+            self._show_control_result(legacy, {"saved": bool(created), "waypoint": created[-1] if created else None}); return True
         if name in _CONTROL_DELEGATES:
             if hasattr(owner, "run_mode"): owner.run_mode(self.mode, values)
-            self._show_control_result(legacy, {"purpose": f"Completed the {name} application action.", "action": name, "completed": True}); return True
+            self._show_control_result(legacy, {"action": name, "completed": True}); return True
         return False
 
     def _run(self):
         if self._job is not None:
-            self._job.cancel(); self.run_btn.setText("Cancelling…"); self.run_btn.setEnabled(False); self.activity_label.setText("Cancelling after the current safe checkpoint…"); return
+            self._job.cancel(); self.run_btn.setText("Cancelling…"); self.run_btn.setEnabled(False); self.activity_label.setText("Cancelling…"); return
         if self.mode is None or self.mode.legacy is None: return
         legacy = self.mode.legacy; owner = self.parent()
         try: values = self.values()
@@ -110,18 +106,18 @@ class OperationDialog(_OperationDialog):
             try:
                 from .state_workbenches import stateful_operation
                 if stateful_operation(owner, name):
-                    self._show_control_result(legacy, {"purpose": f"Completed the {name} local-state operation.", "action": name, "completed": True}); return
+                    self._show_control_result(legacy, {"action": name, "completed": True}); return
             except Exception: pass
             if name in MACRO_NAMES:
                 if hasattr(owner, "run_mode"): owner.run_mode(self.mode, values)
                 return
         self._job_spec = legacy; self.run_btn.setText("Cancel"); self.run_btn.setEnabled(True)
-        self.note.setText("Running in the background. The interface remains usable; Cancel is cooperative and stops at a safe checkpoint."); self._show_activity(f"Running {name}…")
+        self.note.setText("Running in the background. You can cancel without closing the workbench."); self._show_activity(f"Running {name}…")
         self._job = start_job(lambda: self.executor.execute(legacy, values), finished=self._job_finished, failed=self._job_failed, cancelled=self._job_cancelled)
 
     def _reset_job_ui(self):
-        self._job = None; self._job_spec = None; self._hide_activity(); self.run_btn.setEnabled(True); self.run_btn.setText("Run"); fields = bool(self.inputs) or self.location_panel is not None
-        self.note.setText("Only the inputs shown here are collected from you; legacy compatibility defaults remain internal." if fields else "This operation uses saved/live application state and does not require manual input.")
+        self._job = None; self._job_spec = None; self._hide_activity(); self.run_btn.setEnabled(True); self.run_btn.setText("Run")
+        self.note.setText("Ready.")
 
     def _job_finished(self, result):
         spec = self._job_spec; self._reset_job_ui()
@@ -131,7 +127,7 @@ class OperationDialog(_OperationDialog):
     def _job_failed(self, message: str, detail: str):
         name = getattr(self._job_spec, "name", "Operation"); self._reset_job_ui(); box = QMessageBox(QMessageBox.Warning, name, message, parent=self); box.setDetailedText(detail); box.exec()
 
-    def _job_cancelled(self): self._reset_job_ui(); self.note.setText("Operation cancelled. Inputs were preserved so you can adjust them and run again.")
+    def _job_cancelled(self): self._reset_job_ui(); self.note.setText("Cancelled.")
 
     def closeEvent(self, event):
         if self._job is not None: self._job.cancel()
