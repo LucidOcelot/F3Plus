@@ -21,7 +21,7 @@ from .simulator_engine import (
     MinecraftJarData as _BaseMinecraftJarData,
     _provider_value,
 )
-from .ux_semantics25 import enchantment_possibilities
+from .ux_semantics25 import STAT_BREEDING_SPECIES, enchantment_possibilities
 
 
 @lru_cache(maxsize=48)
@@ -88,6 +88,22 @@ def _resolve_item_tag(tags: dict[str, list[str]], tag_id: str, seen: set[str] | 
     return list(dict.fromkeys(out))
 
 
+def _has_book_enchant_function(functions: Any) -> bool:
+    if not isinstance(functions, list):
+        return False
+    for fn in functions:
+        if not isinstance(fn, dict):
+            continue
+        name = str(fn.get("function", fn.get("type", ""))).removeprefix("minecraft:")
+        if name in {"enchant_randomly", "enchant_with_levels", "set_enchantments"}:
+            return True
+        if name == "set_components":
+            components = fn.get("components")
+            if isinstance(components, dict) and any(str(key).endswith("stored_enchantments") for key in components):
+                return True
+    return False
+
+
 class LootTableEngine(_BaseLootTableEngine):
     def __init__(self, data: MinecraftJarData):
         self.data = data
@@ -102,6 +118,43 @@ class LootTableEngine(_BaseLootTableEngine):
 
     def _resolve_tag(self, tag_id: str, seen: set[str] | None = None) -> list[str]:
         return _resolve_item_tag(self.tags, tag_id, seen)
+
+    def _apply_functions(self, stacks, functions, rng):
+        out = super()._apply_functions(stacks, functions, rng)
+        if _has_book_enchant_function(functions):
+            for stack in out:
+                if stack.item in {"book", "minecraft:book"}:
+                    stack.item = "minecraft:enchanted_book"
+        return out
+
+    def possible_items(self, table_id: str):
+        rows = super().possible_items(table_id)
+        merged: dict[str, dict[str, Any]] = {}
+        for original in rows:
+            row = dict(original)
+            functions = str(row.get("functions", "")).lower()
+            if row.get("item") in {"book", "minecraft:book"} and any(
+                token in functions for token in ("enchant randomly", "enchant with levels", "set enchantments", "stored enchantments")
+            ):
+                row["item"] = "minecraft:enchanted_book"
+            key = str(row.get("item", ""))
+            if key not in merged:
+                merged[key] = row
+                continue
+            current = merged[key]
+            try:
+                current["weight"] = float(current.get("weight", 0)) + float(row.get("weight", 0))
+            except (TypeError, ValueError):
+                pass
+            for field in ("pools", "conditions", "functions"):
+                parts = [
+                    part.strip()
+                    for source in (current.get(field, ""), row.get(field, ""))
+                    for part in str(source).split(";")
+                    if part.strip()
+                ]
+                current[field] = "; ".join(dict.fromkeys(parts))
+        return sorted(merged.values(), key=lambda row: (-float(row.get("weight", 0) or 0), str(row.get("item", ""))))
 
     def roll(self, table_id: str, *, rng=None, context=None, depth: int = 0):
         rng = rng or random.Random(); context = dict(context or {})
@@ -148,6 +201,43 @@ class EnchantingEngine(_BaseEnchantingEngine):
         if self.using_baseline:
             self.treasure_enchantments.update(enchant_id for enchant_id, definition in self.enchantments.items() if isinstance(definition, dict) and definition.get("treasure_only"))
 
+    @staticmethod
+    def _supported_values(value: Any) -> list[str]:
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, (list, tuple, set)):
+            out: list[str] = []
+            for child in value:
+                out.extend(EnchantingEngine._supported_values(child))
+            return out
+        if isinstance(value, dict):
+            if "id" in value:
+                return EnchantingEngine._supported_values(value.get("id"))
+            if "tag" in value:
+                return ["#" + str(value.get("tag", "")).removeprefix("#")]
+            if "values" in value:
+                return EnchantingEngine._supported_values(value.get("values"))
+        return []
+
+    def _supported(self, definition: dict[str, Any], item_id: str) -> bool:
+        supported = definition.get("supported_items", definition.get("primary_items"))
+        if supported is None:
+            return True
+        item = str(item_id); item = item if ":" in item else "minecraft:" + item
+        values = self._supported_values(supported); saw_tag = False
+        for value in values:
+            if value.startswith("#"):
+                saw_tag = True
+                if item in _resolve_item_tag(self.tags, value):
+                    return True
+            else:
+                normalized = value if ":" in value else "minecraft:" + value
+                if normalized == item:
+                    return True
+        if saw_tag and not self.tags:
+            return True
+        return False
+
     def roll_offers(self, item_id: str, bookshelves: int = 15, seed: int = 0, enchantability: int | None = None):
         offers = super().roll_offers(item_id, bookshelves, seed, enchantability)
         for offer in offers:
@@ -167,7 +257,7 @@ class AnimalBreedingEngine(_BaseAnimalBreedingEngine):
 
     @staticmethod
     def stat_species() -> list[str]:
-        return ["Horse", "Donkey"]
+        return list(STAT_BREEDING_SPECIES)
 
     def species(self) -> list[str]:
         return self.stat_species()
@@ -177,6 +267,15 @@ class AnimalBreedingEngine(_BaseAnimalBreedingEngine):
         if species in self.stat_species():
             profile["stats"] = ["Max health", "Movement speed", "Jump strength"]
         return profile
+
+    def simulate(self, species: str, parent_a: Any, parent_b: Any, children: int = 1000, seed: int = 0) -> dict[str, Any]:
+        if species not in self.stat_species():
+            raise ValueError(f"Breeding statistics are only modeled for: {', '.join(self.stat_species())}")
+        result = self.horses.simulate(dict(parent_a or {}), dict(parent_b or {}), children, seed)
+        result["species"] = species
+        result["profile"] = self.profile(species)
+        result["note"] = "Minimum, average, and maximum are calculated from the simulated offspring sample for inherited health, movement speed, and jump strength."
+        return result
 
 
 SIMULATOR_ICON_CANDIDATES = {
