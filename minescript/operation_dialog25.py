@@ -37,8 +37,9 @@ def contextual_field_help(mode, key: str, label: str, default, kind: str) -> str
         suffix = "Optional."
     if not base:
         return suffix
-    sentence = base.split(". ", 1)[0].rstrip(".") + "."
-    return f"{sentence} {suffix}"
+    sentences = [part.strip().rstrip(".") for part in base.split(". ") if part.strip()]
+    concise = ". ".join(sentences[:2]).rstrip(".") + "."
+    return f"{concise} {suffix}"
 
 
 class OperationDialog(_AsyncOperationDialog):
