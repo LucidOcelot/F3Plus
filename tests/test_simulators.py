@@ -45,6 +45,26 @@ class SimulatorTests(unittest.TestCase):
         self.assertIn("minecraft:cod", items)
         self.assertIn("minecraft:enchanted_book", items)
 
+    def test_enchant_function_on_book_is_exposed_as_enchanted_book(self):
+        engine = LootTableEngine(self.data)
+        engine.tables = {
+            "minecraft:test/books": {
+                "pools": [{
+                    "rolls": 1,
+                    "entries": [{
+                        "type": "minecraft:item",
+                        "name": "minecraft:book",
+                        "functions": [{"function": "minecraft:enchant_randomly"}],
+                    }],
+                }]
+            }
+        }
+        possible = {row["item"] for row in engine.possible_items("minecraft:test/books")}
+        self.assertIn("minecraft:enchanted_book", possible)
+        self.assertNotIn("minecraft:book", possible)
+        rolled = engine.roll("minecraft:test/books")
+        self.assertEqual([stack.item for stack in rolled], ["minecraft:enchanted_book"])
+
     def test_loot_simulation_is_seed_reproducible(self):
         engine = LootTableEngine(self.data)
         table = "minecraft:gameplay/piglin_bartering"
@@ -157,6 +177,21 @@ class SimulatorTests(unittest.TestCase):
         for species in engine.species():
             profile = engine.profile(species)
             self.assertEqual(profile.get("stats"), ["Max health", "Movement speed", "Jump strength"])
+
+    def test_breeding_simulator_reports_min_mean_max_for_each_stat(self):
+        engine = AnimalBreedingEngine()
+        result = engine.simulate(
+            "Horse",
+            {"max_health": 24, "movement_speed": 0.24, "jump_strength": 0.75},
+            {"max_health": 28, "movement_speed": 0.28, "jump_strength": 0.85},
+            children=128,
+            seed=99,
+        )
+        self.assertEqual(result["species"], "Horse")
+        for key in ("max_health", "movement_speed", "jump_strength"):
+            self.assertEqual(set(result["stats"][key]), {"minimum", "mean", "maximum"})
+            self.assertLessEqual(result["stats"][key]["minimum"], result["stats"][key]["mean"])
+            self.assertLessEqual(result["stats"][key]["mean"], result["stats"][key]["maximum"])
 
     def test_simulator_icons_prefer_minecraft_assets_with_backups(self):
         for key in ("loot", "enchant", "anvil", "brewing", "dye", "animal"):
