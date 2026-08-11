@@ -1,33 +1,28 @@
 from __future__ import annotations
 
-"""Small player-facing semantics shared by the 2.5 UI.
+"""Small player-facing semantics shared by the 2.5 UI."""
 
-This module deliberately keeps presentation rules out of simulator/world-generation
-engines: readable seed defaults, enchantment rarity labels, and the narrow list of
-animals whose offspring stats are materially affected by breeding.
-"""
-
-import hashlib
 from typing import Any
 
 DEFAULT_SEED_TEXT = "F3Plus"
-STAT_BREEDING_SPECIES = ("Horse", "Donkey", "Llama")
+STAT_BREEDING_SPECIES = ("Horse", "Donkey")
 
 
 def seed_value(value: Any) -> int:
-    """Convert an optional numeric/text seed to a deterministic signed 64-bit value.
+    """Convert numeric/text seed input to the value used by Java-style seed tools.
 
-    Minecraft accepts arbitrary text seeds by hashing them. F3+ mirrors the useful
-    player-facing behavior without requiring a number: blank input is treated as the
-    literal text ``F3Plus``.
+    Blank input means ``F3Plus``. Numeric strings remain numeric; other text uses the
+    signed Java ``String.hashCode`` value, matching the familiar Minecraft text-seed
+    convention instead of exposing an arbitrary internal number in the UI.
     """
     text = str(value or "").strip() or DEFAULT_SEED_TEXT
     try:
         return int(text)
     except ValueError:
-        raw = hashlib.sha256(text.encode("utf-8")).digest()[:8]
-        unsigned = int.from_bytes(raw, "big", signed=False)
-        return unsigned - (1 << 64) if unsigned >= (1 << 63) else unsigned
+        result = 0
+        for char in text:
+            result = (31 * result + ord(char)) & 0xFFFFFFFF
+        return result - 0x100000000 if result & 0x80000000 else result
 
 
 def rarity_from_weight(weight: Any) -> str:
@@ -62,6 +57,23 @@ def enchantment_possibilities(enchantments: dict[str, dict], *, treasure: bool =
             "treasure_only": bool(definition.get("treasure_only", False)),
         })
     return rows
+
+
+def grouped_enchantment_text(rows: list[dict[str, Any]], *, include_levels: bool = True) -> str:
+    groups = {"Common": [], "Uncommon": [], "Rare": [], "Very rare": []}
+    for row in rows:
+        name = str(row.get("name", row.get("id", "Unknown")))
+        if include_levels:
+            name += f" I–{row.get('max_level', 1)}" if int(row.get("max_level", 1) or 1) > 1 else " I"
+        if row.get("treasure_only"):
+            name += " (treasure)"
+        groups.setdefault(str(row.get("rarity", "Very rare")), []).append(name)
+    parts = []
+    for rarity in ("Common", "Uncommon", "Rare", "Very rare"):
+        values = groups.get(rarity) or []
+        if values:
+            parts.append(f"{rarity}: {', '.join(values)}")
+    return "\n".join(parts)
 
 
 def compact_note(text: Any, limit: int = 220) -> str:
