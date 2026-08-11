@@ -40,13 +40,17 @@ class UxClarity254Contracts(unittest.TestCase):
         source = open("minescript/operation_dialog25.py", encoding="utf-8").read()
         self.assertNotIn('f"{description} Inputs:', source)
         self.assertIn("self.context_card.setVisible(bool(explained))", source)
+        self.assertIn("widget.setToolTip(tip)", source)
+        self.assertNotIn("layout.addWidget(hint)", source)
 
-    def test_result_surface_explains_maps_and_hides_boilerplate_metadata(self):
+    def test_result_surface_explains_maps_and_hides_internal_metadata(self):
         source = open("minescript/result_view25.py", encoding="utf-8").read()
-        self.assertIn("structure candidate, not a route", source)
+        self.assertIn("Each marker is one returned structure location", source)
+        self.assertIn('"confidence"', source)
         self.assertIn('"exactness"', source)
         self.assertNotIn('f"Exactness:', source)
         self.assertNotIn('f"Status: {status}', source)
+        self.assertNotIn("does not claim", source.lower())
 
     def test_seed_backed_analyzers_accept_save_or_seed(self):
         source = open("minescript/seed_generation.py", encoding="utf-8").read()
