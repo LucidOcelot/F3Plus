@@ -151,14 +151,12 @@ class SimulatorTests(unittest.TestCase):
         self.assertEqual(sample["Age"], -24000)
         self.assertEqual(len(sample["Attributes"]), 3)
 
-    def test_general_animal_breeding_exposes_nbt_profiles(self):
+    def test_breeding_simulator_only_exposes_inherited_stat_species(self):
         engine = AnimalBreedingEngine()
-        for species in ("Horse", "Sheep", "Axolotl", "Panda", "Frog", "Camel", "Sniffer", "Turtle"):
-            self.assertIn(species, engine.species())
-            self.assertTrue(engine.profile(species).get("nbt"))
-        child = engine.child("Sheep", {"Color": 0}, {"Color": 14}, seed=1)
-        self.assertIn("Color", child)
-        self.assertEqual(child["Age"], -24000)
+        self.assertEqual(engine.species(), ["Horse", "Donkey"])
+        for species in engine.species():
+            profile = engine.profile(species)
+            self.assertEqual(profile.get("stats"), ["Max health", "Movement speed", "Jump strength"])
 
     def test_simulator_icons_prefer_minecraft_assets_with_backups(self):
         for key in ("loot", "enchant", "anvil", "brewing", "dye", "animal"):
