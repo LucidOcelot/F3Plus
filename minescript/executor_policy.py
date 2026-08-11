@@ -15,28 +15,29 @@ from . import result_quality as quality
 from . import rng_compat
 from . import search_policy, seed_generation, spawners, supplemental_operations
 from . import waypoint_semantics as waypoints
+from .ux_semantics25 import DEFAULT_SEED_TEXT, seed_value
 
 
 def _legacy_catalog_fields(spec):
     if spec.top == "Seed Tools" and spec.submenu == "Biomes":
         return [
-            ("seed", "World seed", 123456789, "text"),
+            ("seed", "Java world seed", DEFAULT_SEED_TEXT, "text"),
             ("x", "Center X", 0, "int"),
             ("y", "Sample Y", 64, "int"),
             ("z", "Center Z", 0, "int"),
             ("radius", "Radius (blocks)", 256, "int"),
             ("step", "Sample step (blocks)", 16, "int"),
             ("target_biome", "Target biome numeric ID", 1, "int"),
-            ("world_path", "Generated world path (terrain-shape tools)", "", "text"),
+            ("world_path", "Java world/save folder (optional)", "", "text"),
         ]
     if spec.top == "Seed Tools" and spec.submenu == "World Analysis":
         return [
-            ("seed", "World seed", 123456789, "text"),
-            ("second_seed", "Comparison seed", 987654321, "text"),
+            ("seed", "Java world seed", DEFAULT_SEED_TEXT, "text"),
+            ("second_seed", "Comparison seed", DEFAULT_SEED_TEXT + "-2", "text"),
             ("cx", "Center chunk X", 0, "int"),
             ("cz", "Center chunk Z", 0, "int"),
             ("radius", "Radius (chunks)", 64, "int"),
-            ("world_path", "Generated world path", "", "text"),
+            ("world_path", "Java world/save folder (optional)", "", "text"),
             ("simulation_distance", "Simulation distance", 10, "int"),
         ]
     return None
@@ -76,7 +77,7 @@ def dry_run(executor, spec):
             "available": False,
             "requires_generated_world": True,
             "requires_seed_worldgen": True,
-            "reason": "This operation needs generated Java world data. Select a save or run it with exact Mojang reference-world generation after accepting the EULA.",
+            "reason": "Use a Java save folder or a world seed. Seed mode generates only the chunks needed for the analysis after EULA acceptance.",
         })
     values = executor.defaults(spec)
     if spec.top == "Seed Tools" and spec.name in seed_generation.SEED_REGENERATABLE:
@@ -137,7 +138,6 @@ def _current_semantic_result(executor, spec, values):
 
 
 def _legacy_model_result(executor, spec, values):
-    """Run pre-rewrite models as ordinary fallbacks, never as installers."""
     data = None
     if spec.top == "Calculators":
         data = catalog_models.calculator_tool(spec, values)
@@ -210,6 +210,14 @@ def _seed_values_for_base(executor, spec, values):
     return normalized, None
 
 
+def _normalize_seed_fields(values: dict[str, Any]) -> dict[str, Any]:
+    normalized = dict(values)
+    for key in ("seed", "second_seed", "world_seed", "rng_seed", "simulation_seed"):
+        if key in normalized:
+            normalized[key] = seed_value(normalized.get(key))
+    return normalized
+
+
 def execute_once(executor, spec, values, dry_run=False):
     semantic = semantic_result(executor, spec, values)
     if semantic is not None:
@@ -223,7 +231,7 @@ def execute_once(executor, spec, values, dry_run=False):
         and spec.top == "Seed Tools"
         and spec.name in seed_generation.SEED_REGENERATABLE
         and not str(values.get("world_path", "")).strip()
-        and bool(values.get("regenerate_from_seed", False))
+        and bool(values.get("regenerate_from_seed", True))
     ):
         from .seed_worldgen_reuse import resolve_world_source
         world, source = resolve_world_source(values, executor)
@@ -243,11 +251,7 @@ def execute_once(executor, spec, values, dry_run=False):
         if isinstance(getattr(result, "data", None), dict):
             source = dict(source)
             if spec.name in seed_generation.TICK_SENSITIVE:
-                source["limitation"] = (
-                    "Cave/air/exposure state is measured from a freshly generated vanilla server save. "
-                    "Scheduled fluid, gravity, and other game ticks can change some air/exposure blocks after generation; "
-                    "ore placement and immutable geology are separately integration-tested for exact repeatability."
-                )
+                source["limitation"] = "Freshly generated terrain can change after fluid/gravity ticks. Static geology and ore placement are not affected by that warning."
             result.data = {**result.data, "worldgen_source": source}
         return apply_result_semantics(spec, result)
     base_values, version_error = _seed_values_for_base(executor, spec, values)
@@ -259,6 +263,7 @@ def execute_once(executor, spec, values, dry_run=False):
 def execute(executor, spec, params: dict[str, Any] | None = None, dry_run=False):
     values = executor.defaults(spec)
     values.update(params or {})
+    values = _normalize_seed_fields(values)
     if dry_run and spec.name in seed_generation.SEED_REGENERATABLE:
         values["regenerate_from_seed"] = False
         values["accept_minecraft_eula"] = False
