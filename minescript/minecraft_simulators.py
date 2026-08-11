@@ -15,11 +15,13 @@ import zipfile
 
 from .simulator_engine import *  # noqa: F401,F403 - deliberate public compatibility surface
 from .simulator_engine import (
+    AnimalBreedingEngine as _BaseAnimalBreedingEngine,
     EnchantingEngine as _BaseEnchantingEngine,
     LootTableEngine as _BaseLootTableEngine,
     MinecraftJarData as _BaseMinecraftJarData,
     _provider_value,
 )
+from .ux_semantics25 import enchantment_possibilities
 
 
 @lru_cache(maxsize=48)
@@ -120,8 +122,6 @@ class LootTableEngine(_BaseLootTableEngine):
                     if weight > 0: eligible.append(entry); weights.append(weight)
                 if not eligible: continue
                 chosen = dict(rng.choices(eligible, weights=weights, k=1)[0])
-                # Entry conditions were evaluated for eligibility above; do not sample
-                # random-chance conditions a second time inside _entry_stacks.
                 chosen["conditions"] = []
                 stacks.extend(self._entry_stacks(chosen, rng, context, depth + 1))
             stacks = self._apply_functions(stacks, pool.get("functions"), rng)
@@ -154,6 +154,26 @@ class EnchantingEngine(_BaseEnchantingEngine):
             offer["enchantments"] = [row for row in offer.get("enchantments", []) if row.get("id") not in self.treasure_enchantments]
             if self.using_baseline: offer["source"] = "Bundled enchanting baseline"
         return offers
+
+    def possible_book_enchantments(self) -> list[dict[str, Any]]:
+        rows = enchantment_possibilities(self.enchantments, treasure=True)
+        for row in rows:
+            row["treasure_only"] = row["id"] in self.treasure_enchantments or bool(row.get("treasure_only"))
+        return rows
+
+
+class AnimalBreedingEngine(_BaseAnimalBreedingEngine):
+    """Only expose species where breeding changes gameplay-relevant numeric stats."""
+
+    def species(self) -> list[str]:
+        return ["Horse", "Donkey"]
+
+    def profile(self, species: str) -> dict[str, Any]:
+        profile = super().profile(species)
+        if species in {"Horse", "Donkey"}:
+            profile["mode"] = "horse"
+            profile["stats"] = ["Max health", "Movement speed", "Jump strength"]
+        return profile
 
 
 SIMULATOR_ICON_CANDIDATES = {
