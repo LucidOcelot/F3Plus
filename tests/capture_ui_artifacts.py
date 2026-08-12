@@ -19,10 +19,11 @@ os.environ.setdefault("F3PLUS_SKIP_UPDATE", "1")
 from PySide6.QtWidgets import QApplication
 
 from minescript.app import OptionsDialog
-from minescript.app25 import F3Plus25 as F3Plus
+from minescript.desktop import F3PlusDesktop as F3Plus
 from minescript.automation_controller import AutomationControllerDialog
 from minescript.result_view25 import ResultView
 from minescript.tool_registry import BY_ID
+from minescript.ui_dialogs import ParameterDialog
 from minescript.ui_theme import stylesheet
 from minescript.workbenches import LootWorkbenchDialog, MechanicsLabDialog, OperationDialog, RngEnchantingDialog, VillagerExplorerDialog
 from minescript.catalog_ids import BY_NAME
@@ -78,7 +79,16 @@ window.settings.theme = "chorus"; app.setStyleSheet(stylesheet("chorus", window.
 build = OperationDialog(BY_ID["build.planner"], window.executor, window.settings, window, preferred_mode="Arch"); select_mode(build, "Arch"); capture(build, "workbench-build-shapes-arch", 1220, 820); build.close(); build.deleteLater()
 structures = OperationDialog(BY_ID["world.structures"], window.executor, window.settings, window, preferred_mode="Structure Finder"); select_mode(structures, "Structure Finder"); capture(structures, "workbench-structure-search-center", 1280, 840); structures.close(); structures.deleteLater()
 ores = OperationDialog(BY_ID["world.ores"], window.executor, window.settings, window, preferred_mode="Ore Distribution"); select_mode(ores, "Ore Distribution"); capture(ores, "workbench-ore-cave-explorer", 1280, 840); ores.close(); ores.deleteLater()
-automation = AutomationControllerDialog(window, BY_ID["automation.actions"], window.executor, window.settings, preferred_mode="Resource Guard"); capture(automation, "workbench-automation-resource-guard", 1120, 740); automation.close(); automation.deleteLater()
+automation = AutomationControllerDialog(window, BY_ID["automation.actions"], window.executor, window.settings, preferred_mode="Resource Guard"); capture(automation, "workbench-automation-resource-guard", 1080, 720); automation.close(); automation.deleteLater()
+
+mending = ParameterDialog(
+    "Mending Grinder",
+    [("attack", "Attack interval", 1.25, "float"), ("rotate", "Slot rotation interval", 30.0, "float"), ("slots", "Slots (comma separated)", "1,2,3", "text")],
+    window,
+    "Attack mobs on a timer and rotate selected tools so collected XP can repair multiple Mending items.",
+    "Start",
+)
+capture(mending, "workbench-automation-mending-settings", 640, 430); mending.close(); mending.deleteLater()
 
 villagers = VillagerExplorerDialog(window, profession="librarian"); capture(villagers, "workbench-villager-librarian-books", 1460, 900); villagers.close(); villagers.deleteLater()
 
@@ -135,5 +145,5 @@ result_shape = ResultView(); result_shape.set_result(sphere_spec, shape_result, 
 
 window.close(); window.deleteLater(); settle(4)
 files = sorted(OUT.glob("*.png"))
-if len(files) < 28: raise RuntimeError(f"Expected at least 28 UI review screenshots, created {len(files)}")
+if len(files) < 29: raise RuntimeError(f"Expected at least 29 UI review screenshots, created {len(files)}")
 print(f"Captured {len(files)} UI review screenshots in {OUT}")
