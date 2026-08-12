@@ -1,6 +1,5 @@
 from __future__ import annotations
 
-from html import escape
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -10,112 +9,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QVBoxLayout, QWidget,
 )
 
-from .field_semantics import field_help
-
-
-_PARAMETER_LABELS: dict[tuple[str, str], str] = {
-    ("Mending Grinder", "attack"): "Attack every",
-    ("Mending Grinder", "rotate"): "Switch item every",
-    ("Mending Grinder", "slots"): "Mending slots",
-    ("Crossbow Volley", "slots"): "Crossbow slots",
-    ("Crossbow Volley", "charge"): "Charge for",
-    ("Crossbow Volley", "swap"): "After switching, wait",
-    ("Tool Rotation", "slots"): "Tool slots",
-    ("Tool Rotation", "interval"): "Switch tool every",
-    ("Hotbar Workflow", "delay"): "Switch every",
-    ("Food Manager", "interval"): "Eat every",
-    ("Food Manager", "duration"): "Hold use for",
-    ("Offhand Workflow", "interval"): "Swap every",
-    ("Custom Periodic Action", "interval"): "Repeat every",
-    ("Custom Periodic Action", "spacing"): "Click spacing",
-    ("Livestock Breeder", "minutes"): "Repeat cycle every",
-    ("Auto Fishing", "wait"): "Reel after",
-    ("Auto Fishing", "recast"): "Recast after",
-}
-
-
-_PARAMETER_COPY: dict[tuple[str, str], tuple[str, str]] = {
-    ("Mending Grinder", "attack"): (
-        "Seconds between attack clicks.",
-        "How often F3+ clicks attack while the grinder runs. Lower values attack faster. The routine clamps this to at least 0.05 seconds.",
-    ),
-    ("Mending Grinder", "rotate"): (
-        "Seconds before switching hotbar slots.",
-        "How long each selected hotbar slot stays active before F3+ switches to the next slot. Use this to distribute collected Mending XP among several tools.",
-    ),
-    ("Mending Grinder", "slots"): (
-        "Hotbar slots that should receive Mending XP.",
-        "Enter hotbar slot numbers 1 through 9 separated by commas, for example 1,2,3,5. Slots are cycled in the order entered; invalid entries are ignored.",
-    ),
-    ("Crossbow Volley", "slots"): (
-        "Hotbar slots containing loaded crossbows.",
-        "Enter crossbow hotbar slots 1 through 9 separated by commas. F3+ cycles through these slots in order.",
-    ),
-    ("Crossbow Volley", "charge"): (
-        "Seconds allowed for each crossbow to charge.",
-        "Time F3+ holds use before firing each crossbow. Increase this if a crossbow is released before it finishes charging.",
-    ),
-    ("Crossbow Volley", "swap"): (
-        "Delay after changing to the next crossbow.",
-        "Seconds F3+ waits after selecting the next configured hotbar slot before beginning the next charge.",
-    ),
-    ("Tool Rotation", "slots"): (
-        "Hotbar slots included in the rotation.",
-        "Enter slot numbers 1 through 9 separated by commas. F3+ rotates through them in the order entered.",
-    ),
-    ("Tool Rotation", "interval"): (
-        "Seconds each tool remains selected.",
-        "Time before F3+ switches from the current configured tool slot to the next one.",
-    ),
-    ("Hotbar Workflow", "slots"): (
-        "Hotbar slots visited by the workflow.",
-        "Enter slot numbers 1 through 9 separated by commas. The workflow visits them in the order entered.",
-    ),
-    ("Hotbar Workflow", "delay"): (
-        "Seconds between hotbar changes.",
-        "Pause after selecting one configured slot before moving to the next slot.",
-    ),
-    ("Food Manager", "slot"): (
-        "Hotbar slot containing food.",
-        "Choose the hotbar slot from 1 through 9 that contains the food F3+ should select before eating.",
-    ),
-    ("Food Manager", "interval"): (
-        "Seconds between eating attempts.",
-        "Time from one eating attempt to the next. This routine uses the timer; it does not read the hunger bar.",
-    ),
-    ("Food Manager", "duration"): (
-        "Seconds to hold the use button while eating.",
-        "How long F3+ holds use after selecting the food slot. Increase this if the item is released before eating completes.",
-    ),
-    ("Offhand Workflow", "interval"): (
-        "Seconds between offhand swaps.",
-        "Time F3+ waits between presses of the configured swap key.",
-    ),
-    ("Custom Periodic Action", "interval"): (
-        "Seconds between action cycles.",
-        "Time from the start of one configured interaction cycle to the start of the next cycle.",
-    ),
-    ("Custom Periodic Action", "actions"): (
-        "Number of clicks in each cycle.",
-        "How many mouse actions F3+ performs whenever one periodic cycle begins.",
-    ),
-    ("Custom Periodic Action", "spacing"): (
-        "Seconds between clicks inside one cycle.",
-        "Delay between individual mouse actions when a cycle contains more than one action.",
-    ),
-    ("Livestock Breeder", "minutes"): (
-        "Minutes between breeding/growth interaction cycles.",
-        "Time F3+ waits before repeating the configured livestock interaction cycle. The default matches the normal 20-minute adult breeding cooldown/growth interval.",
-    ),
-    ("Auto Fishing", "wait"): (
-        "Seconds to wait before reeling in.",
-        "Delay between casting and the reel action used by this timer-based fishing routine.",
-    ),
-    ("Auto Fishing", "recast"): (
-        "Seconds to wait before casting again.",
-        "Pause after the reel action before F3+ sends the next cast.",
-    ),
-}
+from .input_help import parameter_copy, parameter_label, wrapped_tooltip
 
 
 def make_widget(kind: str, default: Any):
@@ -139,72 +33,12 @@ def widget_value(widget):
     return widget.text()
 
 
-def wrapped_tooltip(text: str, width: int = 360) -> str:
-    """Return a Qt rich-text tooltip that wraps instead of stretching across the screen."""
-    plain = str(text).strip()
-    if not plain:
-        return ""
-    return f"<qt><table width='{int(width)}'><tr><td>{escape(plain)}</td></tr></table></qt>"
-
-
 def set_help_tooltip(widget, text: str, width: int = 360) -> None:
     """Use wrapped visual help while keeping accessibility text plain."""
     plain = str(text).strip()
     widget.setToolTip(wrapped_tooltip(plain, width))
     if hasattr(widget, "setAccessibleDescription"):
         widget.setAccessibleDescription(plain)
-
-
-def parameter_label(title: str, key: str, label: str) -> str:
-    return _PARAMETER_LABELS.get((str(title), str(key)), str(label))
-
-
-def _generic_hint(key: str, label: str) -> str:
-    low = f"{key} {label}".lower()
-    if "slots" in low: return "Hotbar slots 1–9, separated by commas."
-    if "interval" in low: return "Time between repetitions."
-    if "delay" in low or "wait" in low: return "Time to wait before the next action."
-    if "duration" in low: return "How long the action remains active."
-    if "spacing" in low: return "Distance or time between repeated elements."
-    if "rows" in low: return "Number of rows to process."
-    if "steps" in low: return "Number of steps to process."
-    if "branches" in low: return "Number of branches to process."
-    if "click" in low or "swings" in low or "actions" in low: return "Number of actions in each cycle."
-    if "radius" in low: return "Distance from the selected center."
-    if label.strip().lower().endswith(" x"): return "Minecraft X coordinate."
-    if label.strip().lower().endswith(" y"): return "Minecraft Y coordinate."
-    if label.strip().lower().endswith(" z"): return "Minecraft Z coordinate."
-    return ""
-
-
-def _requirement(default, kind: str) -> str:
-    if kind == "choice" and isinstance(default, (list, tuple)):
-        return "Choices: " + ", ".join(str(value) for value in default[:8]) + "."
-    if kind == "bool":
-        return f"Default: {'enabled' if bool(default) else 'disabled'}."
-    if kind == "int":
-        return f"Enter a whole number. Default: {default}."
-    if kind == "float":
-        return f"Enter a number. Default: {default}."
-    if str(default).strip():
-        return f"Default: {default}."
-    return ""
-
-
-def parameter_copy(title: str, key: str, label: str, default, kind: str) -> tuple[str, str]:
-    specific = _PARAMETER_COPY.get((str(title), str(key)))
-    if specific:
-        hint, tooltip = specific
-    else:
-        display = parameter_label(title, key, label)
-        hint = _generic_hint(str(key), display)
-        tooltip = field_help(str(key), display).strip()
-    requirement = _requirement(default, kind)
-    if requirement and requirement.lower() not in tooltip.lower():
-        tooltip = f"{tooltip} {requirement}".strip()
-    if hint.strip() == tooltip.strip():
-        hint = ""
-    return hint, tooltip
 
 
 def _configure_parameter_widget(widget, key: str, label: str):
@@ -214,7 +48,10 @@ def _configure_parameter_widget(widget, key: str, label: str):
     if isinstance(widget, QSpinBox) and any(token in low for token in ("slot", "hotbar")):
         widget.setRange(1, 9)
     if isinstance(widget, QDoubleSpinBox):
-        time_field = any(token in low for token in ("interval", "delay", "duration", "wait", "spacing", "seconds", "time", "recast", "every", "switch"))
+        time_field = any(token in low for token in (
+            "interval", "delay", "duration", "wait", "spacing", "seconds", "time",
+            "recast", "every", "switch",
+        ))
         minute_field = "minute" in low or key == "minutes"
         if time_field or minute_field:
             widget.setDecimals(2)
@@ -225,7 +62,7 @@ def _configure_parameter_widget(widget, key: str, label: str):
 
 
 class ParameterDialog(QDialog):
-    """Small configuration editor with short inline hints and detailed wrapped tooltips."""
+    """Small configuration editor with short hints and detailed wrapped tooltips."""
 
     def __init__(self, title: str, fields, parent=None, subtitle: str = "", run_label: str = "Run"):
         super().__init__(parent)
@@ -242,7 +79,11 @@ class ParameterDialog(QDialog):
             note = QLabel(subtitle); note.setWordWrap(True); note.setObjectName("Muted"); root.addWidget(note)
 
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame)
-        host = QWidget(); form = QFormLayout(host); form.setHorizontalSpacing(18); form.setVerticalSpacing(12); form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow); scroll.setWidget(host); root.addWidget(scroll, 1)
+        host = QWidget(); form = QFormLayout(host)
+        form.setHorizontalSpacing(18); form.setVerticalSpacing(12)
+        form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow)
+        scroll.setWidget(host); root.addWidget(scroll, 1)
+
         for key, label, default, kind in fields:
             key = str(key); label = str(label); display_label = parameter_label(title, key, label)
             widget = make_widget(kind, default)
@@ -250,25 +91,43 @@ class ParameterDialog(QDialog):
             hint_text, tooltip = parameter_copy(title, key, label, default, kind)
             set_help_tooltip(widget, tooltip); self.inputs[key] = widget
 
-            label_widget = QLabel(display_label); label_widget.setAlignment(Qt.AlignLeft | Qt.AlignTop); label_widget.setToolTip(wrapped_tooltip(tooltip))
-            column = QWidget(); column_layout = QVBoxLayout(column); column_layout.setContentsMargins(0, 0, 0, 0); column_layout.setSpacing(3); column_layout.addWidget(widget)
+            label_widget = QLabel(display_label)
+            label_widget.setAlignment(Qt.AlignLeft | Qt.AlignTop)
+            label_widget.setToolTip(wrapped_tooltip(tooltip))
+            column = QWidget(); column_layout = QVBoxLayout(column)
+            column_layout.setContentsMargins(0, 0, 0, 0); column_layout.setSpacing(3)
+            column_layout.addWidget(widget)
             if hint_text:
-                hint = QLabel(hint_text); hint.setWordWrap(True); hint.setObjectName("Muted"); column_layout.addWidget(hint)
+                hint = QLabel(hint_text); hint.setWordWrap(True); hint.setObjectName("Muted")
+                column_layout.addWidget(hint)
             form.addRow(label_widget, column)
 
-        self.search_card = QFrame(); self.search_card.setObjectName("WarningBanner"); card = QVBoxLayout(self.search_card); card.setContentsMargins(10, 8, 10, 8); kicker = QLabel("SEARCH BEHAVIOR"); kicker.setObjectName("DeckLabel"); card.addWidget(kicker); self.search_help = QLabel(); self.search_help.setWordWrap(True); self.search_help.setObjectName("Muted"); card.addWidget(self.search_help); root.insertWidget(2 if subtitle else 1, self.search_card); self.search_card.setVisible("search_mode" in self.inputs)
+        self.search_card = QFrame(); self.search_card.setObjectName("WarningBanner")
+        card = QVBoxLayout(self.search_card); card.setContentsMargins(10, 8, 10, 8)
+        kicker = QLabel("SEARCH BEHAVIOR"); kicker.setObjectName("DeckLabel"); card.addWidget(kicker)
+        self.search_help = QLabel(); self.search_help.setWordWrap(True); self.search_help.setObjectName("Muted")
+        card.addWidget(self.search_help)
+        root.insertWidget(2 if subtitle else 1, self.search_card)
+        self.search_card.setVisible("search_mode" in self.inputs)
 
         mode = self.inputs.get("search_mode"); ignore = self.inputs.get("ignore_max_generation_limit")
         if isinstance(mode, QComboBox): mode.currentTextChanged.connect(lambda *_: self._sync_search())
-        if isinstance(ignore, QCheckBox): ignore.setText("Continue beyond the configured maximum"); ignore.toggled.connect(lambda *_: self._sync_search())
+        if isinstance(ignore, QCheckBox):
+            ignore.setText("Continue beyond the configured maximum")
+            ignore.toggled.connect(lambda *_: self._sync_search())
         self._sync_search()
 
-        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel); buttons.button(QDialogButtonBox.Ok).setText(run_label); buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject); root.addWidget(buttons)
+        buttons = QDialogButtonBox(QDialogButtonBox.Ok | QDialogButtonBox.Cancel)
+        buttons.button(QDialogButtonBox.Ok).setText(run_label)
+        buttons.accepted.connect(self.accept); buttons.rejected.connect(self.reject)
+        root.addWidget(buttons)
 
     def _sync_search(self):
         mode = self.inputs.get("search_mode")
         if not isinstance(mode, QComboBox): return
-        until = mode.currentText() == "Search until found"; ignore = self.inputs.get("ignore_max_generation_limit"); unlimited = bool(ignore.isChecked()) if isinstance(ignore, QCheckBox) else False
+        until = mode.currentText() == "Search until found"
+        ignore = self.inputs.get("ignore_max_generation_limit")
+        unlimited = bool(ignore.isChecked()) if isinstance(ignore, QCheckBox) else False
         for key in ("radius_step", "max_search_radius", "ignore_max_generation_limit"):
             widget = self.inputs.get(key)
             if widget is not None: widget.setEnabled(until)
@@ -281,4 +140,5 @@ class ParameterDialog(QDialog):
         else: text = "Expands by the selected step after each empty pass and stops at the maximum radius."
         self.search_help.setText(text)
 
-    def values(self) -> dict[str, Any]: return {key: widget_value(widget) for key, widget in self.inputs.items()}
+    def values(self) -> dict[str, Any]:
+        return {key: widget_value(widget) for key, widget in self.inputs.items()}
