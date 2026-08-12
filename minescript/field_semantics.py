@@ -33,7 +33,7 @@ FIELD_HELP = {
     "other_x": "X coordinate of the other portal, waypoint, or comparison point.",
     "other_y": "Y coordinate of the other portal, waypoint, or comparison point.",
     "other_z": "Z coordinate of the other portal, waypoint, or comparison point.",
-    "radius": "Radius from the selected center. Search tools scan within this distance; shape tools use it as the build radius.",
+    "radius": "Radius from the selected center. Search tools scan within this distance; build radii determine the generated block geometry for shape tools.",
     "radius_step": "Amount added to the radius after an empty search pass. Smaller steps check distance more gradually; larger steps expand faster.",
     "max_search_radius": "Largest radius an expanding search may reach before stopping.",
     "width": "Horizontal width of the selected build, area, or layout, measured in blocks unless the label states another unit.",
@@ -51,7 +51,7 @@ FIELD_HELP = {
     "ignore_max_generation_limit": "Allow an expanding generated-world search to continue beyond the configured radius limit. This can substantially increase CPU, memory, disk, and runtime use.",
     "regenerate_from_seed": "Create bounded reference chunks with the matching Minecraft Java server when no generated save is selected.",
     "accept_minecraft_eula": "Confirm the Minecraft EULA before F3+ launches the local server used to generate reference chunks.",
-    "worldgen_max_chunks": "Maximum number of chunks allowed for one reference-generation job. Larger values require more CPU time, memory, and disk I/O.",
+    "worldgen_max_chunks": "Safety budget for one reference-generation job, measured in chunks. Larger values require more CPU time, memory, and disk I/O.",
     "dimension": "Dimension used by the calculation: Overworld, Nether, or End where supported.",
     "target_biome": "Biome that the search should locate or use as its match condition.",
     "second_seed": "Second Java world seed used for comparison with the primary seed.",
@@ -90,6 +90,61 @@ FIELD_HELP = {
 }
 
 
+LABEL_HELP = {
+    "minecraft action/key": "Key or mouse binding held by the routine. Examples include w, space, f, mouse:left, and mouse:right.",
+    "mouse button": "Mouse button clicked by each periodic action cycle.",
+    "actions per cycle": "Number of mouse clicks performed each time the periodic timer fires.",
+    "hold feed/use": "Keep the use button held while the livestock routine is active.",
+    "growth cycle": "Minutes between livestock interaction cycles. Use this to match the breeding cooldown or growth timing of the animals being managed.",
+    "swings per cycle": "Number of interaction swings sent during each livestock cycle.",
+    "swing spacing": "Seconds between interaction swings within one livestock cycle.",
+    "wait before reel": "Seconds between casting and the reel action in the timer-based fishing cycle.",
+    "recast delay": "Seconds after reeling before the next cast is sent.",
+    "sprint": "Hold the sprint input while the travel routine moves toward the destination.",
+    "overworld destination x": "Overworld X coordinate of the destination. When traveling in the Nether, F3+ divides this coordinate by 8 before moving.",
+    "overworld destination z": "Overworld Z coordinate of the destination. When traveling in the Nether, F3+ divides this coordinate by 8 before moving.",
+    "current dimension": "Dimension the player is currently traveling in, used to decide whether Overworld destination coordinates need 8:1 Nether scaling.",
+    "travel y": "Y coordinate used as the vertical destination for coordinate travel.",
+    "target x": "Destination X coordinate for the coordinate travel routine.",
+    "target y": "Destination Y coordinate for the coordinate travel routine.",
+    "target z": "Destination Z coordinate for the coordinate travel routine.",
+    "row/side travel time": "Seconds spent moving along each row or perimeter side in the timed construction path.",
+    "row spacing time": "Seconds spent shifting sideways before beginning the next construction row.",
+    "main tunnel spacing": "Blocks traveled along the main tunnel between successive branch entrances.",
+    "branch depth": "Blocks traveled outward from the main tunnel before the branch miner turns back.",
+    "branches": "Number of side branches the branch-mining routine should excavate.",
+    "alternate sides": "Alternate left and right branch directions instead of placing every branch on the same side of the main tunnel.",
+    "distance per step": "Forward block distance covered before each vertical stair step.",
+    "descending": "Move the staircase downward when enabled; otherwise build or excavate upward.",
+    "row distance": "Block distance excavated along each row of the area excavation pattern.",
+    "row shift": "Block distance moved sideways between excavation rows.",
+    "row travel time": "Seconds spent moving down each farming row.",
+    "row shift time": "Seconds spent shifting sideways between farming rows.",
+    "hold attack/harvest": "Hold attack while moving down a farming row so mature crops or plants are broken.",
+    "hold use/replant": "Hold use while moving so the selected crop can be replanted when possible.",
+    "bone meal clicks": "Number of bone-meal use clicks sent during each growth cycle.",
+    "click delay": "Seconds between repeated bone-meal clicks.",
+    "plant slot": "Hotbar slot containing the item to plant before bone meal is applied.",
+    "bone meal slot": "Hotbar slot containing bone meal.",
+    "crossbow slots": "Hotbar slots containing the crossbows included in the volley rotation.",
+    "charge time": "Seconds the use button is held to charge each crossbow before firing.",
+    "swap delay": "Seconds to wait after selecting the next crossbow before charging it.",
+    "slots": "Hotbar slots visited by the workflow, in the order entered.",
+    "delay between slots": "Seconds to wait after selecting one hotbar slot before moving to the next.",
+    "loop": "Repeat the hotbar sequence after the final configured slot.",
+    "tool slots": "Hotbar slots containing the tools included in the rotation.",
+    "seconds per tool": "Seconds each tool remains selected before the next configured slot becomes active.",
+    "hold attack": "Keep attack held while the selected tool is active.",
+    "action": "Mouse action the guard routine should hold while its cycle limit is active.",
+    "maximum status cycles": "Maximum automation status cycles allowed before the guard stops the held action.",
+    "food slot": "Hotbar slot containing the food item selected before each eating attempt.",
+    "eat every": "Seconds between automatic eating attempts.",
+    "use duration": "Seconds to hold use during each eating attempt.",
+    "swap key": "Minecraft key binding pressed to swap the main-hand and offhand items.",
+    "swap interval": "Seconds between offhand swap-key presses.",
+}
+
+
 def _unit_from_label(low: str) -> str:
     if "chunk" in low:
         return "chunks"
@@ -117,6 +172,10 @@ def field_help(key: str, label: str = "") -> str:
         if any(token in low for token in ("simulation", "rng", "random", "reproduc")):
             return "Seed used to reproduce this simulator or RNG run. Numbers and text may be accepted by workbenches that say so."
         return "Java Edition world seed used by this world-generation calculation. Signed 64-bit numeric seeds are valid."
+
+    direct_label = LABEL_HELP.get(low)
+    if direct_label:
+        return direct_label
 
     direct = FIELD_HELP.get(key)
     if direct:
