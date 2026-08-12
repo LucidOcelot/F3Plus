@@ -62,7 +62,7 @@ class ReleaseAudit253Tests(unittest.TestCase):
         self.assertIn("3.11 through 3.13", third_party)
         self.assertIn("ore", readme.lower())
         self.assertIn("villager", readme.lower())
-        self.assertIn("macros", readme.lower())
+        self.assertIn("macro studio", readme.lower())
         self.assertIn("world profiles", readme.lower())
         self.assertIn("automation permissions", security.lower())
         self.assertNotIn("historical feature ids", readme.lower())
