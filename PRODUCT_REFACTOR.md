@@ -1,35 +1,55 @@
 # F3+ Product Refactor Checklist
 
-This document consolidates the UI, QA, architecture, and product issues identified during the project audit. The goal is a task-first technical Minecraft workstation with concise inputs and outputs, fewer navigation decisions, and no loss of calculation or automation capability.
+This document consolidates the UI, QA, architecture, and product issues identified during the project audits. The goal is a task-first technical Minecraft workstation with concise inputs and outputs, fewer navigation decisions, and no loss of calculation or automation capability.
 
 ## Navigation and information architecture
 
 - [x] Replace implementation-oriented workspaces with six top-level destinations: Home, Play & Travel, Explore Worlds, Plan & Build, Mechanics & Trading, and App & Safety.
-- [x] Group workbenches by player task instead of historical source categories such as Gameplay, Seed Tools, Calculators, and RNG Tools.
+- [x] Group workbenches by player task instead of source categories such as Gameplay, Seed Tools, Calculators, and RNG Tools.
 - [x] Keep all existing operation handlers reachable from the reorganized workbench library.
-- [ ] Update the desktop shell so search filters, inspector breadcrumbs, and card metadata use the new task section and group names everywhere instead of internal `ToolSpec.workspace` labels.
+- [x] Use the task section and player-facing group names consistently in cards, filters, menus, search, and inspector breadcrumbs.
+- [x] Replace flat workbench operation lists with real collapsible group navigation rather than disabled pseudo-header rows.
+- [x] Replace the Automation Studio routine list with collapsible task categories and keyboard-friendly search/activation.
+- [x] Make the menu bar use the same task hierarchy as the main navigation instead of exposing a second organization model.
+- [x] Reduce persistent automation chrome while idle; Pause and Stop Automation appear when automation is active.
 - [ ] Make search results open a matching operation directly when the query clearly matches one operation rather than forcing a second workbench-selection step.
 - [ ] Add a goal-oriented Home entry surface for common jobs such as portal conversion, structure search, material planning, villager planning, enchanting, and world scanning.
-- [ ] Reduce persistent top-bar automation chrome when no automation routine is active; expand safety controls when automation starts.
 
 ## Workbench consolidation
 
 - [x] Preserve underlying functionality while presenting related operations together.
+- [x] Remove the obsolete versioned desktop shell and make `minescript/desktop.py` the runtime desktop implementation.
 - [ ] Merge overlapping automation entry points into fewer visible workbenches while retaining distinct modes internally.
 - [ ] Merge overlapping resource/storage calculators into a shared material and logistics planning flow.
 - [ ] Merge world-search tools around common center/radius/save/seed controls rather than duplicating similar forms.
 - [ ] Move world/profile selection into a reusable project/world context shared by search, scan, route, and planning workbenches.
-- [ ] Remove files whose only purpose is an obsolete UI generation after the task-first shell fully replaces them; avoid adding another numbered `appXX.py` compatibility layer.
+- [ ] Audit the remaining numbered/versioned UI helper modules and rename or consolidate them where the version suffix no longer communicates a meaningful implementation boundary.
 
 ## Inputs
 
 - [x] Put concrete help on generic input controls using tooltips and accessibility descriptions.
-- [x] Remove repeated inline help paragraphs that duplicate tooltips and make forms visually noisy.
-- [x] Replace generic compatibility-language fallbacks with direct value descriptions.
+- [x] Remove repeated inline help paragraphs that duplicated tooltips and made forms visually noisy.
+- [x] Make visible hints and detailed tooltips different: the hint identifies the unit/purpose while the tooltip explains behavior, range, default, and consequences of changing the value.
+- [x] Wrap long tooltips to a readable width instead of allowing single-line tooltips to stretch across the screen.
+- [x] Replace vague Mending Grinder labels with `Attack every`, `Switch item every`, and `Mending slots`.
+- [x] Add mechanic-specific help for built-in automation setup fields including travel, mining, construction, farming, fishing, livestock, hotbar, crossbow, food, offhand, and guard routines.
+- [x] Format timer fields as human-readable seconds/minutes with practical precision instead of raw six-decimal floats.
+- [x] Make small parameter dialogs size to their contents instead of opening as mostly-empty large windows.
+- [x] Separate Qt-free input semantics from widget code so help text can be tested on headless CI runners.
 - [x] Explain coordinate direction, units, ranges, formats, choices, and defaults where available.
 - [ ] Audit operation-specific fields whose labels are still too generic (`value`, `secondary`, `amount`, `units`, etc.) and rename them at the operation schema so the label itself communicates the mechanic.
 - [ ] Prefer pickers, dropdowns, world selectors, item selectors, and waypoint selectors over free-form identifiers when a finite domain is known.
 - [ ] Add inline validation messages for invalid ranges and formats before execution rather than returning avoidable run-time errors.
+
+## Descriptions and workbench copy
+
+- [x] Replace generic Automation Studio routine descriptions with sentences describing the actual action performed.
+- [x] Remove repetitive Automation Studio requirement/run-behavior prose that restated the selected routine.
+- [x] Stop using the same summary twice in generated workbench guide data.
+- [x] Replace generic operation output prose with concrete returned values where output keys are known.
+- [x] Keep workbench cards concise and make their tooltip list contained operations rather than repeating the card description.
+- [x] Keep Command Palette tooltips action-oriented instead of duplicating workbench summaries.
+- [ ] Continue auditing dedicated simulator/villager workbenches for repeated explanation cards whose controls already make the mechanic clear.
 
 ## Outputs
 
@@ -45,10 +65,11 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 
 ## Product language
 
-- [x] Remove compatibility and historical-version framing from the main README.
+- [x] Remove historical/backward-compatibility framing from the main README and player-facing shell.
 - [x] Remove template-style workbench copy from the guide generator.
 - [x] Remove statements written like instructions to an evaluator or AI agent, including phrases such as `does not claim`, `never presented`, and compatibility-contract boilerplate.
 - [x] Avoid confidence-level presentation in player-facing results.
+- [x] Stop making tests require negative disclaimer wording when a direct positive description explains the distinction more clearly.
 - [ ] Audit `FEATURES.md`, old descriptions, and operation notes for remaining evaluator-facing wording and rewrite them as direct user documentation.
 - [ ] Remove references to historical operation counts from player-facing documentation and UI.
 
@@ -66,10 +87,11 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 
 ## Automation
 
+- [x] Collapse top-level automation-only controls when no routine is running.
+- [x] Show a concise Current Session card only while a routine is running or has a meaningful status message.
 - [ ] Keep automation focused on bounded deterministic workflows rather than general autonomous play.
 - [ ] Add a dry-run view showing planned actions, movement, stop conditions, and recovery behavior before execution.
 - [ ] Standardize long-running operations around a common progress contract: stage, progress, search extent, cancellation support, and partial-result availability.
-- [ ] Add clearer visual indication when automation safety controls become relevant and collapse them when idle.
 
 ## QA
 
@@ -77,6 +99,9 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Keep semantic tests proving distinct operations still return distinct outputs.
 - [x] Keep cross-platform Python CI and native Cubiomes compiler checks.
 - [x] Keep Mojang reference-world integration testing.
+- [x] Add a Windows UI review capture for the Mending Grinder settings dialog that exposed the second-review defects.
+- [x] Make the UI artifact runner launch the canonical desktop rather than the removed versioned shell.
+- [x] Add source/UI contracts for grouped tree navigation, distinct hint/tooltip copy, wrapped tooltips, concise parameter labels, and idle automation chrome.
 - [ ] Add selected visual-regression image comparisons for stable UI regions rather than screenshot capture alone.
 - [ ] Add high-DPI and minimum-window-size layout checks.
 - [ ] Add keyboard-navigation/accessibility smoke tests for search, workbench cards, forms, and result actions.
@@ -93,7 +118,8 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 ## Repository cleanup
 
 - [x] Rewrite the README around the current product rather than compatibility history.
-- [ ] Audit numbered/versioned UI modules and consolidate them once the new shell is complete.
-- [ ] Delete release-specific tests that no longer protect current behavior after equivalent current-product tests exist.
+- [x] Delete the obsolete `app25.py` shell after moving startup, menus, CI screenshots, and canonical UI tests to `desktop.py`.
+- [x] Remove UI tests that protected the old eight-section navigation and obsolete menu hierarchy.
+- [ ] Delete or rewrite remaining tests whose only purpose is preserving old IDs rather than ensuring current operations remain available.
 - [ ] Consolidate duplicate descriptions between README, FEATURES, tool guides, and source-level operation descriptions so each fact has one maintained source.
 - [ ] Add a public issue/backlog structure for defects, UX problems, unsupported mechanics, and planned workflow improvements.
