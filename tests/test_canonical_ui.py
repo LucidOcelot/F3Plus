@@ -9,13 +9,15 @@ os.environ.setdefault("F3PLUS_SKIP_UPDATE", "1")
 
 try:
     from PySide6.QtWidgets import QApplication
-    from minescript.app import F3Plus
+    from minescript.desktop import F3PlusDesktop
+    from minescript.tool_guides import NAV_SECTIONS
     from minescript.tool_registry import TOOLS
     from minescript.workbenches import ResultMapDialog, extract_coordinate_layers
     GUI_IMPORT_ERROR = None
 except ImportError as exc:
     GUI_IMPORT_ERROR = exc
-    QApplication = F3Plus = ResultMapDialog = None
+    QApplication = F3PlusDesktop = ResultMapDialog = None
+    from minescript.tool_guides import NAV_SECTIONS
     from minescript.tool_registry import TOOLS
 
 
@@ -25,12 +27,16 @@ class CanonicalUiTests(unittest.TestCase):
     def setUpClass(cls):
         cls.app = QApplication.instance() or QApplication([])
 
-    def test_main_window_constructs_without_patch_installers(self):
-        window = F3Plus()
-        self.assertEqual(window.nav.count(), 8)
+    def test_main_window_constructs_with_task_navigation(self):
+        window = F3PlusDesktop()
+        window.stop_hotkeys(); window.link_timer.stop()
+        self.assertEqual(window.nav.count(), len(NAV_SECTIONS))
+        self.assertEqual(window.nav.count(), 6)
         self.assertLess(len(TOOLS), 50)
         self.assertGreater(window.tool_list.count(), 0)
         self.assertTrue(window.run_btn.text())
+        self.assertFalse(window.pause_btn.isVisible())
+        self.assertFalse(window.stop_btn.isVisible())
         window.close(); window.deleteLater(); self.app.processEvents()
 
     def test_coordinate_results_open_interactive_map(self):
