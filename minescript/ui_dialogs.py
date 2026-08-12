@@ -9,6 +9,7 @@ from PySide6.QtWidgets import (
     QSpinBox, QVBoxLayout, QWidget,
 )
 
+from .field_semantics import field_help
 from .input_help import parameter_copy, parameter_label, wrapped_tooltip
 
 
