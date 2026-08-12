@@ -195,7 +195,7 @@ class F3PlusDesktop(_BaseF3Plus):
         capture = QPushButton("Capture F3+C"); capture.setObjectName("QuietAction25"); capture.clicked.connect(self.capture_position); sr.addWidget(capture)
         outer.addWidget(status)
 
-        work = QSplitter(Qt.Horizontal); work.setChildrenCollapsible(False); outer.addWidget(work, 1)
+        work = QSplitter(Qt.Horizontal); work.setChildrenCollapsible(False); outer.addWidget(work, 1); self.work_splitter = work
 
         rail = QFrame(); rail.setObjectName("NavRail25"); rl = QVBoxLayout(rail); rl.setContentsMargins(10, 12, 10, 12); rl.setSpacing(7)
         rk = QLabel("TASKS"); rk.setObjectName("Eyebrow25"); rl.addWidget(rk)
@@ -208,9 +208,13 @@ class F3PlusDesktop(_BaseF3Plus):
         head = QHBoxLayout(); titles = QVBoxLayout(); self.browser_title = QLabel("Home"); self.browser_title.setObjectName("HeroTitle25"); titles.addWidget(self.browser_title); self.browser_subtitle = QLabel("Choose what you want to do. Related operations are grouped into one workbench."); self.browser_subtitle.setWordWrap(True); self.browser_subtitle.setObjectName("Muted"); titles.addWidget(self.browser_subtitle); head.addLayout(titles, 1)
         filters = QVBoxLayout(); fk = QLabel("FILTER"); fk.setObjectName("Eyebrow25"); filters.addWidget(fk); self.group_filter = QComboBox(); self.group_filter.setObjectName("GroupFilter25"); self.group_filter.addItem("All groups"); filters.addWidget(self.group_filter); head.addLayout(filters); cv.addLayout(head)
         self.tool_list = QListWidget(); self.tool_list.setObjectName("WorkbenchGrid"); self.tool_list.setViewMode(QListView.IconMode); self.tool_list.setResizeMode(QListView.Adjust); self.tool_list.setMovement(QListView.Static); self.tool_list.setWrapping(True); self.tool_list.setUniformItemSizes(True); self.tool_list.setSpacing(8); self.tool_list.setSelectionMode(QListView.SingleSelection); self.tool_list.setMouseTracking(True); self.tool_list.setItemDelegate(WorkbenchCardDelegate(self, self.tool_list)); cv.addWidget(self.tool_list, 1)
-        footer = QHBoxLayout(); self.result_count = QLabel(); self.result_count.setObjectName("Muted"); footer.addWidget(self.result_count); footer.addStretch(); tip = QLabel("Double-click a card to open it."); tip.setObjectName("Muted"); footer.addWidget(tip); cv.addLayout(footer); work.addWidget(canvas)
+        footer = QHBoxLayout(); self.result_count = QLabel(); self.result_count.setObjectName("Muted"); footer.addWidget(self.result_count); footer.addStretch()
+        self.details_btn = QPushButton("Details"); self.details_btn.setObjectName("QuietAction25"); self.details_btn.setCheckable(True); self.details_btn.clicked.connect(self._set_details_visible); footer.addWidget(self.details_btn)
+        self.quick_open_btn = QPushButton("Open Selected"); self.quick_open_btn.setObjectName("PrimaryAction25"); self.quick_open_btn.setEnabled(False); self.quick_open_btn.clicked.connect(self.run_selected); footer.addWidget(self.quick_open_btn)
+        cv.addLayout(footer); work.addWidget(canvas)
 
-        inspector = QFrame(); inspector.setObjectName("Inspector25"); iv = QVBoxLayout(inspector); iv.setContentsMargins(14, 14, 14, 14); iv.setSpacing(10)
+        inspector = QFrame(); inspector.setObjectName("Inspector25"); self.inspector = inspector
+        iv = QVBoxLayout(inspector); iv.setContentsMargins(14, 14, 14, 14); iv.setSpacing(10)
         ik = QLabel("SELECTED"); ik.setObjectName("Eyebrow25"); iv.addWidget(ik)
         hero = QHBoxLayout(); self.feature_icon = QLabel(); self.feature_icon.setFixedSize(48, 48); self.feature_icon.setAlignment(Qt.AlignCenter); hero.addWidget(self.feature_icon)
         hero_names = QVBoxLayout(); self.feature_kicker = QLabel("SELECT A WORKBENCH"); self.feature_kicker.setObjectName("Eyebrow25"); hero_names.addWidget(self.feature_kicker); self.feature_title = QLabel("Choose a workbench"); self.feature_title.setObjectName("SectionTitle25"); self.feature_title.setWordWrap(True); hero_names.addWidget(self.feature_title); self.feature_path = QLabel(); self.feature_path.setWordWrap(True); self.feature_path.setObjectName("Muted"); hero_names.addWidget(self.feature_path); hero.addLayout(hero_names, 1); iv.addLayout(hero)
@@ -220,7 +224,7 @@ class F3PlusDesktop(_BaseF3Plus):
         group = QButtonGroup(self); group.setExclusive(True); group.addButton(self.guide_btn); group.addButton(self.results_btn)
         self.stack = QStackedWidget(); self.guide = QTextBrowser(); self.guide.setObjectName("InspectorGuide25"); self.output = QTextBrowser(); self.output.setObjectName("InspectorResult25"); self.stack.addWidget(self.guide); self.stack.addWidget(self.output); iv.addWidget(self.stack, 1)
         self.guide_btn.clicked.connect(lambda: self.stack.setCurrentIndex(0)); self.results_btn.clicked.connect(lambda: self.stack.setCurrentIndex(1)); work.addWidget(inspector)
-        work.setSizes([185, 885, 390]); work.setStretchFactor(1, 1)
+        work.setStretchFactor(1, 1); self._set_details_visible(False)
 
         self.nav.currentItemChanged.connect(lambda *_: self.refresh_tools())
         self.search.textChanged.connect(lambda *_: self.refresh_tools())
@@ -278,6 +282,19 @@ class F3PlusDesktop(_BaseF3Plus):
             "World tools can use a seed or a local Java save. Capture F3+C when a calculation should start from your current position.\n\n"
             "Automation tools require a linked Minecraft client. Configure the routine, start it, and use Stop Automation whenever you need to release managed input.",
         )
+
+    def _set_details_visible(self, visible: bool):
+        visible = bool(visible)
+        if not hasattr(self, "inspector"): return
+        self.inspector.setVisible(visible)
+        if hasattr(self, "details_btn"):
+            self.details_btn.blockSignals(True); self.details_btn.setChecked(visible); self.details_btn.setText("Hide Details" if visible else "Details"); self.details_btn.blockSignals(False)
+        if hasattr(self, "work_splitter"):
+            self.work_splitter.setSizes([185, 885, 390] if visible else [185, 1275, 0])
+
+    def _show_result(self, spec, result):
+        self._set_details_visible(True)
+        super()._show_result(spec, result)
 
     def _sync_automation_chrome(self, active: bool):
         if hasattr(self, "pause_btn"): self.pause_btn.setVisible(bool(active))
@@ -356,16 +373,18 @@ class F3PlusDesktop(_BaseF3Plus):
                 if self.tool_list.item(i).data(Qt.UserRole) == self._selected_id: self.tool_list.setCurrentRow(i); break
         if self.tool_list.currentRow() < 0 and self.tool_list.count(): self.tool_list.setCurrentRow(0)
         if not self.tool_list.count():
-            self.run_btn.setEnabled(False); self.feature_title.setText("No matching workbench"); self.inspector_summary.setText("Try a broader task or mechanic name.")
+            self.run_btn.setEnabled(False); self.quick_open_btn.setEnabled(False); self.feature_title.setText("No matching workbench"); self.inspector_summary.setText("Try a broader task or mechanic name.")
 
     def selection_changed(self):
         spec = self.selected_spec()
         if not spec:
-            self.run_btn.setEnabled(False); return
+            self.run_btn.setEnabled(False); self.quick_open_btn.setEnabled(False); return
         self._selected_id = spec.id; guide = self._guide_for(spec); reason = safe_mode_restriction(spec) if self.settings.safe_mode else None
         self.feature_icon.setPixmap(self._art(tool_art_key(spec), 44)); self.feature_kicker.setText(nav_section(spec).upper()); self.feature_title.setText(spec.name); self.feature_path.setText(f"{workspace_group(spec)} • {len(modes_for(spec))} operations"); self.inspector_summary.setText(guide.summary)
         self.favorite_btn.setText("★" if spec.id in self.settings.favorites else "☆"); self.favorite_btn.setToolTip("Remove from favorites" if spec.id in self.settings.favorites else "Add to favorites")
-        self.run_btn.setEnabled(reason is None); self.run_btn.setText("Safe Mode Locked" if reason else "Open Workbench")
+        enabled = reason is None
+        self.run_btn.setEnabled(enabled); self.run_btn.setText("Safe Mode Locked" if reason else "Open Workbench")
+        self.quick_open_btn.setEnabled(enabled); self.quick_open_btn.setText("Safe Mode Locked" if reason else "Open Selected")
         operations = [mode.name for mode in modes_for(spec)]; preview = operations[:12]; more = len(operations) - len(preview)
         p = palette(self.settings.theme, self.settings.custom_palette); esc = html.escape
         locked = f"<div style='border-left:3px solid {p['warning']};padding:7px 9px;background:{p['surface2']};'><b>Safe Mode</b><br>{esc(reason)}</div>" if reason else ""
