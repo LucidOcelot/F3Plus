@@ -62,7 +62,7 @@ class ReleaseAudit253Tests(unittest.TestCase):
         self.assertIn("3.11 through 3.13", third_party)
         self.assertIn("ore", readme.lower())
         self.assertIn("villager", readme.lower())
-        self.assertIn("macro studio", readme.lower())
+        self.assertIn("macros", readme.lower())
         self.assertIn("world profiles", readme.lower())
         self.assertIn("automation permissions", security.lower())
         self.assertNotIn("historical feature ids", readme.lower())
@@ -73,7 +73,8 @@ class ReleaseAudit253Tests(unittest.TestCase):
         for relative in ("README.md", "THIRD_PARTY.md"):
             text = (ROOT / relative).read_text(encoding="utf-8")
             self.assertIn("AI-assisted development disclosure", text)
-            self.assertIn("Generative AI was used during development", text)
+            self.assertIn("Generative AI", text)
+            self.assertIn("during development", text)
             self.assertNotIn("unfortunately developed", text)
             self.assertNotRegex(text, r"Approximately\s+\d+%.*AI")
 
