@@ -108,6 +108,7 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Add source/UI contracts for grouped tree navigation, distinct hint/tooltip copy, wrapped tooltips, concise parameter labels, idle automation chrome, and the collapsed Details drawer.
 - [x] Update navigation tests to exercise the new tree structure instead of assuming a flat list API.
 - [x] Update shape-result tests to protect descriptive `Block positions` output instead of generic `Points` wording.
+- [x] Pass the complete Windows/macOS/Ubuntu Python 3.11–3.13 matrix, release audit, semantic audit, Cubiomes compiler audit, Mojang worldgen integration, and Windows UI screenshot capture after the second review.
 - [ ] Add selected visual-regression image comparisons for stable UI regions rather than screenshot capture alone.
 - [ ] Add high-DPI and minimum-window-size layout checks.
 - [ ] Add keyboard-navigation/accessibility smoke tests for search, workbench cards, forms, and result actions.
