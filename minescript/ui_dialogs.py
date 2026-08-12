@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from typing import Any
 
+from PySide6.QtCore import Qt
 from PySide6.QtWidgets import (
     QCheckBox, QComboBox, QDialog, QDialogButtonBox, QDoubleSpinBox,
     QFormLayout, QFrame, QLabel, QLineEdit, QScrollArea,
@@ -206,7 +207,7 @@ class ParameterDialog(QDialog):
             hint_text, tooltip = parameter_copy(title, key, label, default, kind)
             widget.setToolTip(tooltip); widget.setAccessibleDescription(tooltip); self.inputs[key] = widget
 
-            label_widget = QLabel(label); label_widget.setAlignment(label_widget.alignment() | 0x20); label_widget.setToolTip(tooltip)
+            label_widget = QLabel(label); label_widget.setAlignment(Qt.AlignLeft | Qt.AlignTop); label_widget.setToolTip(tooltip)
             column = QWidget(); column_layout = QVBoxLayout(column); column_layout.setContentsMargins(0, 0, 0, 0); column_layout.setSpacing(3); column_layout.addWidget(widget)
             if hint_text:
                 hint = QLabel(hint_text); hint.setWordWrap(True); hint.setObjectName("Muted"); column_layout.addWidget(hint)
