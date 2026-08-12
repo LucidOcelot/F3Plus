@@ -40,8 +40,8 @@ _GROUP_BY_ID = {
     "navigation.coordinates": "Position & Coordinates",
     "navigation.routes": "Routes & Waypoints",
     "navigation.portals": "Portals",
-    "world.seed_recovery": "Seed Tools",
-    "world.slime": "Seed Tools",
+    "world.seed_recovery": "World Seeds",
+    "world.slime": "Slime Chunks",
     "world.structures": "Find Locations",
     "world.spawners": "Scan Generated Worlds",
     "world.biomes": "Find Locations",
@@ -119,25 +119,17 @@ def specs_for_section(section: str, favorites=(), recent=()):
     for raw in list(favorites) + list(recent):
         tool_id = _canonical_id(str(raw))
         if tool_id and tool_id not in seen:
-            out.append(BY_ID[tool_id])
-            seen.add(tool_id)
+            out.append(BY_ID[tool_id]); seen.add(tool_id)
 
     if out:
         return out
 
     for wanted in (
-        "navigation.coordinates",
-        "navigation.portals",
-        "world.structures",
-        "world.ores",
-        "build.planner",
-        "build.recipes",
-        "simulation.rng",
-        "villagers.explorer",
+        "navigation.coordinates", "navigation.portals", "world.structures", "world.ores",
+        "build.planner", "build.recipes", "simulation.rng", "villagers.explorer",
     ):
         if wanted in BY_ID:
-            out.append(BY_ID[wanted])
-            seen.add(wanted)
+            out.append(BY_ID[wanted]); seen.add(wanted)
     return out
 
 
@@ -164,21 +156,17 @@ def _operation_preview(spec: ToolSpec, limit: int = 8) -> str:
 
 
 def make_guide(spec: ToolSpec, description=None, input_labels=None, output_keys=None, status="tool") -> ToolGuide:
-    """Return concise, workbench-specific discovery text.
-
-    The shell still consumes the older ToolGuide shape, but the strings deliberately
-    avoid generic product boilerplate. Detailed field meaning belongs on each input.
-    """
+    """Return short discovery copy; detailed field meaning belongs on each control."""
     operations = _operation_preview(spec)
     summary = spec.summary.strip()
-    inputs = f"Includes: {operations}." if operations else "Opens a dedicated interactive workspace."
+    inputs = f"Includes: {operations}." if operations else "Opens an interactive workspace."
     limitation = spec.limitations.strip()
-    if "does not" in limitation.lower() or "never presented" in limitation.lower():
+    if any(phrase in limitation.lower() for phrase in ("does not claim", "never presented", "compatibility alias")):
         limitation = ""
     return ToolGuide(
         title=spec.name,
         summary=summary,
-        when=summary,
+        when="",
         how="",
         inputs=inputs,
         output="",
@@ -189,14 +177,7 @@ def make_guide(spec: ToolSpec, description=None, input_labels=None, output_keys=
 
 def search_text(spec: ToolSpec, guide: ToolGuide) -> str:
     operations = " ".join(mode.name for mode in modes_for(spec))
-    return " ".join((
-        spec.id,
-        spec.name,
-        nav_section(spec),
-        workspace_group(spec),
-        spec.summary,
-        operations,
-    )).lower()
+    return " ".join((spec.id, spec.name, nav_section(spec), workspace_group(spec), spec.summary, operations)).lower()
 
 
 _ART_KEYS = {
