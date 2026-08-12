@@ -43,9 +43,13 @@ class TaskFirstUiDepthTests(unittest.TestCase):
         for tool in TOOLS:
             guide = make_guide(tool)
             combined = " ".join((guide.summary, guide.when, guide.how, guide.inputs, guide.output, guide.limitations)).lower()
-            for banned in ("use this when", "what you provide", "what you get", "historical", "compatibility"):
+            for banned in (
+                "use this when", "what you provide", "what you get", "historical",
+                "compatibility aliases", "compatibility namespace",
+            ):
                 self.assertNotIn(banned, combined)
             self.assertLessEqual(len(guide.summary), 260)
+            self.assertNotEqual(guide.summary, guide.when)
 
     def test_readme_describes_current_task_structure(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
