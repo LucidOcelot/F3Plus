@@ -50,8 +50,9 @@ class MinecraftNativeUxContracts(unittest.TestCase):
     def test_seed_help_distinguishes_world_and_simulation_seed(self):
         world = field_help("seed", "Known Java world seed")
         sim = field_help("seed", "Simulation seed")
-        self.assertIn("world seed", world.lower())
-        self.assertIn("not the minecraft world seed", sim.lower())
+        self.assertIn("java edition world seed", world.lower())
+        self.assertIn("simulator", sim.lower())
+        self.assertIn("reproduce", sim.lower())
         self.assertNotEqual(world, sim)
 
     def test_common_technical_fields_have_real_explanations(self):

@@ -1,144 +1,212 @@
 from __future__ import annotations
 
-"""Qt-free, human-facing semantics for operation fields.
-
-These strings are part of the public UX contract. A field may be inherited from a
-historical compatibility schema, but the player should never see an explanation like
-"value used by this operation" or be asked to infer units from an internal key.
-"""
+"""Human-facing input help used by generic operation forms."""
 
 import re
 
 
 FIELD_HELP = {
-    "world_path": "Existing Java Edition world/save folder to inspect. Use this when the operation needs observed blocks, entities, NBT, ore exposure, caves, or other generated facts rather than seed-placement candidates.",
-    "world": "Local Java world/save folder used as this operation's data source. F3+ reads it locally and does not modify the save unless the operation explicitly says it writes data.",
-    "cx": "Chunk X coordinate at the center of the search or analysis. One chunk is 16 blocks wide; block X is converted with floor(X / 16).",
-    "cz": "Chunk Z coordinate at the center of the search or analysis. One chunk is 16 blocks wide; block Z is converted with floor(Z / 16).",
-    "chunk_x": "Chunk X coordinate. One chunk is 16 blocks wide; negative block coordinates use mathematical floor division.",
-    "chunk_z": "Chunk Z coordinate. One chunk is 16 blocks wide; negative block coordinates use mathematical floor division.",
-    "center_chunk_x": "Chunk X used as the center of a bounded world search.",
-    "center_chunk_z": "Chunk Z used as the center of a bounded world search.",
-    "center_x": "Block X coordinate used as the center of the operation.",
-    "center_z": "Block Z coordinate used as the center of the operation.",
-    "origin_x": "Block X coordinate used as the operation's origin/reference point.",
-    "origin_z": "Block Z coordinate used as the operation's origin/reference point.",
-    "x": "Minecraft block X coordinate on the east/west axis. Positive X is east and negative X is west.",
-    "y": "Minecraft block Y coordinate on the vertical axis. Higher values are upward; lower values are deeper in the world.",
-    "z": "Minecraft block Z coordinate on the north/south axis. Positive Z is south and negative Z is north.",
-    "x1": "X coordinate of the first/start/current position used by the calculation.",
-    "y1": "Y coordinate of the first/start/current position used by the calculation.",
-    "z1": "Z coordinate of the first/start/current position used by the calculation.",
-    "x2": "X coordinate of the second/target position used by the calculation.",
-    "y2": "Y coordinate of the second/target position used by the calculation.",
-    "z2": "Z coordinate of the second/target position used by the calculation.",
-    "dx": "Signed X offset added to the starting coordinate; negative moves west and positive moves east.",
-    "dy": "Signed vertical offset added to the starting Y coordinate.",
-    "dz": "Signed Z offset added to the starting coordinate; negative moves north and positive moves south.",
-    "other_x": "X coordinate of the second portal/reference point being compared with the primary position.",
-    "other_y": "Y coordinate of the second portal/reference point being compared with the primary position.",
-    "other_z": "Z coordinate of the second portal/reference point being compared with the primary position.",
-    "radius": "Radius of the area or shape named by the visible label. Search radii determine how far F3+ scans from the center; build radii determine the generated block geometry.",
-    "radius_step": "Additional search radius added after each empty Search Until Found attempt. Smaller steps are more thorough; larger steps cover distance with fewer expansion attempts.",
-    "max_search_radius": "Largest radius Search Until Found may reach before reporting no match, unless the explicit ignore-limit option is enabled.",
-    "width": "Horizontal width used by the selected build/layout calculation, normally measured in blocks.",
-    "length": "Horizontal length/span used by the selected build/layout calculation, normally measured in blocks.",
-    "height": "Vertical height used by the selected build/layout calculation, normally measured in blocks.",
-    "spacing": "Distance between repeated elements, samples, supports, rows, or steps. The visible label identifies the exact role and unit for the selected tool.",
-    "sag": "Vertical drop from the endpoints toward the center of a hanging/catenary curve, measured in blocks.",
-    "secondary": "Second numeric quantity paired with the primary quantity. The selected operation's visible label and contextual help identify whether this means a second radius, width, count, level, timing value, or other mechanic-specific input.",
-    "value": "Primary numeric quantity used by the selected mechanic. The operation description and visible label identify whether it represents ticks, items, distance, radius, count, rate, or another unit.",
-    "stops": "Route destinations separated by semicolons. Each stop is x,y,z,label; for example: 80,64,0,Mine;120,70,50,Village.",
-    "points": "Recorded path points separated by semicolons. Each point is x,y,z with an optional label when supported; for example: 0,64,0,Start;16,64,0,P2.",
-    "sample_interval": "Seconds between recorded position samples. Smaller intervals create a denser route history and more points to process.",
-    "interval": "Seconds between repeated captures/actions for this operation.",
-    "epsilon": "Maximum distance in blocks that counts as revisiting the same place during loop detection.",
-    "return_to_start": "When enabled, the route includes a final leg from the last destination back to the starting point.",
-    "search_mode": "Radius Search checks one bounded area. Search Until Found expands outward after an empty result until a match or a stopping condition is reached.",
-    "ignore_max_generation_limit": "Advanced override that allows an expanding search to pass the configured maximum. Exact generation can consume substantial CPU, memory, disk space, and time.",
-    "regenerate_from_seed": "Generate bounded reference chunks with Mojang's matching Java server when no existing generated save is selected.",
-    "accept_minecraft_eula": "Explicit acknowledgement required before F3+ may launch Mojang's server locally to generate reference chunks.",
-    "worldgen_max_chunks": "Safety budget for exact Mojang reference generation. Higher budgets can require substantially more CPU time, RAM, disk I/O, and storage.",
-    "dimension": "Minecraft dimension whose coordinate or generation rules are used by the operation: Overworld, Nether, or End where supported.",
-    "target_biome": "Biome the search should locate, compare, or use as the target condition.",
-    "second_seed": "Second Java world seed used only for side-by-side seed comparison. It does not replace the primary world seed.",
-    "simulation_distance": "Minecraft simulation distance in chunks used to model which chunks are actively ticking around the player.",
-    "target_candidates": "Desired number of candidate results used when estimating or optimizing a search radius.",
-    "probability": "Chance of one independent success expressed from 0 to 1. Example: 0.05 means a 5% chance per attempt.",
-    "target_chance": "Target probability for the named outcome, normally expressed from 0 to 1 unless the visible label states a percentage.",
-    "attempts": "Number of independent attempts/rolls included in the probability or sequence calculation.",
-    "count": "Number of outputs, samples, predictions, or results requested by the selected operation.",
-    "first": "First observed signed 32-bit output from java.util.Random.nextInt(). It must be immediately followed by the second observation for state recovery.",
-    "second": "Second consecutive signed 32-bit output from java.util.Random.nextInt() used with the first observation to recover compatible internal states.",
-    "observed_long": "Observed signed 64-bit value returned by one java.util.Random.nextLong() call.",
-    "state": "Recovered/internal 48-bit java.util.Random state. This is gameplay RNG state, not a Minecraft world seed.",
-    "steps": "Number of Java LCG state transitions to advance (positive) or rewind (negative) before displaying predicted outputs.",
-    "item": "Minecraft item used by the selected mechanic. Dedicated simulator workbenches use visual item selectors where applicable.",
-    "items": "Total number of items being converted into stack, container, transport, or logistics requirements.",
-    "stack_size": "Maximum items per inventory stack for the material being planned. Common Minecraft values are 64, 16, and 1.",
-    "shulkers": "Number of shulker boxes available in the storage/transport plan; one shulker has 27 inventory slots.",
-    "units": "Number of plants, animals, machines, modules, or other mechanic-specific units named by the selected operation.",
-    "hours": "Time/cycle quantity used by the selected planning operation. The visible label identifies when the second quantity represents cycles or an ending level instead of literal hours.",
-    "level": "Minecraft level or tier used by the selected calculation, such as Unbreaking level, starting XP level, beacon tier, or another mechanic-specific level named by the operation.",
-    "amount": "Quantity consumed, repaired, processed, produced, or otherwise measured by the selected resource calculation.",
-    "speed": "Travel or processing speed in the units stated by the field label, commonly blocks per second for movement tools.",
-    "distance": "Distance in Minecraft blocks unless the visible label explicitly states another unit.",
-    "yaw": "Minecraft horizontal facing angle in degrees. F3+ follows Java Edition yaw conventions for the selected navigation calculation.",
-    "angle1": "Yaw/bearing angle of the first observation used by the selected triangulation calculation.",
-    "angle2": "Yaw/bearing angle of the second observation used by the selected triangulation calculation.",
-    "to_nether": "Choose the conversion direction. Enabled converts Overworld X/Z to Nether scale (divide by 8); disabled converts Nether X/Z to Overworld scale (multiply by 8).",
-    "overworld_gain": "Overworld distance that would otherwise be traveled when comparing Nether-assisted travel compression.",
-    "nether_walk": "Distance traveled inside the Nether portion of the comparison route.",
-    "overworld_walk": "Additional Overworld distance traveled outside the Nether-assisted portion of the route.",
-    "mc": "Cubiomes Minecraft-version enum used only by the native backend. Prefer the normal Minecraft Version setting unless a backend-level diagnostic explicitly asks for this value.",
-    "name": "Human-readable name saved with the item, waypoint, profile, or other local F3+ object created by this action.",
-    "new": "Replacement name to save for the selected local object.",
-    "waypoint": "Existing saved F3+ waypoint selected for this action.",
+    "world_path": "Select the Java Edition world folder to read. Use the folder that contains level.dat; scans read generated chunks, entities, and block data from this save.",
+    "world": "Select the Java Edition world folder to read. The chosen save supplies generated chunk and world data for this operation.",
+    "cx": "Center chunk X. One chunk is 16 blocks wide; block X converts to chunk X with floor(X / 16), including negative coordinates.",
+    "cz": "Center chunk Z. One chunk is 16 blocks wide; block Z converts to chunk Z with floor(Z / 16), including negative coordinates.",
+    "chunk_x": "Chunk X coordinate. One chunk spans 16 blocks on the X axis; negative coordinates use floor division.",
+    "chunk_z": "Chunk Z coordinate. One chunk spans 16 blocks on the Z axis; negative coordinates use floor division.",
+    "center_chunk_x": "Chunk X at the center of the search area.",
+    "center_chunk_z": "Chunk Z at the center of the search area.",
+    "center_x": "Block X coordinate at the center of the search or analysis area.",
+    "center_z": "Block Z coordinate at the center of the search or analysis area.",
+    "origin_x": "Block X coordinate used as the starting reference point.",
+    "origin_z": "Block Z coordinate used as the starting reference point.",
+    "x": "Block X coordinate. Positive X is east; negative X is west.",
+    "y": "Block Y coordinate. Larger values are higher; smaller values are deeper.",
+    "z": "Block Z coordinate. Positive Z is south; negative Z is north.",
+    "x1": "X coordinate of the first or starting position.",
+    "y1": "Y coordinate of the first or starting position.",
+    "z1": "Z coordinate of the first or starting position.",
+    "x2": "X coordinate of the second or target position.",
+    "y2": "Y coordinate of the second or target position.",
+    "z2": "Z coordinate of the second or target position.",
+    "dx": "Signed X offset from the starting position. Negative moves west; positive moves east.",
+    "dy": "Signed vertical offset from the starting Y coordinate.",
+    "dz": "Signed Z offset from the starting position. Negative moves north; positive moves south.",
+    "other_x": "X coordinate of the other portal, waypoint, or comparison point.",
+    "other_y": "Y coordinate of the other portal, waypoint, or comparison point.",
+    "other_z": "Z coordinate of the other portal, waypoint, or comparison point.",
+    "radius": "Radius from the selected center. Search tools scan within this distance; build radii determine the generated block geometry for shape tools.",
+    "radius_step": "Amount added to the radius after an empty search pass. Smaller steps check distance more gradually; larger steps expand faster.",
+    "max_search_radius": "Largest radius an expanding search may reach before stopping.",
+    "width": "Horizontal width of the selected build, area, or layout, measured in blocks unless the label states another unit.",
+    "length": "Horizontal length of the selected build, area, or layout, measured in blocks unless the label states another unit.",
+    "height": "Vertical height of the selected build, area, or layout, measured in blocks unless the label states another unit.",
+    "spacing": "Distance between repeated rows, supports, samples, or components. The field label identifies what is being spaced.",
+    "sag": "Vertical drop from the endpoints to the lowest part of the hanging curve, measured in blocks.",
+    "stops": "Route stops separated by semicolons. Format each stop as x,y,z,label, for example 80,64,0,Mine;120,70,50,Village.",
+    "points": "Path points separated by semicolons. Format each point as x,y,z with an optional label when supported.",
+    "sample_interval": "Seconds between recorded position samples. Lower values record a denser path.",
+    "interval": "Seconds between repeated captures or actions.",
+    "epsilon": "Maximum distance, in blocks, that counts as returning to the same place during loop detection.",
+    "return_to_start": "Add a final route leg from the last destination back to the starting point.",
+    "search_mode": "Radius Search checks one fixed area. Search Until Found expands the radius until it finds a match or reaches the stopping limit.",
+    "ignore_max_generation_limit": "Allow an expanding generated-world search to continue beyond the configured radius limit. This can substantially increase CPU, memory, disk, and runtime use.",
+    "regenerate_from_seed": "Create bounded reference chunks with the matching Minecraft Java server when no generated save is selected.",
+    "accept_minecraft_eula": "Confirm the Minecraft EULA before F3+ launches the local server used to generate reference chunks.",
+    "worldgen_max_chunks": "Safety budget for one reference-generation job, measured in chunks. Larger values require more CPU time, memory, and disk I/O.",
+    "dimension": "Dimension used by the calculation: Overworld, Nether, or End where supported.",
+    "target_biome": "Biome that the search should locate or use as its match condition.",
+    "second_seed": "Second Java world seed used for comparison with the primary seed.",
+    "simulation_distance": "Simulation distance in chunks used when modeling which nearby chunks are actively ticking.",
+    "target_candidates": "Number of candidate locations the search should aim to return.",
+    "probability": "Chance of one independent success from 0 to 1. For example, 0.05 means 5 percent.",
+    "target_chance": "Desired chance for the named outcome, from 0 to 1 unless the field label explicitly uses percent.",
+    "attempts": "Number of independent attempts, rolls, or trials included in the calculation.",
+    "count": "Number of results, samples, predictions, or repetitions to produce.",
+    "first": "First signed 32-bit value observed from java.util.Random.nextInt(), immediately followed by the value in Second.",
+    "second": "Second consecutive signed 32-bit value observed from java.util.Random.nextInt().",
+    "observed_long": "Signed 64-bit value observed from one java.util.Random.nextLong() call.",
+    "state": "Internal 48-bit java.util.Random state used for gameplay RNG calculations.",
+    "steps": "Number of Java RNG state transitions to move. Positive values advance; negative values rewind.",
+    "item": "Minecraft item used by this calculation or simulator.",
+    "items": "Total number of items included in the storage, transport, crafting, or logistics calculation.",
+    "stack_size": "Maximum items per inventory stack. Common Minecraft stack sizes are 64, 16, and 1.",
+    "shulkers": "Number of shulker boxes available. Each shulker box contains 27 inventory slots.",
+    "units": "Number of plants, animals, machines, modules, or other repeated units named by this operation.",
+    "hours": "Time value in hours unless the visible field label names a different cycle quantity.",
+    "level": "Minecraft level or tier named by this field, such as XP, enchantment, beacon, or prior-work level.",
+    "amount": "Quantity consumed, repaired, processed, produced, or measured by the selected calculation.",
+    "speed": "Movement or processing speed in the units shown by the field label, commonly blocks per second.",
+    "distance": "Distance in Minecraft blocks unless the field label states another unit.",
+    "yaw": "Horizontal Minecraft facing angle in degrees using Java Edition yaw conventions.",
+    "angle1": "Facing or bearing angle, in degrees, for the first triangulation observation.",
+    "angle2": "Facing or bearing angle, in degrees, for the second triangulation observation.",
+    "to_nether": "Turn on to convert Overworld X/Z to Nether scale by dividing by 8. Turn off for Nether-to-Overworld conversion by multiplying by 8.",
+    "overworld_gain": "Overworld distance avoided or replaced when comparing Nether-assisted travel.",
+    "nether_walk": "Distance traveled inside the Nether portion of the route.",
+    "overworld_walk": "Additional distance traveled in the Overworld outside the Nether-assisted section.",
+    "mc": "Minecraft generation-version value passed to the Cubiomes backend for this calculation.",
+    "name": "Name saved with the waypoint, profile, route, or other object created by this action.",
+    "new": "Replacement name to save for the selected object.",
+    "waypoint": "Saved waypoint used by this action.",
+}
+
+
+LABEL_HELP = {
+    "minecraft action/key": "Key or mouse binding held by the routine. Examples include w, space, f, mouse:left, and mouse:right.",
+    "mouse button": "Mouse button clicked by each periodic action cycle.",
+    "actions per cycle": "Number of mouse clicks performed each time the periodic timer fires.",
+    "hold feed/use": "Keep the use button held while the livestock routine is active.",
+    "growth cycle": "Minutes between livestock interaction cycles. Use this to match the breeding cooldown or growth timing of the animals being managed.",
+    "swings per cycle": "Number of interaction swings sent during each livestock cycle.",
+    "swing spacing": "Seconds between interaction swings within one livestock cycle.",
+    "wait before reel": "Seconds between casting and the reel action in the timer-based fishing cycle.",
+    "recast delay": "Seconds after reeling before the next cast is sent.",
+    "sprint": "Hold the sprint input while the travel routine moves toward the destination.",
+    "overworld destination x": "Overworld X coordinate of the destination. When traveling in the Nether, F3+ divides this coordinate by 8 before moving.",
+    "overworld destination z": "Overworld Z coordinate of the destination. When traveling in the Nether, F3+ divides this coordinate by 8 before moving.",
+    "current dimension": "Dimension the player is currently traveling in, used to decide whether Overworld destination coordinates need 8:1 Nether scaling.",
+    "travel y": "Y coordinate used as the vertical destination for coordinate travel.",
+    "target x": "Destination X coordinate for the coordinate travel routine.",
+    "target y": "Destination Y coordinate for the coordinate travel routine.",
+    "target z": "Destination Z coordinate for the coordinate travel routine.",
+    "row/side travel time": "Seconds spent moving along each row or perimeter side in the timed construction path.",
+    "row spacing time": "Seconds spent shifting sideways before beginning the next construction row.",
+    "main tunnel spacing": "Blocks traveled along the main tunnel between successive branch entrances.",
+    "branch depth": "Blocks traveled outward from the main tunnel before the branch miner turns back.",
+    "branches": "Number of side branches the branch-mining routine should excavate.",
+    "alternate sides": "Alternate left and right branch directions instead of placing every branch on the same side of the main tunnel.",
+    "distance per step": "Forward block distance covered before each vertical stair step.",
+    "descending": "Move the staircase downward when enabled; otherwise build or excavate upward.",
+    "row distance": "Block distance excavated along each row of the area excavation pattern.",
+    "row shift": "Block distance moved sideways between excavation rows.",
+    "row travel time": "Seconds spent moving down each farming row.",
+    "row shift time": "Seconds spent shifting sideways between farming rows.",
+    "hold attack/harvest": "Hold attack while moving down a farming row so mature crops or plants are broken.",
+    "hold use/replant": "Hold use while moving so the selected crop can be replanted when possible.",
+    "bone meal clicks": "Number of bone-meal use clicks sent during each growth cycle.",
+    "click delay": "Seconds between repeated bone-meal clicks.",
+    "plant slot": "Hotbar slot containing the item to plant before bone meal is applied.",
+    "bone meal slot": "Hotbar slot containing bone meal.",
+    "crossbow slots": "Hotbar slots containing the crossbows included in the volley rotation.",
+    "charge time": "Seconds the use button is held to charge each crossbow before firing.",
+    "swap delay": "Seconds to wait after selecting the next crossbow before charging it.",
+    "slots": "Hotbar slots visited by the workflow, in the order entered.",
+    "delay between slots": "Seconds to wait after selecting one hotbar slot before moving to the next.",
+    "loop": "Repeat the hotbar sequence after the final configured slot.",
+    "tool slots": "Hotbar slots containing the tools included in the rotation.",
+    "seconds per tool": "Seconds each tool remains selected before the next configured slot becomes active.",
+    "hold attack": "Keep attack held while the selected tool is active.",
+    "action": "Mouse action the guard routine should hold while its cycle limit is active.",
+    "maximum status cycles": "Maximum automation status cycles allowed before the guard stops the held action.",
+    "food slot": "Hotbar slot containing the food item selected before each eating attempt.",
+    "eat every": "Seconds between automatic eating attempts.",
+    "use duration": "Seconds to hold use during each eating attempt.",
+    "swap key": "Minecraft key binding pressed to swap the main-hand and offhand items.",
+    "swap interval": "Seconds between offhand swap-key presses.",
 }
 
 
 def _unit_from_label(low: str) -> str:
-    if "chunk" in low: return "chunks"
-    if "block" in low: return "blocks"
-    if "second" in low or " sec" in low: return "seconds"
-    if "tick" in low: return "ticks"
-    if "degree" in low or "yaw" in low or "angle" in low: return "degrees"
-    if "hour" in low: return "hours"
-    if "percent" in low or "%" in low: return "percent"
-    return "the unit named by the field label"
+    if "chunk" in low:
+        return "chunks"
+    if "block" in low:
+        return "blocks"
+    if "second" in low or " sec" in low:
+        return "seconds"
+    if "tick" in low:
+        return "ticks"
+    if "degree" in low or "yaw" in low or "angle" in low:
+        return "degrees"
+    if "hour" in low:
+        return "hours"
+    if "percent" in low or "%" in low:
+        return "percent"
+    return "the unit shown by the field label"
 
 
 def field_help(key: str, label: str = "") -> str:
-    key = str(key); label_text = re.sub(r"\s+", " ", str(label or "")).strip(); low = label_text.lower()
+    key = str(key)
+    label_text = re.sub(r"\s+", " ", str(label or "")).strip()
+    low = label_text.lower()
+
     if key == "seed":
         if any(token in low for token in ("simulation", "rng", "random", "reproduc")):
-            return "Deterministic simulator/RNG seed used only to reproduce this calculation. It is not the Minecraft world seed and does not select world generation."
-        return "Known Java Edition world seed used by deterministic world-generation calculations or bounded reference generation. Negative and positive signed 64-bit seeds are valid."
+            return "Seed used to reproduce this simulator or RNG run. Numbers and text may be accepted by workbenches that say so."
+        return "Java Edition world seed used by this world-generation calculation. Signed 64-bit numeric seeds are valid."
+
+    direct_label = LABEL_HELP.get(low)
+    if direct_label:
+        return direct_label
+
     direct = FIELD_HELP.get(key)
-    if direct: return direct
+    if direct:
+        return direct
+
     if "radius" in low:
-        unit = _unit_from_label(low); return f"Radius of the area or shape named by this field, measured in {unit}. Larger search radii require more work; larger build radii generate more blocks."
+        return f"Radius for {label_text or 'this area'}, measured in {_unit_from_label(low)}."
     if "seed" in low:
-        return "Deterministic seed for the mechanic named by this field. World-generation seeds and simulator reproducibility seeds are separate concepts and are labeled separately in F3+."
+        return f"Seed value used by {label_text or 'this calculation'} to produce repeatable results."
     if "chance" in low or "probability" in low or "odds" in low:
-        return "Probability for the named event. F3+ probability fields normally use 0 to 1 unless the label explicitly states percent; 0.25 means 25%."
+        return f"Probability for {label_text or 'this event'}. Use 0 to 1 unless the label explicitly states percent."
     if any(token in low for token in ("count", "pull", "attempt", "samples", "cycles")):
-        return "Number of repetitions or results requested for the named task. Larger values usually improve sample size or coverage but take longer to compute."
+        return f"Number of {label_text or 'repetitions'} to process or return. Larger values usually require more computation."
     if any(token in low for token in ("path", "folder", "save")):
-        return "Local filesystem location used as this operation's data source. F3+ reads it locally; selecting a world folder does not upload the save."
+        return f"Local filesystem location for {label_text or 'the selected data source'}."
     if "spacing" in low:
-        return f"Spacing between the named repeated elements, measured in {_unit_from_label(low)}."
+        return f"Spacing for {label_text}, measured in {_unit_from_label(low)}."
     if any(token in low for token in ("width", "length", "height", "distance")):
-        return f"{label_text or 'Dimension'} used by the calculation, measured in {_unit_from_label(low)}."
+        return f"{label_text or 'Dimension'} measured in {_unit_from_label(low)}."
     if "level" in low:
-        return "Minecraft level/tier named by this field. The surrounding operation description identifies whether this means XP level, enchantment tier, beacon tier, or another mechanic level."
-    if low == "x" or low.endswith(" x"): return "Minecraft X coordinate on the east/west axis. Positive is east; negative is west."
-    if low == "y" or low.endswith(" y"): return "Minecraft Y coordinate on the vertical axis. Higher values move upward; lower values move deeper."
-    if low == "z" or low.endswith(" z"): return "Minecraft Z coordinate on the north/south axis. Positive is south; negative is north."
+        return f"Minecraft level or tier for {label_text or 'this mechanic'}."
+    if low == "x" or low.endswith(" x"):
+        return "Minecraft X coordinate. Positive is east; negative is west."
+    if low == "y" or low.endswith(" y"):
+        return "Minecraft Y coordinate. Larger values are higher; smaller values are deeper."
+    if low == "z" or low.endswith(" z"):
+        return "Minecraft Z coordinate. Positive is south; negative is north."
     if "version" in low:
-        return "Minecraft/data version selected for this operation. F3+ reports when the active calculation or local data source uses a different version."
+        return f"Minecraft version used for {label_text or 'this operation'}."
     if "item" in low or "material" in low:
-        return "Minecraft item or material used by the named calculation. Use the exact item requested by the visible operation rather than an internal numeric ID."
+        return f"Minecraft item or material selected for {label_text or 'this calculation'}."
     if label_text:
-        return f"Input for “{label_text}”. Its role is defined by the selected operation and the contextual description shown directly above this control; changing it changes that named part of the calculation."
-    return "Operation input whose purpose is shown in the selected operation's contextual description. F3+ does not expose unused internal compatibility values as user fields."
+        return f"Set {label_text}. The accepted value type and default are shown with this control."
+    return "Set this input using the value type and default shown with the control."

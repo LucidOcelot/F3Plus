@@ -13,16 +13,17 @@ class AutomationRoutingSourceTests(unittest.TestCase):
         source = Path("minescript/workbench_forms.py").read_text(encoding="utf-8")
         self.assertIn('if self.tool.workspace == "Automation"', source)
         self.assertIn("AutomationControllerDialog", source)
-        self.assertIn('Search {tool.name.lower()} operations', source)
-        self.assertNotIn('Find an operation, e.g. ore distribution', source)
+        self.assertIn("QTreeWidget", source)
+        self.assertNotIn("header = QListWidgetItem", source)
 
-    def test_controller_does_not_contain_generic_analysis_taxonomy(self):
+    def test_controller_uses_compact_player_categories(self):
         source = Path("minescript/automation_controller.py").read_text(encoding="utf-8")
-        self.assertNotIn("Analysis & Distribution", source)
-        self.assertIn("Equipment & Safety", source)
-        self.assertIn("Hold & Continuous", source)
-        self.assertIn("Repeat & Interaction", source)
-        self.assertIn("Coordinate Travel", source)
+        for expected in ("Repeated Actions", "Travel", "Mining", "Farming", "Building", "Equipment", "Macros & Setup"):
+            self.assertIn(expected, source)
+        for old in ("Equipment & Safety", "Hold & Continuous", "Repeat & Interaction", "Ground & Vehicle"):
+            self.assertNotIn(old, source)
+        self.assertIn("QTreeWidget", source)
+        self.assertNotIn("QListWidgetItem", source)
 
 
 try:
@@ -78,25 +79,55 @@ class AutomationControllerUiTests(unittest.TestCase):
 
         return Owner()
 
-    def test_resource_guard_is_equipment_not_analysis_and_is_configurable(self):
+    @staticmethod
+    def _groups(dialog):
+        return [dialog.list.topLevelItem(i) for i in range(dialog.list.topLevelItemCount())]
+
+    @classmethod
+    def _find_mode(cls, dialog, name: str):
+        for group in cls._groups(dialog):
+            for row in range(group.childCount()):
+                item = group.child(row)
+                mode = item.data(0, 0x0100)
+                if isinstance(mode, ToolMode) and mode.name == name:
+                    return item
+        return None
+
+    def test_resource_guard_is_in_equipment_and_configurable(self):
         owner = self._owner()
         dialog = AutomationControllerDialog(owner, BY_ID["automation.actions"], owner.executor, owner.settings)
-        labels = [dialog.list.item(i).text() for i in range(dialog.list.count())]
-        self.assertIn("EQUIPMENT & SAFETY", labels)
-        self.assertNotIn("ANALYSIS & DISTRIBUTION", labels)
-        resource_row = labels.index("Resource Guard")
-        dialog.list.setCurrentRow(resource_row)
+        groups = [item.text(0) for item in self._groups(dialog)]
+        self.assertIn("Equipment", groups)
+        item = self._find_mode(dialog, "Resource Guard")
+        self.assertIsNotNone(item)
+        dialog.list.setCurrentItem(item)
         self.assertEqual(dialog.primary.text(), "Configure & Start")
-        self.assertIn("cannot read live inventory counts", dialog.description.text().lower())
-        self.assertNotIn("ore distribution", dialog.search.placeholderText().lower())
+        self.assertIn("fixed number of status cycles", dialog.description.text().lower())
         dialog.close(); owner.close()
 
-    def test_automation_actions_keep_real_gameplay_categories(self):
+    def test_mending_grinder_copy_explains_what_the_routine_does(self):
         owner = self._owner()
         dialog = AutomationControllerDialog(owner, BY_ID["automation.actions"], owner.executor, owner.settings)
-        labels = [dialog.list.item(i).text() for i in range(dialog.list.count())]
-        for expected in ("HOLD & CONTINUOUS", "REPEAT & INTERACTION", "FISHING", "EQUIPMENT & SAFETY"):
-            self.assertIn(expected, labels)
+        item = self._find_mode(dialog, "Mending Grinder")
+        self.assertIsNotNone(item)
+        dialog.list.setCurrentItem(item)
+        description = dialog.description.text().lower()
+        self.assertIn("mending", description)
+        self.assertIn("hotbar", description)
+        self.assertIn("xp", description)
+        self.assertNotIn("review the run behavior", description)
+        dialog.close(); owner.close()
+
+    def test_tree_categories_are_collapsible_and_search_expands_matches(self):
+        owner = self._owner()
+        dialog = AutomationControllerDialog(owner, BY_ID["automation.actions"], owner.executor, owner.settings)
+        self.assertGreater(dialog.list.topLevelItemCount(), 0)
+        dialog.search.setText("mending")
+        self.app.processEvents()
+        groups = self._groups(dialog)
+        self.assertTrue(groups)
+        self.assertTrue(all(group.isExpanded() for group in groups))
+        self.assertIsNotNone(self._find_mode(dialog, "Mending Grinder"))
         dialog.close(); owner.close()
 
 
