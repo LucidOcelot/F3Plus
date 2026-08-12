@@ -7,7 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
 from minescript.minecraft_simulators import AnimalBreedingEngine, EnchantingEngine, MinecraftJarData
-from minescript.ui_dialogs import parameter_copy
+from minescript.ui_dialogs import parameter_copy, parameter_label, wrapped_tooltip
 from minescript.ux_semantics25 import DEFAULT_SEED_TEXT, rarity_from_weight, seed_value
 
 
@@ -41,7 +41,7 @@ class UxClarity254Contracts(unittest.TestCase):
         source = open("minescript/operation_dialog25.py", encoding="utf-8").read()
         self.assertNotIn('f"{description} Inputs:', source)
         self.assertIn("self.context_card.setVisible(bool(explained))", source)
-        self.assertIn("widget.setToolTip(tip)", source)
+        self.assertIn("set_help_tooltip(widget, tip)", source)
         self.assertNotIn("layout.addWidget(hint)", source)
 
     def test_small_parameter_dialog_uses_distinct_hint_and_tooltip_copy(self):
@@ -56,11 +56,23 @@ class UxClarity254Contracts(unittest.TestCase):
         self.assertIn("1 through 9", tooltip.lower())
         self.assertNotEqual(hint, tooltip)
 
+    def test_mending_labels_explain_the_control_without_hovering(self):
+        self.assertEqual(parameter_label("Mending Grinder", "attack", "Attack interval"), "Attack every")
+        self.assertEqual(parameter_label("Mending Grinder", "rotate", "Slot rotation interval"), "Switch item every")
+        self.assertEqual(parameter_label("Mending Grinder", "slots", "Slots (comma separated)"), "Mending slots")
+
+    def test_tooltips_are_wrapped_rich_text_not_screen_width_plain_text(self):
+        tooltip = wrapped_tooltip("A long piece of help text that should wrap.")
+        self.assertTrue(tooltip.startswith("<qt>"))
+        self.assertIn("width='360'", tooltip)
+        self.assertIn("<table", tooltip)
+
     def test_parameter_dialog_formats_timer_fields_for_humans(self):
         source = open("minescript/ui_dialogs.py", encoding="utf-8").read()
         self.assertIn('widget.setDecimals(2)', source)
         self.assertIn('widget.setSuffix(" min" if minute_field else " s")', source)
         self.assertIn("target_height = 170 + len(fields) * 72", source)
+        self.assertIn("set_help_tooltip(widget, tooltip)", source)
         self.assertNotIn("hint = QLabel(tip)", source)
 
     def test_operation_and_automation_lists_use_real_grouped_trees(self):
