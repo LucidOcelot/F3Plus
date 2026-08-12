@@ -49,30 +49,25 @@ class ReleaseAudit253Tests(unittest.TestCase):
         with patch.dict(os.environ, {"F3PLUS_UPDATE_CHANNEL": "preview"}):
             self.assertEqual(update_channel(), ("preview", "main"))
 
-    def test_public_docs_describe_current_release_and_new_ui(self):
+    def test_public_docs_describe_current_task_first_product(self):
         readme = (ROOT / "README.md").read_text(encoding="utf-8")
-        features = (ROOT / "FEATURES.md").read_text(encoding="utf-8")
         third_party = (ROOT / "THIRD_PARTY.md").read_text(encoding="utf-8")
         security = (ROOT / "SECURITY.md").read_text(encoding="utf-8")
-        self.assertIn("# F3+ 2.5.3", readme)
-        self.assertIn("validated **Stable** updates", readme)
-        self.assertIn("professional desktop shell", readme.lower())
-        self.assertIn("contextual inspector", readme.lower())
-        self.assertIn("# F3+ Workbench Guide", features)
-        self.assertIn("F3+ 2.5.3", features)
+        self.assertTrue(readme.startswith("# F3+\n"))
+        for section in ("Play & Travel", "Explore Worlds", "Plan & Build", "Mechanics & Trading", "App & Safety"):
+            self.assertIn(section, readme)
+        self.assertIn("Inputs and outputs", readme)
+        self.assertIn("Automation and safety", readme)
         self.assertIn("3.11 through 3.13", readme)
         self.assertIn("3.11 through 3.13", third_party)
-        self.assertIn("historical feature ids", readme.lower())
-        self.assertIn("compatibility aliases", features.lower())
-        self.assertIn("ore & cave explorer", readme.lower())
-        self.assertIn("search center", readme.lower())
-        self.assertIn("block blueprint", features.lower())
-        self.assertIn("virtualized", features.lower())
-        self.assertIn("recolorable f3+ svgs", readme.lower())
+        self.assertIn("ore", readme.lower())
+        self.assertIn("villager", readme.lower())
         self.assertIn("macro studio", readme.lower())
         self.assertIn("world profiles", readme.lower())
-        self.assertIn("recipe & material explorer", readme.lower())
         self.assertIn("automation permissions", security.lower())
+        self.assertNotIn("historical feature ids", readme.lower())
+        self.assertNotIn("compatibility aliases", readme.lower())
+        self.assertNotIn("professional desktop shell", readme.lower())
 
     def test_ai_disclosure_is_neutral_and_does_not_claim_fake_precision(self):
         for relative in ("README.md", "THIRD_PARTY.md"):
@@ -88,9 +83,10 @@ class ReleaseAudit253Tests(unittest.TestCase):
             self.assertNotIn("F3Plus/2.0.0", text, relative)
             self.assertNotIn("F3Plus/1.16.2", text, relative)
 
-    def test_main_launches_new_shell(self):
+    def test_main_launches_canonical_desktop_shell(self):
         text = (ROOT / "main.py").read_text(encoding="utf-8")
-        self.assertIn("from minescript.app25 import run", text)
+        self.assertIn("from minescript.desktop import run", text)
+        self.assertTrue((ROOT / "minescript" / "desktop.py").exists())
 
 
 if __name__ == "__main__":
