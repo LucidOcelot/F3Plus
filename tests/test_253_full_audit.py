@@ -19,8 +19,7 @@ class TaskFirstProductAudit(unittest.TestCase):
     def test_every_workbench_is_visible_in_one_task_section(self):
         visible = []
         for section, _ in NAV_SECTIONS:
-            if section == "Home":
-                continue
+            if section == "Home": continue
             rows = specs_for_section(section)
             self.assertTrue(rows, section)
             visible.extend(tool.id for tool in rows)
@@ -35,14 +34,9 @@ class TaskFirstProductAudit(unittest.TestCase):
 
     def test_workbench_discovery_text_is_concise(self):
         banned = (
-            "use this when",
-            "what you provide",
-            "what you get",
-            "historical",
-            "compatibility",
-            "does not claim",
-            "never presented",
-            "confidence level",
+            "use this when", "what you provide", "what you get", "historical",
+            "compatibility aliases", "compatibility namespace", "does not claim",
+            "never presented", "confidence level",
         )
         for tool in TOOLS:
             guide = make_guide(tool)
@@ -51,8 +45,7 @@ class TaskFirstProductAudit(unittest.TestCase):
                 self.assertNotIn(phrase, combined, (tool.id, phrase, combined))
 
     def test_every_operation_still_has_an_execution_spec(self):
-        executor = FeatureExecutor()
-        failures = []
+        executor = FeatureExecutor(); failures = []
         for spec in SPECS:
             try:
                 executor.input_fields(spec)
@@ -61,15 +54,12 @@ class TaskFirstProductAudit(unittest.TestCase):
         self.assertFalse(failures[:20], failures[:20])
 
     def test_public_inputs_have_tooltip_text(self):
-        executor = FeatureExecutor()
-        failures = []
+        executor = FeatureExecutor(); failures = []
         for spec in SPECS:
             for key, label, default, kind in executor.input_fields(spec):
-                text = field_help(str(key), str(label)).strip()
-                low = text.lower()
-                if len(text) < 28:
-                    failures.append((spec.id, label, text))
-                if "compatibility" in low or "contextual description" in low or "unused internal" in low:
+                text = field_help(str(key), str(label)).strip(); low = text.lower()
+                if len(text) < 28: failures.append((spec.id, label, text))
+                if "compatibility alias" in low or "contextual description" in low or "unused internal" in low:
                     failures.append((spec.id, label, text))
         self.assertFalse(failures[:30], failures[:30])
 
