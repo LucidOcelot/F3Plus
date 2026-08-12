@@ -58,13 +58,16 @@ class TaskFirstUiDepthTests(unittest.TestCase):
         self.assertNotIn("professional desktop shell", readme.lower())
         self.assertLess(len(readme.splitlines()), 220)
 
-    def test_task_first_shell_is_the_runtime_ui(self):
+    def test_task_first_desktop_is_the_runtime_ui(self):
         main = (ROOT / "main.py").read_text(encoding="utf-8")
-        shell = (ROOT / "minescript" / "app25.py").read_text(encoding="utf-8")
-        self.assertIn("from minescript.app25 import run", main)
-        for marker in ("WorkbenchCardDelegate", "CommandPalette25", "WorkbenchCanvas", "Inspector25", "launch_tool"):
+        shell = (ROOT / "minescript" / "desktop.py").read_text(encoding="utf-8")
+        self.assertIn("from minescript.desktop import run", main)
+        for marker in ("WorkbenchCardDelegate", "CommandPalette", "WorkbenchCanvas", "Inspector25", "launch_tool"):
             self.assertIn(marker, shell)
         self.assertIn('QLabel("TASKS")', shell)
+        self.assertIn("def build_menu", shell)
+        self.assertIn("Play & Travel", shell)
+        self.assertIn("self._sync_automation_chrome(False)", shell)
         self.assertNotIn("current or historical operation", shell)
 
 
