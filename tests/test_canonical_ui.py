@@ -34,9 +34,14 @@ class CanonicalUiTests(unittest.TestCase):
         self.assertEqual(window.nav.count(), 6)
         self.assertLess(len(TOOLS), 50)
         self.assertGreater(window.tool_list.count(), 0)
-        self.assertTrue(window.run_btn.text())
+        self.assertTrue(window.quick_open_btn.text())
         self.assertFalse(window.pause_btn.isVisible())
         self.assertFalse(window.stop_btn.isVisible())
+        self.assertTrue(window.inspector.isHidden())
+        self.assertFalse(window.details_btn.isChecked())
+        window._set_details_visible(True)
+        self.assertFalse(window.inspector.isHidden())
+        self.assertTrue(window.details_btn.isChecked())
         window.close(); window.deleteLater(); self.app.processEvents()
 
     def test_coordinate_results_open_interactive_map(self):
