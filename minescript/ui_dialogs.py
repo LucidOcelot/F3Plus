@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from html import escape
 from typing import Any
 
 from PySide6.QtCore import Qt
@@ -10,6 +11,27 @@ from PySide6.QtWidgets import (
 )
 
 from .field_semantics import field_help
+
+
+_PARAMETER_LABELS: dict[tuple[str, str], str] = {
+    ("Mending Grinder", "attack"): "Attack every",
+    ("Mending Grinder", "rotate"): "Switch item every",
+    ("Mending Grinder", "slots"): "Mending slots",
+    ("Crossbow Volley", "slots"): "Crossbow slots",
+    ("Crossbow Volley", "charge"): "Charge for",
+    ("Crossbow Volley", "swap"): "After switching, wait",
+    ("Tool Rotation", "slots"): "Tool slots",
+    ("Tool Rotation", "interval"): "Switch tool every",
+    ("Hotbar Workflow", "delay"): "Switch every",
+    ("Food Manager", "interval"): "Eat every",
+    ("Food Manager", "duration"): "Hold use for",
+    ("Offhand Workflow", "interval"): "Swap every",
+    ("Custom Periodic Action", "interval"): "Repeat every",
+    ("Custom Periodic Action", "spacing"): "Click spacing",
+    ("Livestock Breeder", "minutes"): "Repeat cycle every",
+    ("Auto Fishing", "wait"): "Reel after",
+    ("Auto Fishing", "recast"): "Recast after",
+}
 
 
 _PARAMETER_COPY: dict[tuple[str, str], tuple[str, str]] = {
@@ -117,6 +139,26 @@ def widget_value(widget):
     return widget.text()
 
 
+def wrapped_tooltip(text: str, width: int = 360) -> str:
+    """Return a Qt rich-text tooltip that wraps instead of stretching across the screen."""
+    plain = str(text).strip()
+    if not plain:
+        return ""
+    return f"<qt><table width='{int(width)}'><tr><td>{escape(plain)}</td></tr></table></qt>"
+
+
+def set_help_tooltip(widget, text: str, width: int = 360) -> None:
+    """Use wrapped visual help while keeping accessibility text plain."""
+    plain = str(text).strip()
+    widget.setToolTip(wrapped_tooltip(plain, width))
+    if hasattr(widget, "setAccessibleDescription"):
+        widget.setAccessibleDescription(plain)
+
+
+def parameter_label(title: str, key: str, label: str) -> str:
+    return _PARAMETER_LABELS.get((str(title), str(key)), str(label))
+
+
 def _generic_hint(key: str, label: str) -> str:
     low = f"{key} {label}".lower()
     if "slots" in low: return "Hotbar slots 1–9, separated by commas."
@@ -154,8 +196,9 @@ def parameter_copy(title: str, key: str, label: str, default, kind: str) -> tupl
     if specific:
         hint, tooltip = specific
     else:
-        hint = _generic_hint(str(key), str(label))
-        tooltip = field_help(str(key), str(label)).strip()
+        display = parameter_label(title, key, label)
+        hint = _generic_hint(str(key), display)
+        tooltip = field_help(str(key), display).strip()
     requirement = _requirement(default, kind)
     if requirement and requirement.lower() not in tooltip.lower():
         tooltip = f"{tooltip} {requirement}".strip()
@@ -171,7 +214,7 @@ def _configure_parameter_widget(widget, key: str, label: str):
     if isinstance(widget, QSpinBox) and any(token in low for token in ("slot", "hotbar")):
         widget.setRange(1, 9)
     if isinstance(widget, QDoubleSpinBox):
-        time_field = any(token in low for token in ("interval", "delay", "duration", "wait", "spacing", "seconds", "time", "recast"))
+        time_field = any(token in low for token in ("interval", "delay", "duration", "wait", "spacing", "seconds", "time", "recast", "every", "switch"))
         minute_field = "minute" in low or key == "minutes"
         if time_field or minute_field:
             widget.setDecimals(2)
@@ -182,7 +225,7 @@ def _configure_parameter_widget(widget, key: str, label: str):
 
 
 class ParameterDialog(QDialog):
-    """Small configuration editor with short inline hints and detailed tooltips."""
+    """Small configuration editor with short inline hints and detailed wrapped tooltips."""
 
     def __init__(self, title: str, fields, parent=None, subtitle: str = "", run_label: str = "Run"):
         super().__init__(parent)
@@ -201,13 +244,13 @@ class ParameterDialog(QDialog):
         scroll = QScrollArea(); scroll.setWidgetResizable(True); scroll.setFrameShape(QFrame.NoFrame)
         host = QWidget(); form = QFormLayout(host); form.setHorizontalSpacing(18); form.setVerticalSpacing(12); form.setFieldGrowthPolicy(QFormLayout.AllNonFixedFieldsGrow); scroll.setWidget(host); root.addWidget(scroll, 1)
         for key, label, default, kind in fields:
-            key = str(key); label = str(label)
+            key = str(key); label = str(label); display_label = parameter_label(title, key, label)
             widget = make_widget(kind, default)
-            _configure_parameter_widget(widget, key, label)
+            _configure_parameter_widget(widget, key, display_label)
             hint_text, tooltip = parameter_copy(title, key, label, default, kind)
-            widget.setToolTip(tooltip); widget.setAccessibleDescription(tooltip); self.inputs[key] = widget
+            set_help_tooltip(widget, tooltip); self.inputs[key] = widget
 
-            label_widget = QLabel(label); label_widget.setAlignment(Qt.AlignLeft | Qt.AlignTop); label_widget.setToolTip(tooltip)
+            label_widget = QLabel(display_label); label_widget.setAlignment(Qt.AlignLeft | Qt.AlignTop); label_widget.setToolTip(wrapped_tooltip(tooltip))
             column = QWidget(); column_layout = QVBoxLayout(column); column_layout.setContentsMargins(0, 0, 0, 0); column_layout.setSpacing(3); column_layout.addWidget(widget)
             if hint_text:
                 hint = QLabel(hint_text); hint.setWordWrap(True); hint.setObjectName("Muted"); column_layout.addWidget(hint)
