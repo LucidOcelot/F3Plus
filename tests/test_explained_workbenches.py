@@ -65,7 +65,9 @@ class ExplainedWorkbenchTests(unittest.TestCase):
         self.assertIn("Default: 8", tooltip)
         self.assertNotIn("ignored compatibility", tooltip.lower())
         self.assertNotIn("Value used by this operation", tooltip)
-        self.assertIn("Points", dialog.output_help.text())
+        self.assertIn("Block positions", dialog.output_help.text())
+        self.assertIn("Count", dialog.output_help.text())
+        self.assertNotIn("structured result", dialog.output_help.text().lower())
         self.assertIn("SHAPE LAYOUTS", dialog.path.text())
         dialog.close()
 
