@@ -2,11 +2,9 @@ from __future__ import annotations
 
 """Generic operation explorer with concise forms and concrete input help."""
 
-from PySide6.QtWidgets import QWidget
-
 from .async_workbench import OperationDialog as _AsyncOperationDialog
 from .field_semantics import field_help
-from .ui_dialogs import make_widget
+from .ui_dialogs import make_widget, set_help_tooltip
 from .workbench_forms import _operation_description
 
 
@@ -45,16 +43,14 @@ class OperationDialog(_AsyncOperationDialog):
     def _field_editor(self, key: str, label: str, default, kind: str):
         widget = make_widget(kind, default)
         tip = contextual_field_help(self.mode, key, label, default, kind)
-        widget.setToolTip(tip)
-        widget.setAccessibleDescription(tip)
+        set_help_tooltip(widget, tip)
         return widget, widget
 
     def _rebuild(self):
         super()._rebuild()
         if self.mode is None or self.mode.legacy is None:
             return
-        description = _operation_description(self.mode).strip()
-        self.mode_help.setText(description)
+        self.mode_help.setText(_operation_description(self.mode).strip())
         explained = _OUTPUT_EXPLANATIONS.get(self.mode.name)
         self.context_card.setVisible(bool(explained))
         if explained:
