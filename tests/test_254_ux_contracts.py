@@ -6,8 +6,8 @@ import unittest
 os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
+from minescript.input_help import parameter_copy, parameter_label, wrapped_tooltip
 from minescript.minecraft_simulators import AnimalBreedingEngine, EnchantingEngine, MinecraftJarData
-from minescript.ui_dialogs import parameter_copy, parameter_label, wrapped_tooltip
 from minescript.ux_semantics25 import DEFAULT_SEED_TEXT, rarity_from_weight, seed_value
 
 
