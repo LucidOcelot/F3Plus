@@ -7,6 +7,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 os.environ.setdefault("PYNPUT_BACKEND", "dummy")
 
 from minescript.minecraft_simulators import AnimalBreedingEngine, EnchantingEngine, MinecraftJarData
+from minescript.ui_dialogs import parameter_copy
 from minescript.ux_semantics25 import DEFAULT_SEED_TEXT, rarity_from_weight, seed_value
 
 
@@ -42,6 +43,34 @@ class UxClarity254Contracts(unittest.TestCase):
         self.assertIn("self.context_card.setVisible(bool(explained))", source)
         self.assertIn("widget.setToolTip(tip)", source)
         self.assertNotIn("layout.addWidget(hint)", source)
+
+    def test_small_parameter_dialog_uses_distinct_hint_and_tooltip_copy(self):
+        hint, tooltip = parameter_copy("Mending Grinder", "attack", "Attack interval", 1.25, "float")
+        self.assertEqual(hint, "Seconds between attack clicks.")
+        self.assertIn("lower values attack faster", tooltip.lower())
+        self.assertIn("default: 1.25", tooltip.lower())
+        self.assertNotEqual(hint, tooltip)
+
+        hint, tooltip = parameter_copy("Mending Grinder", "slots", "Slots (comma separated)", "1,2,3", "text")
+        self.assertIn("mending xp", hint.lower())
+        self.assertIn("1 through 9", tooltip.lower())
+        self.assertNotEqual(hint, tooltip)
+
+    def test_parameter_dialog_formats_timer_fields_for_humans(self):
+        source = open("minescript/ui_dialogs.py", encoding="utf-8").read()
+        self.assertIn('widget.setDecimals(2)', source)
+        self.assertIn('widget.setSuffix(" min" if minute_field else " s")', source)
+        self.assertIn("target_height = 170 + len(fields) * 72", source)
+        self.assertNotIn("hint = QLabel(tip)", source)
+
+    def test_operation_and_automation_lists_use_real_grouped_trees(self):
+        generic = open("minescript/workbench_forms.py", encoding="utf-8").read()
+        automation = open("minescript/automation_controller.py", encoding="utf-8").read()
+        self.assertIn("QTreeWidget", generic)
+        self.assertIn("QTreeWidgetItem", generic)
+        self.assertIn("QTreeWidget", automation)
+        self.assertNotIn("header = QListWidgetItem", generic)
+        self.assertNotIn("header = QListWidgetItem", automation)
 
     def test_result_surface_explains_maps_and_hides_internal_metadata(self):
         source = open("minescript/result_view25.py", encoding="utf-8").read()
