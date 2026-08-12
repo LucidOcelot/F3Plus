@@ -12,6 +12,8 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Replace the Automation Studio routine list with collapsible task categories and keyboard-friendly search/activation.
 - [x] Make the menu bar use the same task hierarchy as the main navigation instead of exposing a second organization model.
 - [x] Reduce persistent automation chrome while idle; Pause and Stop Automation appear when automation is active.
+- [x] Collapse the permanent desktop inspector into an optional Details drawer so the workbench grid owns the main window by default.
+- [x] Add a visible Open Selected action so workbench launch does not depend on discovering double-click behavior.
 - [ ] Make search results open a matching operation directly when the query clearly matches one operation rather than forcing a second workbench-selection step.
 - [ ] Add a goal-oriented Home entry surface for common jobs such as portal conversion, structure search, material planning, villager planning, enchanting, and world scanning.
 
@@ -49,6 +51,7 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Replace generic operation output prose with concrete returned values where output keys are known.
 - [x] Keep workbench cards concise and make their tooltip list contained operations rather than repeating the card description.
 - [x] Keep Command Palette tooltips action-oriented instead of duplicating workbench summaries.
+- [x] Rewrite `FEATURES.md` around the current task-first interface and remove obsolete shell/alias/help wording.
 - [ ] Continue auditing dedicated simulator/villager workbenches for repeated explanation cards whose controls already make the mechanic clear.
 
 ## Outputs
@@ -70,8 +73,9 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Remove statements written like instructions to an evaluator or AI agent, including phrases such as `does not claim`, `never presented`, and compatibility-contract boilerplate.
 - [x] Avoid confidence-level presentation in player-facing results.
 - [x] Stop making tests require negative disclaimer wording when a direct positive description explains the distinction more clearly.
-- [ ] Audit `FEATURES.md`, old descriptions, and operation notes for remaining evaluator-facing wording and rewrite them as direct user documentation.
-- [ ] Remove references to historical operation counts from player-facing documentation and UI.
+- [x] Rewrite `FEATURES.md` as direct player documentation rather than release-audit prose.
+- [ ] Audit older source-level operation notes for remaining evaluator-facing wording where those notes still reach the UI.
+- [ ] Remove references to historical operation counts from any remaining player-facing surfaces.
 
 ## Projects and cross-tool workflows
 
@@ -101,7 +105,9 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Keep Mojang reference-world integration testing.
 - [x] Add a Windows UI review capture for the Mending Grinder settings dialog that exposed the second-review defects.
 - [x] Make the UI artifact runner launch the canonical desktop rather than the removed versioned shell.
-- [x] Add source/UI contracts for grouped tree navigation, distinct hint/tooltip copy, wrapped tooltips, concise parameter labels, and idle automation chrome.
+- [x] Add source/UI contracts for grouped tree navigation, distinct hint/tooltip copy, wrapped tooltips, concise parameter labels, idle automation chrome, and the collapsed Details drawer.
+- [x] Update navigation tests to exercise the new tree structure instead of assuming a flat list API.
+- [x] Update shape-result tests to protect descriptive `Block positions` output instead of generic `Points` wording.
 - [ ] Add selected visual-regression image comparisons for stable UI regions rather than screenshot capture alone.
 - [ ] Add high-DPI and minimum-window-size layout checks.
 - [ ] Add keyboard-navigation/accessibility smoke tests for search, workbench cards, forms, and result actions.
@@ -120,6 +126,6 @@ This document consolidates the UI, QA, architecture, and product issues identifi
 - [x] Rewrite the README around the current product rather than compatibility history.
 - [x] Delete the obsolete `app25.py` shell after moving startup, menus, CI screenshots, and canonical UI tests to `desktop.py`.
 - [x] Remove UI tests that protected the old eight-section navigation and obsolete menu hierarchy.
-- [ ] Delete or rewrite remaining tests whose only purpose is preserving old IDs rather than ensuring current operations remain available.
+- [x] Rewrite catalog integrity tests around current operation reachability rather than preserving old IDs as a product requirement.
 - [ ] Consolidate duplicate descriptions between README, FEATURES, tool guides, and source-level operation descriptions so each fact has one maintained source.
 - [ ] Add a public issue/backlog structure for defects, UX problems, unsupported mechanics, and planned workflow improvements.
