@@ -20,20 +20,22 @@ F3+ normally installs validated Stable updates before launch. Set `F3PLUS_UPDATE
 
 ## Interface
 
-The desktop is organized by player task instead of implementation category or feature count.
+The desktop is organized by player task. The sidebar and menu bar use the same six destinations, and `Ctrl+K` searches workbenches and individual operations directly.
 
 ### Home
 
-Favorites, recent tools, and common starting points. Global search and `Ctrl+K` can open a workbench or a specific operation by mechanic or task name.
+Favorites, recent tools, and common starting points. Global search can find a mechanic or task even when you do not know which workbench contains it.
 
 ### Play & Travel
 
 - repeated actions and bounded automation;
 - travel automation;
 - mining, farming, and construction automation;
-- macros and recorded sequences;
+- Macro Studio and recorded action sequences;
 - live position and coordinate calculations;
 - routes, waypoints, surveys, and portal planning.
+
+Automation workbenches group routines into collapsible task categories. Routine setup dialogs use short field labels, concise visible hints, and more detailed wrapped tooltips instead of repeating the same paragraph below each control.
 
 ### Explore Worlds
 
@@ -76,9 +78,11 @@ Simulator controls use readable Minecraft items and mechanic-specific inputs rat
 - result history and export;
 - diagnostics.
 
+Automation-only Pause and Stop controls stay out of the main toolbar while idle and appear when a routine is active.
+
 ## Inputs and outputs
 
-Input controls expose tooltips and accessibility descriptions that explain the value, unit, direction, format, and default where applicable. Generic operation panels show only the fields used by the selected operation.
+Input controls explain the value, unit, direction, format, and default where applicable. Short inline hints identify the field quickly; tooltips provide the additional detail needed to understand how changing the value affects the operation. Generic operation panels show only the fields used by the selected operation.
 
 Results lead with concrete values such as locations found, chunks scanned, radius searched, material totals, timing, probability, or min/average/max statistics. Coordinate results can render maps; statistical results can render charts; build shapes can render block-layer previews. Raw structured output remains available for users who need the complete result.
 
@@ -104,15 +108,16 @@ Themes: **Chorus, Light, Cyber, Vanilla, and Custom**.
 
 Automation links to a detected Minecraft Java process and can use targeted background input, focus switching, or foreground-only input depending on the operating system and available backend.
 
-Available controls include runtime/action limits, delayed start, coordinate recovery attempts, hotbar restoration, stuck detection, focus-loss stop, configurable hotkeys, Pause/Resume, and Emergency Stop. Safe Mode provides conservative multiplayer restrictions; server rules remain authoritative.
+Available controls include runtime/action limits, delayed start, coordinate recovery attempts, hotbar restoration, stuck detection, focus-loss stop, configurable hotkeys, Pause/Resume, and Stop Automation. Safe Mode provides conservative multiplayer restrictions; server rules remain authoritative.
 
 ## Validation
 
-CI runs on Windows, macOS, and Ubuntu using Python 3.11, 3.12, and 3.13. It validates Python sources, regression tests, native Cubiomes compilation, release consistency, workbench routing, field help, Mojang world-generation integration, and Windows UI screenshot generation.
+CI runs on Windows, macOS, and Ubuntu using Python 3.11, 3.12, and 3.13. It validates Python sources, regression tests, native Cubiomes compilation, release consistency, workbench routing, field help, Mojang world-generation integration, and Windows UI screenshot generation. The screenshot suite includes the main themes, major workbenches, result surfaces, and routine configuration dialogs such as Mending Grinder.
 
 ## Documentation and security
 
 - `FEATURES.md` contains feature and calculation details.
+- `PRODUCT_REFACTOR.md` tracks current product and UI cleanup work.
 - `SECURITY.md` documents downloads, permissions, local files, automation privileges, and responsible disclosure.
 - `COMMUNITY_CREDITS.md` records community lineage.
 - `THIRD_PARTY.md` covers third-party software and licenses.
